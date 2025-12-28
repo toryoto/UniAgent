@@ -223,7 +223,7 @@ export default function FaucetPage() {
                   </li>
                   <li className="flex gap-2">
                     <span className="font-bold">4.</span>
-                    <span>You're ready to use agents in the Chat!</span>
+                    <span>You&apos;re ready to use agents in the Chat!</span>
                   </li>
                 </ol>
               </div>

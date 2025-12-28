@@ -14,9 +14,7 @@ export default function MarketplacePage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="mb-2 text-3xl font-bold text-white">Marketplace</h1>
-            <p className="text-slate-400">
-              エージェントを検索・発見してタスクに活用できます
-            </p>
+            <p className="text-slate-400">エージェントを検索・発見してタスクに活用できます</p>
           </div>
 
           {/* Search & Filters */}
@@ -39,9 +37,7 @@ export default function MarketplacePage() {
 
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-400">
-                  Category
-                </label>
+                <label className="mb-2 block text-sm font-medium text-slate-400">Category</label>
                 <select className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50">
                   <option value="">All Categories</option>
                   <option value="travel">Travel</option>
@@ -62,9 +58,7 @@ export default function MarketplacePage() {
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-slate-400">
-                  Min Rating
-                </label>
+                <label className="mb-2 block text-sm font-medium text-slate-400">Min Rating</label>
                 <select className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50">
                   <option value="">Any Rating</option>
                   <option value="4">4+ Stars</option>
@@ -107,12 +101,8 @@ export default function MarketplacePage() {
           {false && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-12 text-center">
               <div className="mb-4 text-6xl">🤖</div>
-              <h3 className="mb-2 text-xl font-bold text-white">
-                No agents found
-              </h3>
-              <p className="text-slate-400">
-                Try adjusting your search filters
-              </p>
+              <h3 className="mb-2 text-xl font-bold text-white">No agents found</h3>
+              <p className="text-slate-400">Try adjusting your search filters</p>
             </div>
           )}
         </div>

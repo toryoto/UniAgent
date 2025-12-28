@@ -120,9 +120,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-6xl">
           <div className="mb-16 text-center">
             <h2 className="mb-4 text-4xl font-bold text-white">Core Values</h2>
-            <p className="text-lg text-slate-400">
-              ブロックチェーンとAIの融合で実現する新しい価値
-            </p>
+            <p className="text-lg text-slate-400">ブロックチェーンとAIの融合で実現する新しい価値</p>
           </div>
 
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
@@ -250,9 +248,7 @@ function FeatureCard({
 }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/50 p-6 backdrop-blur-xl transition-all hover:border-slate-700 hover:shadow-xl">
-      <div
-        className={`mb-4 inline-flex rounded-lg bg-gradient-to-br ${gradient} p-3 text-white`}
-      >
+      <div className={`mb-4 inline-flex rounded-lg bg-gradient-to-br ${gradient} p-3 text-white`}>
         {icon}
       </div>
       <h3 className="mb-2 text-xl font-bold text-white">{title}</h3>

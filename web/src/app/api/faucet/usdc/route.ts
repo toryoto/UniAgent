@@ -5,20 +5,14 @@ export async function POST(request: NextRequest) {
     const { address } = await request.json();
 
     if (!address) {
-      return NextResponse.json(
-        { error: 'Wallet address is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Wallet address is required' }, { status: 400 });
     }
 
     // TODO: Replace with your actual faucet API endpoint
     const faucetApiUrl = process.env.FAUCET_USDC_API_URL;
 
     if (!faucetApiUrl) {
-      return NextResponse.json(
-        { error: 'Faucet API not configured' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Faucet API not configured' }, { status: 500 });
     }
 
     // Call your faucet API
@@ -53,10 +47,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Faucet USDC error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
