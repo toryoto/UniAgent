@@ -47,6 +47,9 @@ jobs:
           npm config get omit || true
           npm config get optional || true
 
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=web
+
       - name: Run ESLint
         run: npm run lint --workspace=web
 
@@ -80,6 +83,9 @@ jobs:
           npm config get omit || true
           npm config get optional || true
 
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=web
+
       - name: Run type check
         run: npm run type-check --workspace=web
 
@@ -112,6 +118,9 @@ jobs:
           npm config get ignore-scripts || true
           npm config get omit || true
           npm config get optional || true
+
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=web
 
       - name: Build project
         run: npm run build --workspace=web
@@ -154,6 +163,9 @@ jobs:
           npm config get ignore-scripts || true
           npm config get omit || true
           npm config get optional || true
+
+      - name: Generate Prisma Client
+        run: npm run db:generate --workspace=web
 
       - name: Run tests
         run: npm test --workspace=web --if-present
