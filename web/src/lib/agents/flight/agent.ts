@@ -27,7 +27,8 @@ export class FlightAgent extends BaseAgent {
   readonly name = 'FlightFinderPro';
   readonly description =
     'AI-powered flight search agent that finds the best flights based on your preferences. Supports major airlines and destinations worldwide.';
-  readonly pricePerCall = AGENT_PRICES.flight;
+  readonly price = '$0.01'; // x402形式
+  readonly pricePerCall = AGENT_PRICES.flight; // USDC 6 decimals
   readonly receiverAddress = AGENT_RECEIVER_ADDRESS;
   readonly category = 'travel';
 
@@ -35,7 +36,7 @@ export class FlightAgent extends BaseAgent {
     return 'flight';
   }
 
-  protected generateMockResponse(params: Record<string, unknown>): FlightSearchResult {
+  generateMockResponse(params: Record<string, unknown>): FlightSearchResult {
     const searchParams: FlightSearchParams = {
       origin: typeof params.origin === 'string' ? params.origin : undefined,
       destination: typeof params.destination === 'string' ? params.destination : undefined,

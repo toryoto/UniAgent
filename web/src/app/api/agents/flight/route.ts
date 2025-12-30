@@ -2,34 +2,35 @@
  * Flight Agent API Route
  *
  * POST /api/agents/flight - フライト検索（x402決済対応）
+ *
+ * Coinbase x402 SDK を使用した標準実装
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { withX402 } from 'x402-next';
+import { facilitator } from '@coinbase/x402';
 import { flightAgent } from '@/lib/agents/flight';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: NextRequest) {
+/**
+ * フライト検索ハンドラー
+ * x402決済はwithX402ミドルウェアが処理
+ */
+const handler = async (req: NextRequest) => {
   try {
     const body = await req.json();
-    const paymentHeader = req.headers.get('x-payment');
+    const params = body.params || {};
 
-    const response = await flightAgent.handleRequest({
-      body,
-      headers: { 'x-payment': paymentHeader || undefined },
+    // モックレスポンス生成
+    const result = flightAgent.generateMockResponse(params);
+
+    return NextResponse.json({
+      jsonrpc: '2.0',
+      id: body.id,
+      result,
     });
-
-    const nextResponse = NextResponse.json(response.body, {
-      status: response.status,
-    });
-
-    // X-PAYMENT-RESPONSEヘッダーを設定
-    if (response.headers?.['X-PAYMENT-RESPONSE']) {
-      nextResponse.headers.set('X-PAYMENT-RESPONSE', response.headers['X-PAYMENT-RESPONSE']);
-    }
-
-    return nextResponse;
   } catch (error) {
     console.error('Flight agent error:', error);
     return NextResponse.json(
@@ -43,4 +44,16 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
+};
+
+/**
+ * x402決済でラップされたPOSTハンドラー
+ * - 決済なしのリクエスト → 402 Payment Required
+ * - 有効な決済付きリクエスト → ハンドラー実行
+ */
+export const POST = withX402(
+  handler,
+  flightAgent.receiverAddress,
+  flightAgent.getX402Config(),
+  facilitator
+);

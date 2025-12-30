@@ -32,7 +32,8 @@ export class TourismAgent extends BaseAgent {
   readonly name = 'TourismGuide';
   readonly description =
     'AI-powered tourism guide that creates personalized travel itineraries and recommends attractions, restaurants, and activities based on your interests.';
-  readonly pricePerCall = AGENT_PRICES.tourism;
+  readonly price = '$0.02'; // x402形式
+  readonly pricePerCall = AGENT_PRICES.tourism; // USDC 6 decimals
   readonly receiverAddress = AGENT_RECEIVER_ADDRESS;
   readonly category = 'travel';
 
@@ -40,7 +41,7 @@ export class TourismAgent extends BaseAgent {
     return 'tourism';
   }
 
-  protected generateMockResponse(params: Record<string, unknown>): TourismSearchResult {
+  generateMockResponse(params: Record<string, unknown>): TourismSearchResult {
     const searchParams: TourismSearchParams = {
       city: typeof params.city === 'string' ? params.city : undefined,
       days: typeof params.days === 'number' ? params.days : 2,

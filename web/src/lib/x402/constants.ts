@@ -1,42 +1,29 @@
 /**
  * x402 Protocol Constants
  *
- * x402 v2 決済プロトコル用の定数定義
+ * エージェントメタデータとx402設定用の定数
+ *
+ * NOTE: 決済処理はCoinbase x402 SDK (withX402, facilitator) が担当するため、
+ * EIP-3009などの低レベル定数は不要になりました。
  */
 
-// USDC Contract Address (Sepolia Testnet)
+// USDC Contract Address (Base Sepolia Testnet)
+// x402 SDKはBase Sepoliaをサポート
+export const USDC_BASE_SEPOLIA_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
+
+// Legacy: Sepolia Testnet (agent.jsonの後方互換性のため)
 export const USDC_SEPOLIA_ADDRESS = '0x7F594ABa4E1B6e137606a8fBAb5387B90C8DEEa9';
 
 // Network identifiers (CAIP-2 format)
 export const SEPOLIA_NETWORK_ID = 'eip155:11155111';
 export const BASE_SEPOLIA_NETWORK_ID = 'eip155:84532';
 
+// x402 SDK Network name
+export const X402_NETWORK = 'base-sepolia';
+
 // Agent Receiver Address (共通)
 export const AGENT_RECEIVER_ADDRESS =
   process.env.AGENT_RECEIVER_ADDRESS || '0x25b61126EED206F6470533C073DDC3B4157bb6d1';
-
-// x402 Protocol Version
-export const X402_VERSION = '2';
-
-// EIP-3009 Domain for USDC Sepolia
-export const EIP3009_DOMAIN = {
-  name: 'USD Coin',
-  version: '2',
-  chainId: 11155111,
-  verifyingContract: USDC_SEPOLIA_ADDRESS,
-};
-
-// EIP-3009 Types for TransferWithAuthorization
-export const EIP3009_TYPES = {
-  TransferWithAuthorization: [
-    { name: 'from', type: 'address' },
-    { name: 'to', type: 'address' },
-    { name: 'value', type: 'uint256' },
-    { name: 'validAfter', type: 'uint256' },
-    { name: 'validBefore', type: 'uint256' },
-    { name: 'nonce', type: 'bytes32' },
-  ],
-};
 
 // Agent Price Configuration (in USDC base units, 6 decimals)
 export const AGENT_PRICES = {

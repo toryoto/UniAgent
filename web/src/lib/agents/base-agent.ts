@@ -1,36 +1,11 @@
 /**
  * BaseAgent - Dummy Agent基底クラス
  *
- * x402決済とA2A JSON-RPC 2.0プロトコルを実装
+ * x402決済はwithX402ミドルウェアで処理するため、
+ * このクラスはエージェントメタデータとモックレスポンス生成のみを担当
  */
 
-import {
-  USDC_SEPOLIA_ADDRESS,
-  SEPOLIA_NETWORK_ID,
-  X402_VERSION,
-  verifyX402Payment,
-  executePayment,
-  decodePaymentHeader,
-} from '@/lib/x402';
-import type {
-  X402PaymentInfo,
-  X402PaymentResponse,
-  AgentJsonRpcRequest,
-  AgentJsonRpcResponse,
-} from '@/lib/x402/types';
-
-export interface AgentRequestContext {
-  body: AgentJsonRpcRequest;
-  headers: {
-    'x-payment'?: string;
-  };
-}
-
-export interface AgentResponseContext {
-  status: number;
-  body: X402PaymentInfo | AgentJsonRpcResponse;
-  headers?: Record<string, string>;
-}
+import { USDC_SEPOLIA_ADDRESS, SEPOLIA_NETWORK_ID } from '@/lib/x402/constants';
 
 /**
  * Dummy Agent基底クラス
@@ -47,7 +22,10 @@ export abstract class BaseAgent {
   /** エージェント説明 */
   abstract readonly description: string;
 
-  /** 1回あたりの価格（USDC 6 decimals） */
+  /** 1回あたりの価格（ドル表記: "$0.01"） */
+  abstract readonly price: string;
+
+  /** 1回あたりの価格（USDC 6 decimals: "10000"） */
   abstract readonly pricePerCall: string;
 
   /** 受取アドレス */
@@ -56,118 +34,14 @@ export abstract class BaseAgent {
   /** カテゴリ */
   abstract readonly category: string;
 
+  /** ネットワーク（x402形式） */
+  readonly network: string = 'base-sepolia';
+
   /**
    * モックレスポンスを生成（各エージェントで実装）
+   * withX402でラップされたハンドラーから呼び出される
    */
-  protected abstract generateMockResponse(params: Record<string, unknown>): unknown;
-
-  /**
-   * リクエストを処理
-   */
-  async handleRequest(req: AgentRequestContext): Promise<AgentResponseContext> {
-    const body = req.body;
-
-    // JSON-RPC 2.0 検証
-    if (body.jsonrpc !== '2.0' || body.method !== 'message/send') {
-      return {
-        status: 400,
-        body: {
-          jsonrpc: '2.0',
-          error: {
-            code: -32600,
-            message: 'Invalid Request: Expected JSON-RPC 2.0 with method "message/send"',
-          },
-        },
-      };
-    }
-
-    // x402 決済チェック
-    const paymentHeader = req.headers['x-payment'];
-    if (!paymentHeader) {
-      return this.requirePayment();
-    }
-
-    // 署名検証
-    const verification = await verifyX402Payment(
-      paymentHeader,
-      this.receiverAddress,
-      this.pricePerCall
-    );
-
-    if (!verification.success) {
-      return {
-        status: 403,
-        body: {
-          jsonrpc: '2.0',
-          error: {
-            code: 403,
-            message: `Payment verification failed: ${verification.error}`,
-          },
-        },
-      };
-    }
-
-    // 決済実行（PoC: モック）
-    const payment = decodePaymentHeader(paymentHeader);
-    const paymentResult = await executePayment(payment);
-
-    if (!paymentResult.success) {
-      return {
-        status: 500,
-        body: {
-          jsonrpc: '2.0',
-          error: {
-            code: 500,
-            message: 'Payment execution failed',
-          },
-        },
-      };
-    }
-
-    // モックレスポンス生成
-    const params = body.params || {};
-    const result = this.generateMockResponse(params);
-
-    // レスポンス返却（X-PAYMENT-RESPONSE付き）
-    const paymentResponse: X402PaymentResponse = {
-      version: '2',
-      txHash: paymentResult.txHash || null,
-      amount: this.pricePerCall,
-      timestamp: Math.floor(Date.now() / 1000),
-      network: SEPOLIA_NETWORK_ID,
-    };
-
-    return {
-      status: 200,
-      body: {
-        jsonrpc: '2.0',
-        id: body.id,
-        result,
-      },
-      headers: {
-        'X-PAYMENT-RESPONSE': Buffer.from(JSON.stringify(paymentResponse)).toString('base64'),
-      },
-    };
-  }
-
-  /**
-   * HTTP 402 Payment Required レスポンスを生成
-   */
-  private requirePayment(): AgentResponseContext {
-    const paymentInfo: X402PaymentInfo = {
-      version: '2',
-      paymentRequired: true,
-      amount: this.pricePerCall,
-      receiver: this.receiverAddress,
-      tokenAddress: USDC_SEPOLIA_ADDRESS,
-      network: SEPOLIA_NETWORK_ID,
-    };
-
-    return {
-      status: 402,
-      body: paymentInfo,
-    };
-  }
+  abstract generateMockResponse(params: Record<string, unknown>): unknown;
 
   /**
    * agent.json を生成
@@ -190,10 +64,27 @@ export abstract class BaseAgent {
         tokenAddress: USDC_SEPOLIA_ADDRESS,
         receiverAddress: this.receiverAddress,
         pricePerCall: this.pricePerCall,
+        price: this.price,
+        network: this.network,
         chain: SEPOLIA_NETWORK_ID,
       },
       defaultInputModes: ['text'],
       defaultOutputModes: ['text'],
+    };
+  }
+
+  /**
+   * x402 Route Config を取得
+   */
+  getX402Config(): {
+    price: string;
+    network: string;
+    config: { description: string };
+  } {
+    return {
+      price: this.price,
+      network: this.network,
+      config: { description: this.description },
     };
   }
 

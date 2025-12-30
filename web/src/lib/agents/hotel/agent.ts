@@ -29,7 +29,8 @@ export class HotelAgent extends BaseAgent {
   readonly name = 'HotelBookerPro';
   readonly description =
     'AI-powered hotel booking agent that finds the best accommodations based on your preferences. Supports hotels worldwide with real-time availability.';
-  readonly pricePerCall = AGENT_PRICES.hotel;
+  readonly price = '$0.015'; // x402形式
+  readonly pricePerCall = AGENT_PRICES.hotel; // USDC 6 decimals
   readonly receiverAddress = AGENT_RECEIVER_ADDRESS;
   readonly category = 'travel';
 
@@ -37,7 +38,7 @@ export class HotelAgent extends BaseAgent {
     return 'hotel';
   }
 
-  protected generateMockResponse(params: Record<string, unknown>): HotelSearchResult {
+  generateMockResponse(params: Record<string, unknown>): HotelSearchResult {
     const searchParams: HotelSearchParams = {
       city: typeof params.city === 'string' ? params.city : undefined,
       checkIn: typeof params.checkIn === 'string' ? params.checkIn : undefined,
