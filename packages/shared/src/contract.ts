@@ -6,7 +6,7 @@
 
 import { ethers } from 'ethers';
 import { CONTRACT_ADDRESSES, RPC_URL } from './config.js';
-import AgentRegistryArtifact from './AgentRegistry.json';
+import AgentRegistryArtifact from './AgentRegistry.json' with { type: 'json' };
 
 // ABIの取得
 export const AGENT_REGISTRY_ABI = AgentRegistryArtifact.abi;
