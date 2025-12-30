@@ -8,7 +8,7 @@
 import 'dotenv/config';
 import { FastMCP } from 'fastmcp';
 import { z } from 'zod';
-import { discoverAgents } from './tools/discover-agents';
+import { discoverAgents } from './tools/discover-agents.js';
 
 // MCPサーバーインスタンス
 export const mcpServer = new FastMCP({
