@@ -63,14 +63,18 @@ export function startMcpServer(port: number = 3001) {
     transportType: 'httpStream',
     httpStream: {
       port,
+      host: '0.0.0.0',
     },
   });
 
-  console.log(`A2A Discovery MCP Server running on port ${port}`);
-  console.log(`  SSE endpoint: http://localhost:${port}/sse`);
-  console.log(`  HTTP endpoint: http://localhost:${port}/mcp`);
+  console.log(`A2A Discovery MCP Server running on 0.0.0.0:${port}`);
+  console.log(`  SSE endpoint: http://0.0.0.0:${port}/sse`);
+  console.log(`  HTTP endpoint: http://0.0.0.0:${port}/mcp`);
 }
 
 // サーバー起動
 const port = parseInt(process.env.MCP_PORT || '3001', 10);
+console.log(
+  `[MCP Server] Starting on port ${port} (Railway PORT: ${process.env.PORT}, MCP_PORT: ${process.env.MCP_PORT})`
+);
 startMcpServer(port);
