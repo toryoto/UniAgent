@@ -4,11 +4,19 @@ A2A、x402、ブロックチェーンを融合した AI エージェント向け
 
 ## デプロイ情報
 
-### AgentRegistry Contract
+### AgentRegistry Contract (Base Sepolia)
+
+- **Network**: Base Sepolia Testnet (Chain ID: 84532)
+- **Address**: `0xe2B64700330af9e408ACb3A04a827045673311C1` (最新デプロイ)
+- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
+- **Block Explorer**: https://sepolia.basescan.org/address/0xe2B64700330af9e408ACb3A04a827045673311C1
+
+> **注意**: x402 SDKがBase Sepoliaをサポートしているため、ETH Sepoliaから移行しました。
+
+### 旧デプロイ (ETH Sepolia) - 非推奨
 
 - **Network**: Sepolia Testnet
 - **Address**: `0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3`
-- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
 - **Etherscan**: https://sepolia.etherscan.io/address/0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3
 
 ### Registered Sample Agents (with images)
@@ -39,7 +47,7 @@ A2A、x402、ブロックチェーンを融合した AI エージェント向け
 
 ## 技術スタック
 
-- **ブロックチェーン**: Solidity, Sepolia
+- **ブロックチェーン**: Solidity, Base Sepolia
 - **開発環境**: Hardhat, TypeScript
 - **フロントエンド/バックエンド**: Next.js (App Router)
 - **認証/ウォレット**: Privy
@@ -109,7 +117,10 @@ npm run compile
 # テスト
 npm run test
 
-# デプロイ（Sepolia）
+# デプロイ（Base Sepolia - 推奨）
+npm run deploy:base-sepolia
+
+# デプロイ（ETH Sepolia - 非推奨、x402 SDK非対応）
 npm run deploy:sepolia
 ```
 

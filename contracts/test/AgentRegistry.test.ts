@@ -36,7 +36,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       await expect(
@@ -73,7 +73,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       // Register first agent
@@ -119,7 +119,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       await expect(
@@ -149,7 +149,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       await agentRegistry
@@ -174,7 +174,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.02', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       await expect(
@@ -243,7 +243,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       await agentRegistry
@@ -334,7 +334,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       await agentRegistry
@@ -387,7 +387,7 @@ describe('AgentRegistry', function () {
         tokenAddress: USDC_ADDRESS,
         receiverAddress: agent1Owner.address,
         pricePerCall: ethers.parseUnits('0.01', 6),
-        chain: 'sepolia',
+        chain: 'base-sepolia',
       };
 
       // Register multiple agents

@@ -58,8 +58,13 @@ async function main() {
     await agentRegistry.deploymentTransaction()?.wait(2);
     console.log('✅ Confirmed!');
 
-    console.log('\n📋 To verify the contract on Etherscan, run:');
-    console.log(`npx hardhat verify --network sepolia ${agentRegistryAddress}`);
+    console.log('\n📋 To verify the contract on Basescan, run:');
+    const network = await ethers.provider.getNetwork();
+    if (network.chainId === 84532n) {
+      console.log(`npx hardhat verify --network base-sepolia ${agentRegistryAddress}`);
+    } else if (network.chainId === 11155111n) {
+      console.log(`npx hardhat verify --network sepolia ${agentRegistryAddress}`);
+    }
   }
 }
 

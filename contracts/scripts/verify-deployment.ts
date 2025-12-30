@@ -4,7 +4,7 @@ import { ethers } from 'hardhat';
  * Verify contract interaction after deployment
  *
  * Usage:
- * AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/verify-deployment.ts --network sepolia
+ * AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/verify-deployment.ts --network base-sepolia
  */
 
 async function main() {
@@ -44,7 +44,7 @@ async function main() {
       console.log('No agents registered yet.');
       console.log('\nTo register sample agents, run:');
       console.log(
-        `AGENT_REGISTRY_ADDRESS=${AGENT_REGISTRY_ADDRESS} npx hardhat run scripts/register-sample-agents.ts --network sepolia`
+        `AGENT_REGISTRY_ADDRESS=${AGENT_REGISTRY_ADDRESS} npx hardhat run scripts/register-sample-agents.ts --network base-sepolia`
       );
     } else {
       for (let i = 0; i < allAgentIds.length; i++) {

@@ -4,13 +4,19 @@
 
 ## デプロイ済みコントラクト
 
-### AgentRegistry (Sepolia)
+### AgentRegistry (Base Sepolia)
+
+- **Network**: Base Sepolia Testnet (Chain ID: 84532)
+- **Block Explorer**: https://sepolia.basescan.org
+- **Features**: Agent image URLs supported
+
+> **注意**: x402 SDKがBase Sepoliaをサポートしているため、ETH Sepoliaから移行しました。
+
+### 旧デプロイ (ETH Sepolia) - 非推奨
 
 - **Address**: `0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3`
 - **Network**: Sepolia Testnet
 - **Etherscan**: https://sepolia.etherscan.io/address/0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3
-- **Registered Agents**: 3 (travel category)
-- **Features**: Agent image URLs supported
 
 ### Sample Agents
 
@@ -40,8 +46,13 @@ packages/contracts/
 cp .env.example .env
 
 # .envファイルを編集
-SEPOLIA_RPC_URL=https://rpc.sepolia.org
+# Base Sepolia用
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 PRIVATE_KEY=your_private_key_here
+BASESCAN_API_KEY=your_basescan_api_key_here  # Basescan API Key (Etherscan API Keyでも可)
+
+# 旧ETH Sepolia用（オプション）
+SEPOLIA_RPC_URL=https://rpc.sepolia.org
 ETHERSCAN_API_KEY=your_etherscan_api_key_here
 ```
 
@@ -62,26 +73,35 @@ npx hardhat coverage
 # ガス使用量レポート
 REPORT_GAS=true npm run test
 
-# デプロイ（Sepolia）
+# デプロイ（Base Sepolia - 推奨）
+npm run deploy:base-sepolia
+
+# デプロイ（ETH Sepolia - 非推奨、x402 SDK非対応）
 npm run deploy:sepolia
 ```
 
 ### サンプルエージェント登録
 
 ```bash
-# デプロイ後、サンプルエージェントを登録
-AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/register-sample-agents.ts --network sepolia
+# デプロイ後、サンプルエージェントを登録（Base Sepolia）
+AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/register-sample-agents.ts --network base-sepolia
 
-# デプロイ検証
-AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/verify-deployment.ts --network sepolia
+# デプロイ検証（Base Sepolia）
+AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/verify-deployment.ts --network base-sepolia
 ```
 
 ### コントラクト検証
 
 ```bash
-# Etherscanでソースコードを検証
-npx hardhat verify --network sepolia <contract-address>
+# Basescanでソースコードを検証（Base Sepolia）
+# 環境変数にBASESCAN_API_KEYまたはETHERSCAN_API_KEYを設定
+BASESCAN_API_KEY=your_api_key npx hardhat verify --network base-sepolia <contract-address>
+
+# Etherscanでソースコードを検証（ETH Sepolia - 非推奨）
+ETHERSCAN_API_KEY=your_api_key npx hardhat verify --network sepolia <contract-address>
 ```
+
+**注意**: Etherscan API V2への移行により、単一のAPIキーを使用するようになりました。Base Sepoliaの場合はBasescan APIキーを推奨します。
 
 ## 環境変数
 

@@ -6,7 +6,6 @@
  */
 
 import { base, baseSepolia } from 'viem/chains';
-import { sepolia } from 'viem/chains';
 
 // 共通設定をインポート
 export {
@@ -22,15 +21,12 @@ export {
 export const CHAIN = (() => {
   const v = (process.env.NEXT_PUBLIC_CHAIN || '').toLowerCase();
   // 例:
-  // - sepolia
   // - base-sepolia
   // - base
   // - mainnet
-  if (v === 'sepolia') return sepolia;
   if (v === 'base') return base;
   if (v === 'mainnet') return base; // このプロジェクトの "mainnet" は Base mainnet を指す想定
-  // default: base-sepolia（要件定義寄り）
-  return sepolia;
+  return baseSepolia;
 })();
 
 // Block Explorer（Web固有）

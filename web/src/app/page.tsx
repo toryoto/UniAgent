@@ -115,7 +115,7 @@ export default function HomePage() {
           <div className="mt-8 flex items-center justify-center gap-8 text-sm text-slate-500">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500"></div>
-              <span>ETH Sepolia Testnet</span>
+              <span>Base Sepolia Testnet</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-blue-500"></div>

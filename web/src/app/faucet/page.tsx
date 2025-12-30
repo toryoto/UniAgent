@@ -125,16 +125,16 @@ export default function FaucetPage() {
             </div>
 
             <div className="space-y-6">
-              {/* Sepolia ETH Faucet */}
+              {/* Base Sepolia ETH Faucet */}
               <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
                     <Droplet className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Sepolia ETH</h2>
+                    <h2 className="text-xl font-bold text-white">Base Sepolia ETH</h2>
                     <p className="text-sm text-slate-400">
-                      Get ETH for gas fees on Sepolia testnet
+                      Get ETH for gas fees on Base Sepolia testnet
                     </p>
                   </div>
                 </div>
@@ -165,14 +165,14 @@ export default function FaucetPage() {
                 )}
               </div>
 
-              {/* Sepolia USDC Faucet */}
+              {/* Base Sepolia USDC Faucet */}
               <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
                 <div className="mb-4 flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-500">
                     <Droplet className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">Sepolia USDC</h2>
+                    <h2 className="text-xl font-bold text-white">Base Sepolia USDC</h2>
                     <p className="text-sm text-slate-400">
                       Get USDC tokens for testing agent payments
                     </p>

@@ -14,7 +14,7 @@ import { WagmiProvider } from '@privy-io/wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config } from '@/lib/blockchain/wagmi';
 import { ReactNode, useState } from 'react';
-import { sepolia } from 'viem/chains';
+import { baseSepolia } from 'viem/chains';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -54,8 +54,8 @@ export function Providers({ children }: ProvidersProps) {
             createOnLogin: 'users-without-wallets',
           },
         },
-        defaultChain: sepolia,
-        supportedChains: [sepolia],
+        defaultChain: baseSepolia,
+        supportedChains: [baseSepolia],
       }}
     >
       <QueryClientProvider client={queryClient}>

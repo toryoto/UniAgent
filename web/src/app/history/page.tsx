@@ -127,7 +127,7 @@ function TransactionRow({
         </div>
 
         <a
-          href={`https://sepolia.etherscan.io/tx/${txHash}`}
+          href={`https://sepolia.basescan.org/tx/${txHash}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-purple-400 transition-colors hover:text-purple-300"

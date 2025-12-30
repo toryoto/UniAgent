@@ -3,13 +3,13 @@ import { ethers } from 'hardhat';
 /**
  * AgentUpdated を発火させるための簡易スクリプト
  *
- * 使い方（Sepolia例）:
+ * 使い方（Base Sepolia例）:
  *   cd contracts
  *   AGENT_REGISTRY_ADDRESS=0x... \
  *   AGENT_ID=0x... \                    # 任意（未指定なら getAllAgentIds()[0] を使用）
  *   NEW_DESCRIPTION="desc" \            # 任意
  *   NEW_IMAGE_URL="https://..." \       # 任意
- *   npx hardhat run scripts/emit-agent-updated.ts --network sepolia
+ *   npx hardhat run scripts/emit-agent-updated.ts --network base-sepolia
  *
  * 注意:
  * - updateAgent は onlyAgentOwner なので「その AgentCard を登録した owner の鍵」で実行する必要があります

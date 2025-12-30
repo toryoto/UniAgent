@@ -62,9 +62,9 @@ cp .env.local.example .env.local
 必要な環境変数:
 
 - `NEXT_PUBLIC_PRIVY_APP_ID`: PrivyアプリケーションID
-- `NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS`: AgentRegistryコントラクトアドレス
-- `NEXT_PUBLIC_USDC_ADDRESS`: USDCトークンアドレス (Base Sepolia)
-- `NEXT_PUBLIC_CHAIN`: チェーン選択（`sepolia` / `base-sepolia` / `base`）。未設定時は `sepolia`
+- `NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS`: AgentRegistryコントラクトアドレス (Base Sepolia: `0xe2B64700330af9e408ACb3A04a827045673311C1`)
+- `NEXT_PUBLIC_USDC_ADDRESS`: USDCトークンアドレス (Base Sepolia: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`)
+- `NEXT_PUBLIC_CHAIN`: チェーン選択（`base-sepolia` / `base`）。未設定時は `base-sepolia`（x402 SDKがBase Sepoliaをサポート）
 - `NEXT_PUBLIC_RPC_URL`: RPCエンドポイント（任意、未設定ならチェーンのデフォルトを使用）
 - `RPC_URL`: サーバー用RPC（Webhookなどサーバー処理向け。`NEXT_PUBLIC_RPC_URL` より優先）
 - `CLAUDE_API_KEY`: Claude API Key (サーバーサイドのみ)
@@ -134,6 +134,10 @@ npm run type-check
 - `getAgentCard(agentId)`: AgentCard詳細取得
 - `recordTransaction()`: トランザクション記録
 - `updateTransactionRating()`: 評価更新
+
+## Alchemy Webhook設定
+
+Base Sepolia用のAlchemy Webhook設定については、[Alchemy Webhook セットアップガイド](./docs/ALCHEMY_WEBHOOK_SETUP.md)を参照してください。
 
 ## プロバイダー構成
 

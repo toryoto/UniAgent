@@ -6,11 +6,11 @@
 
 import { createConfig } from '@privy-io/wagmi';
 import { http } from 'wagmi';
-import { sepolia } from 'wagmi/chains';
+import { baseSepolia } from 'wagmi/chains';
 
 export const config = createConfig({
-  chains: [sepolia],
+  chains: [baseSepolia],
   transports: {
-    [sepolia.id]: http(),
+    [baseSepolia.id]: http(),
   },
 });

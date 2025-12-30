@@ -5,20 +5,16 @@ import { ethers } from 'hardhat';
  * Run this after deploying AgentRegistry
  *
  * Usage:
- * AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/register-sample-agents.ts --network sepolia
+ * AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/register-sample-agents.ts --network base-sepolia
  */
 
 async function main() {
-  // AgentRegistry contract address (update this after deployment)
-  const AGENT_REGISTRY_ADDRESS = process.env.AGENT_REGISTRY_ADDRESS || '';
+  // AgentRegistry contract address (Base Sepolia)
+  const AGENT_REGISTRY_ADDRESS =
+    process.env.AGENT_REGISTRY_ADDRESS || '0xe2B64700330af9e408ACb3A04a827045673311C1';
 
-  if (!AGENT_REGISTRY_ADDRESS) {
-    console.error('❌ Please set AGENT_REGISTRY_ADDRESS environment variable');
-    console.error(
-      'Example: AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/register-sample-agents.ts'
-    );
-    process.exit(1);
-  }
+  // Base URL for agent.json endpoints (ローカルサーバー)
+  const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
   console.log('Registering sample agents...');
   console.log('AgentRegistry address:', AGENT_REGISTRY_ADDRESS);
@@ -30,8 +26,8 @@ async function main() {
   const AgentRegistry = await ethers.getContractFactory('AgentRegistry');
   const agentRegistry = AgentRegistry.attach(AGENT_REGISTRY_ADDRESS);
 
-  // USDC address (custom token managed by user)
-  const USDC_ADDRESS = '0x7F594ABa4E1B6e137606a8fBAb5387B90C8DEEa9';
+  // USDC address (Base Sepolia Testnet)
+  const USDC_ADDRESS = '0x036CbD53842c5426634e7929541eC2318f3dCF7e';
 
   // Sample Agent 1: Flight Search Agent
   console.log('\n1️⃣ Registering FlightFinderPro...');
@@ -44,7 +40,7 @@ async function main() {
     tokenAddress: USDC_ADDRESS,
     receiverAddress: deployer.address, // For demo, use deployer address
     pricePerCall: ethers.parseUnits('0.01', 6), // 0.01 USDC
-    chain: 'sepolia',
+    chain: 'base-sepolia',
   };
 
   try {
@@ -52,7 +48,7 @@ async function main() {
       agent1Id,
       'FlightFinderPro',
       '最安値フライト検索エージェント',
-      'https://flight-agent.example.com',
+      `${BASE_URL}/api/agents/flight/.well-known/agent.json`,
       '1.0.0',
       ['text/plain'],
       ['application/json'],
@@ -82,7 +78,7 @@ async function main() {
     tokenAddress: USDC_ADDRESS,
     receiverAddress: deployer.address,
     pricePerCall: ethers.parseUnits('0.015', 6), // 0.015 USDC
-    chain: 'sepolia',
+    chain: 'base-sepolia',
   };
 
   try {
@@ -90,7 +86,7 @@ async function main() {
       agent2Id,
       'HotelBookerPro',
       'ホテル予約エージェント',
-      'https://hotel-agent.example.com',
+      `${BASE_URL}/api/agents/hotel/.well-known/agent.json`,
       '1.0.0',
       ['text/plain'],
       ['application/json'],
@@ -120,7 +116,7 @@ async function main() {
     tokenAddress: USDC_ADDRESS,
     receiverAddress: deployer.address,
     pricePerCall: ethers.parseUnits('0.02', 6), // 0.02 USDC
-    chain: 'sepolia',
+    chain: 'base-sepolia',
   };
 
   try {
@@ -128,7 +124,7 @@ async function main() {
       agent3Id,
       'TourismGuide',
       '観光ガイドエージェント',
-      'https://tourism-agent.example.com',
+      `${BASE_URL}/api/agents/tourism/.well-known/agent.json`,
       '1.0.0',
       ['text/plain'],
       ['application/json'],

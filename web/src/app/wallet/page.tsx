@@ -92,7 +92,7 @@ export default function WalletPage() {
                 <div className="space-y-3">
                   <div>
                     <label className="mb-2 block text-sm font-medium text-slate-400">
-                      Sepolia USDC Contract
+                      Base Sepolia USDC Contract
                     </label>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-slate-400">
