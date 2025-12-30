@@ -1,46 +1,46 @@
 # Multi-stage build for MCP Server
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
-FROM base AS deps
+# Build stage - install all dependencies and build everything
+FROM base AS builder
 WORKDIR /app
 
-# Copy all package files for workspace
+# Copy all package files
 COPY package*.json ./
 COPY mcp/package.json ./mcp/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install all dependencies (workspaces are hoisted to root node_modules)
-RUN npm install --production
+# Copy source files
+COPY packages/shared ./packages/shared
+COPY mcp ./mcp
+
+# Install all dependencies at once (including dev dependencies for build)
+RUN npm install
 
 # Build shared package
-FROM base AS shared-builder
-WORKDIR /app
+RUN npm run build --workspace=packages/shared
 
-# Copy everything needed for build
-COPY package*.json ./
-COPY packages/shared ./packages/shared
+# Build MCP server
+RUN npm run build --workspace=mcp
 
-# Install dev dependencies and build
-RUN npm install --workspace=packages/shared && \
-    npm run build --workspace=packages/shared
-
-# Production image
+# Production image  
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy node_modules (all dependencies are in root due to hoisting)
-COPY --from=deps /app/node_modules ./node_modules
+# Copy package files for production install
+COPY package*.json ./
+COPY mcp/package.json ./mcp/
+COPY packages/shared/package.json ./packages/shared/
 
-# Copy built shared package
-COPY --from=shared-builder /app/packages/shared/dist ./packages/shared/dist
-COPY --from=shared-builder /app/packages/shared/package.json ./packages/shared/
+# Install production dependencies only
+# Using npm install instead of npm ci to handle lock file inconsistencies
+RUN npm install --omit=dev
 
-# Copy MCP server source
-COPY mcp ./mcp
-COPY package.json ./
+# Copy built packages from builder
+COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/mcp/dist ./mcp/dist
 
 # Expose port
 EXPOSE 3001

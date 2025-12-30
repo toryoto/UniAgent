@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/server.ts",
-    "start": "node --import tsx src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
