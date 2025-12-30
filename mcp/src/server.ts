@@ -26,20 +26,9 @@ mcpServer.addTool({
       .string()
       .optional()
       .describe('検索するカテゴリ (例: "travel", "finance", "utility")'),
-    skillName: z
-      .string()
-      .optional()
-      .describe('検索するスキル名 (部分一致)'),
-    maxPrice: z
-      .number()
-      .optional()
-      .describe('最大価格 (USDC)'),
-    minRating: z
-      .number()
-      .min(0)
-      .max(5)
-      .optional()
-      .describe('最小評価 (0-5)'),
+    skillName: z.string().optional().describe('検索するスキル名 (部分一致)'),
+    maxPrice: z.number().optional().describe('最大価格 (USDC)'),
+    minRating: z.number().min(0).max(5).optional().describe('最小評価 (0-5)'),
   }),
   execute: async (args) => {
     const result = await discoverAgents({
@@ -67,8 +56,6 @@ export function startMcpServer(port: number = 3001) {
   console.log(`  HTTP endpoint: http://localhost:${port}/mcp`);
 }
 
-// CLIから直接実行された場合
-// ESMモジュールでは、import.meta.urlとprocess.argv[1]を比較するのは難しいため、
-// 環境変数で制御するか、別のエントリーポイントを使用することを推奨
-// ここでは常にエクスポートのみ行い、実行はpackage.jsonのスクリプトから行う
-
+// サーバー起動
+const port = parseInt(process.env.MCP_PORT || '3001', 10);
+startMcpServer(port);
