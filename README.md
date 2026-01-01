@@ -11,13 +11,11 @@ A2A、x402、ブロックチェーンを融合した AI エージェント向け
 - **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
 - **Block Explorer**: https://sepolia.basescan.org/address/0xe2B64700330af9e408ACb3A04a827045673311C1
 
-> **注意**: x402 SDKがBase Sepoliaをサポートしているため、ETH Sepoliaから移行しました。
+### USDC (Base Sepolia) - EIP-3009対応
 
-### 旧デプロイ (ETH Sepolia) - 非推奨
-
-- **Network**: Sepolia Testnet
-- **Address**: `0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3`
-- **Etherscan**: https://sepolia.etherscan.io/address/0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3
+- **Address**: `0x057E5be041509feC1Ee5e3C7ba60c6D1f04Cd337` (最新デプロイ)
+- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
+- **Block Explorer**: https://sepolia.basescan.org/address/0x057E5be041509feC1Ee5e3C7ba60c6D1f04Cd337
 
 ### Registered Sample Agents (with images)
 

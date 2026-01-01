@@ -10,13 +10,11 @@
 - **Block Explorer**: https://sepolia.basescan.org
 - **Features**: Agent image URLs supported
 
-> **注意**: x402 SDKがBase Sepoliaをサポートしているため、ETH Sepoliaから移行しました。
+### USDC (Base Sepolia) - EIP-3009対応
 
-### 旧デプロイ (ETH Sepolia) - 非推奨
-
-- **Address**: `0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3`
-- **Network**: Sepolia Testnet
-- **Etherscan**: https://sepolia.etherscan.io/address/0x1a4Ec58FE22aFe2624eaE8B5085aeBf85BCEB4e3
+- **Address**: `0x057E5be041509feC1Ee5e3C7ba60c6D1f04Cd337` (最新デプロイ)
+- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
+- **Block Explorer**: https://sepolia.basescan.org/address/0x057E5be041509feC1Ee5e3C7ba60c6D1f04Cd337
 
 ### Sample Agents
 
@@ -50,10 +48,6 @@ cp .env.example .env
 BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
 PRIVATE_KEY=your_private_key_here
 BASESCAN_API_KEY=your_basescan_api_key_here  # Basescan API Key (Etherscan API Keyでも可)
-
-# 旧ETH Sepolia用（オプション）
-SEPOLIA_RPC_URL=https://rpc.sepolia.org
-ETHERSCAN_API_KEY=your_etherscan_api_key_here
 ```
 
 ## コマンド
