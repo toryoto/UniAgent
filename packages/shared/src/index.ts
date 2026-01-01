@@ -29,3 +29,10 @@ export type {
   JsonRpcRequest,
   JsonRpcResponse,
 } from './types.js';
+
+// Services
+export {
+  discoverAgents,
+  type DiscoverAgentsInput,
+  type DiscoverAgentsOutput,
+} from './services/index.js';

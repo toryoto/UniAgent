@@ -1,86 +1,14 @@
 /**
  * Discover Agents Tool
  *
- * MCPサーバーに接続してエージェントを検索するLangChainツール
+ * 共有サービスを使用してエージェントを検索するLangChainツール
+ * MCPサーバー経由ではなく、直接オンチェーンから検索
  */
 
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import type { DiscoveredAgent, A2ASkill } from '@agent-marketplace/shared';
+import { discoverAgents, type A2ASkill } from '@agent-marketplace/shared';
 import { logger } from '../utils/logger.js';
-
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'http://localhost:3001/mcp';
-
-interface MCPToolCallRequest {
-  jsonrpc: '2.0';
-  id: number;
-  method: 'tools/call';
-  params: {
-    name: string;
-    arguments: Record<string, unknown>;
-  };
-}
-
-interface MCPToolCallResponse {
-  jsonrpc: '2.0';
-  id: number;
-  result?: {
-    content: Array<{ type: string; text: string }>;
-  };
-  error?: {
-    code: number;
-    message: string;
-  };
-}
-
-/**
- * MCPサーバーのdiscover_agentsツールを呼び出す
- */
-async function callMCPDiscoverAgents(params: {
-  category?: string;
-  skillName?: string;
-  maxPrice?: number;
-  minRating?: number;
-}): Promise<{ agents: DiscoveredAgent[]; total: number }> {
-  const request: MCPToolCallRequest = {
-    jsonrpc: '2.0',
-    id: Date.now(),
-    method: 'tools/call',
-    params: {
-      name: 'discover_agents',
-      arguments: params,
-    },
-  };
-
-  logger.mcp.info(`Calling MCP discover_agents`, { url: MCP_SERVER_URL, params });
-
-  const response = await fetch(MCP_SERVER_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
-
-  if (!response.ok) {
-    throw new Error(`MCP server error: ${response.status} ${response.statusText}`);
-  }
-
-  const result = (await response.json()) as MCPToolCallResponse;
-
-  if (result.error) {
-    throw new Error(`MCP tool error: ${result.error.message}`);
-  }
-
-  if (!result.result?.content?.[0]?.text) {
-    throw new Error('Invalid MCP response format');
-  }
-
-  const parsed = JSON.parse(result.result.content[0].text);
-  logger.mcp.success(`Found ${parsed.total} agents`);
-
-  return parsed;
-}
 
 /**
  * discover_agents ツール定義
@@ -88,7 +16,14 @@ async function callMCPDiscoverAgents(params: {
 export const discoverAgentsTool = tool(
   async (input) => {
     try {
-      const result = await callMCPDiscoverAgents({
+      logger.logic.info('Searching agents on-chain', {
+        category: input.category,
+        skillName: input.skillName,
+        maxPrice: input.maxPrice,
+      });
+
+      // 共有サービスを直接呼び出し
+      const result = await discoverAgents({
         category: input.category,
         skillName: input.skillName,
         maxPrice: input.maxPrice,
@@ -108,6 +43,8 @@ export const discoverAgentsTool = tool(
         skills: agent.skills.map((s: A2ASkill) => s.name),
       }));
 
+      logger.logic.success(`Found ${result.total} agents`);
+
       return JSON.stringify({
         success: true,
         total: result.total,
@@ -115,7 +52,7 @@ export const discoverAgentsTool = tool(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.mcp.error('discover_agents failed', { error: message });
+      logger.logic.error('discover_agents failed', { error: message });
       return JSON.stringify({
         success: false,
         error: message,

@@ -92,6 +92,8 @@ export const logger = {
       log('logic', 'success', msg, details),
     warn: (msg: string, details?: Record<string, unknown>) =>
       log('logic', 'warn', msg, details),
+    error: (msg: string, details?: Record<string, unknown>) =>
+      log('logic', 'error', msg, details),
   },
   payment: {
     info: (msg: string, details?: Record<string, unknown>) =>
