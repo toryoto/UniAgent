@@ -1,22 +1,18 @@
 /**
- * useDelegatedWallet - Privy Delegated Wallet管理フック
+ * useDelegatedWallet - Privy Session Signers管理フック
  *
- * ユーザーのembedded walletをサーバー側から使用できるようにするための
- * 委譲機能を管理するカスタムフック
+ * TEE実行環境でユーザーのembedded walletをサーバー側から使用できるようにするための
+ * セッション署名者を管理するカスタムフック
  *
- * @see https://docs.privy.io/guide/react/wallets/embedded/delegated-actions/delegate
  */
 
-import { useCallback, useMemo, useState, useEffect } from 'react';
-import { usePrivy, useHeadlessDelegatedActions } from '@privy-io/react-auth';
+import { useCallback, useMemo, useState } from 'react';
+import { usePrivy, useSigners } from '@privy-io/react-auth';
 import type { WalletWithMetadata } from '@privy-io/react-auth';
 
 export interface DelegatedWalletInfo {
-  /** Privy wallet ID (サーバー側でsignTypedDataに使用) */
   walletId: string;
-  /** ウォレットアドレス (0x...) */
   address: string;
-  /** 委譲済みかどうか */
   isDelegated: boolean;
 }
 
@@ -57,10 +53,11 @@ function getEmbeddedWallet(linkedAccounts: unknown[]): WalletWithMetadata | null
 
 export function useDelegatedWallet(): UseDelegatedWalletReturn {
   const { user, ready } = usePrivy();
-  const { delegateWallet: privyDelegateWallet } = useHeadlessDelegatedActions();
+  const { addSigners } = useSigners();
 
   const [isDelegating, setIsDelegating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [delegatedAddresses, setDelegatedAddresses] = useState<Set<string>>(new Set());
 
   // Embedded walletを取得
   const embeddedWallet = useMemo(() => {
@@ -72,26 +69,22 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
   const wallet = useMemo((): DelegatedWalletInfo | null => {
     if (!embeddedWallet) return null;
 
-    // Privy embedded wallet の場合、wallet IDはアカウントオブジェクトに含まれる
-    // linkedAccountsの各要素にはidフィールドがある場合がある
-    // 最新のPrivy SDKではwalletIdを直接取得可能
     const walletId =
-      // @ts-expect-error - Privy SDKのバージョンによって構造が異なる
       embeddedWallet.id ??
       // @ts-expect-error - Privy SDKのバージョンによって構造が異なる
       embeddedWallet.walletId ??
-      // フォールバック: addressをIDとして使用
       embeddedWallet.address;
+
+    const isDelegated = delegatedAddresses.has(embeddedWallet.address.toLowerCase());
 
     return {
       walletId,
       address: embeddedWallet.address,
-      // @ts-expect-error - delegatedフィールドはPrixy SDKのバージョンによって存在しない場合がある
-      isDelegated: embeddedWallet.delegated === true,
+      isDelegated,
     };
-  }, [embeddedWallet]);
+  }, [embeddedWallet, delegatedAddresses]);
 
-  // ウォレットを委譲
+  // ウォレットにセッション署名者を追加
   const delegateWallet = useCallback(async (): Promise<boolean> => {
     if (!embeddedWallet) {
       setError('Embedded wallet not found');
@@ -99,7 +92,6 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
     }
 
     if (wallet?.isDelegated) {
-      // 既に委譲済み
       return true;
     }
 
@@ -107,22 +99,46 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
     setError(null);
 
     try {
-      await privyDelegateWallet({
+      await addSigners({
         address: embeddedWallet.address,
-        chainType: 'ethereum',
+        signers: [
+          {
+            signerId: process.env.NEXT_PUBLIC_PRIVY_SIGNER_ID || '',
+            policyIds: [],
+          },
+        ],
       });
 
-      console.log('Wallet delegated successfully:', embeddedWallet.address);
+      // セッション署名者の追加が成功したら、ローカル状態を更新
+      setDelegatedAddresses((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(embeddedWallet.address.toLowerCase());
+        return newSet;
+      });
+
+      console.log('Session signer added successfully:', embeddedWallet.address);
       return true;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delegate wallet';
-      console.error('Failed to delegate wallet:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to add session signer';
+
+      // 重複エラーの場合（既に追加されている）、成功として扱う
+      if (errorMessage.toLowerCase().includes('duplicate')) {
+        console.log('Session signer already added (duplicate):', embeddedWallet.address);
+        setDelegatedAddresses((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(embeddedWallet.address.toLowerCase());
+          return newSet;
+        });
+        return true;
+      }
+
+      console.error('Failed to add session signer:', err);
       setError(errorMessage);
       return false;
     } finally {
       setIsDelegating(false);
     }
-  }, [embeddedWallet, wallet?.isDelegated, privyDelegateWallet]);
+  }, [embeddedWallet, wallet?.isDelegated, addSigners]);
 
   return useMemo(
     () => ({

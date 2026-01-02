@@ -4,7 +4,6 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { Send, Loader2, Bot, User, AlertCircle, Wrench, DollarSign, Shield } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
 import { useAgentChat, type AgentChatMessage } from '@/lib/hooks/useAgentChat';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
 import type { ExecutionLogEntry } from '@agent-marketplace/shared';
@@ -14,7 +13,6 @@ import Link from 'next/link';
 const DEFAULT_MAX_BUDGET = 5.0;
 
 export default function ChatPage() {
-  const { user } = usePrivy();
   const { wallet, isLoading: isWalletLoading } = useDelegatedWallet();
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
 
@@ -86,8 +84,8 @@ export default function ChatPage() {
           ウォレットがサーバーに委譲されていません。x402決済を使用するには{' '}
           <Link href="/wallet" className="font-medium underline hover:text-yellow-100">
             Walletページ
-          </Link>
-          {' '}でウォレットを委譲してください。
+          </Link>{' '}
+          でウォレットを委譲してください。
         </p>
       </div>
     </div>

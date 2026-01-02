@@ -4,7 +4,6 @@
  * x402 v2決済を使用して外部エージェントを実行するLangChainツール
  *
  * Privy delegated walletを使用してユーザーのウォレットで署名を行う
- * @see https://docs.privy.io/guide/server/wallets/delegated-actions
  */
 
 import { tool } from '@langchain/core/tools';
@@ -16,60 +15,9 @@ import { wrapFetchWithPayment } from '@x402/fetch';
 import type { Hex, TypedDataDefinition } from 'viem';
 import type { AgentJson, JsonRpcRequest, JsonRpcResponse } from '@agent-marketplace/shared';
 import { logger } from '../utils/logger.js';
-import fs from 'fs';
-import path from 'path';
-
-/**
- * Authorization Keyを読み込む
- *
- * Privy delegated walletを使用するには、authorization keyが必要。
- * 1. 環境変数 PRIVY_AUTHORIZATION_KEY から直接読み込む
- * 2. 環境変数 PRIVY_AUTHORIZATION_KEY_PATH からファイルパスを取得して読み込む
- * 3. デフォルトパス (../../../web/private.pem) から読み込む
- */
-function loadAuthorizationKey(): string | undefined {
-  // 1. 環境変数から直接読み込む
-  if (process.env.PRIVY_AUTHORIZATION_KEY) {
-    logger.payment.info('Using authorization key from PRIVY_AUTHORIZATION_KEY environment variable');
-    return process.env.PRIVY_AUTHORIZATION_KEY;
-  }
-
-  // 2. 環境変数からファイルパスを取得して読み込む
-  const keyPath = process.env.PRIVY_AUTHORIZATION_KEY_PATH;
-  if (keyPath) {
-    try {
-      const key = fs.readFileSync(keyPath, 'utf-8').trim();
-      logger.payment.info('Loaded authorization key from file', { path: keyPath });
-      return key;
-    } catch (error) {
-      logger.payment.warn('Failed to load authorization key from path', {
-        path: keyPath,
-        error: error instanceof Error ? error.message : 'Unknown',
-      });
-    }
-  }
-
-  // 3. デフォルトパスから読み込む (web/private.pem)
-  const defaultPath = path.resolve(process.cwd(), '../web/private.pem');
-  try {
-    if (fs.existsSync(defaultPath)) {
-      const key = fs.readFileSync(defaultPath, 'utf-8').trim();
-      logger.payment.info('Loaded authorization key from default path', { path: defaultPath });
-      return key;
-    }
-  } catch (error) {
-    logger.payment.warn('Failed to load authorization key from default path', {
-      path: defaultPath,
-      error: error instanceof Error ? error.message : 'Unknown',
-    });
-  }
-
-  logger.payment.warn('No authorization key found - delegated wallet signing may not work');
-  return undefined;
-}
 
 // Privy client initialization with authorization key
-const authorizationKey = loadAuthorizationKey();
+const authorizationKey = process.env.PRIVY_AUTHORIZATION_KEY || '';
 const privyClient = new PrivyClient(
   process.env.PRIVY_APP_ID || '',
   process.env.PRIVY_APP_SECRET || '',
@@ -158,10 +106,13 @@ class PrivyEIP712Signer {
 
       // より詳細なエラーメッセージを提供
       if (errorMessage.includes('authorization')) {
-        logger.payment.error('Authorization key error - check if PRIVY_AUTHORIZATION_KEY is set correctly', {
-          error: errorMessage,
-          walletId: this.walletId,
-        });
+        logger.payment.error(
+          'Authorization key error - check if PRIVY_AUTHORIZATION_KEY is set correctly',
+          {
+            error: errorMessage,
+            walletId: this.walletId,
+          }
+        );
       } else if (errorMessage.includes('delegated') || errorMessage.includes('permission')) {
         logger.payment.error('Wallet not delegated - user must delegate wallet from client first', {
           error: errorMessage,
