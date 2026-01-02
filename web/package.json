@@ -16,16 +16,18 @@
   },
   "dependencies": {
     "@agent-marketplace/shared": "file:../packages/shared",
+    "@coinbase/x402": "0.7.0",
     "@prisma/client": "^6.2.0",
     "@privy-io/react-auth": "^3.10.0",
     "@privy-io/wagmi": "^2.1.3",
     "@supabase/supabase-js": "^2.48.1",
     "@tanstack/react-query": "^5.90.12",
+    "@x402/core": "^2.1.0",
+    "@x402/evm": "^2.1.0",
+    "@x402/next": "^2.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "@coinbase/x402": "0.7.0",
     "ethers": "^6.16.0",
-    "x402-next": "0.8.0",
     "lucide-react": "^0.562.0",
     "next": "15.5.9",
     "react": "^19.0.0",
@@ -33,6 +35,7 @@
     "tailwind-merge": "^3.4.0",
     "viem": "^2.43.3",
     "wagmi": "^3.1.3",
+    "x402-next": "0.8.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

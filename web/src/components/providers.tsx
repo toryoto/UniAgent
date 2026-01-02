@@ -51,7 +51,7 @@ export function Providers({ children }: ProvidersProps) {
         loginMethods: ['email', 'google', 'wallet'],
         embeddedWallets: {
           ethereum: {
-            createOnLogin: 'users-without-wallets',
+            createOnLogin: 'all-users',
           },
         },
         defaultChain: baseSepolia,
