@@ -1,102 +1,53 @@
-# Contracts Package
+# Smart Contracts
 
-スマートコントラクトの開発・デプロイパッケージ。
+UniAgentのスマートコントラクト（Hardhat）。
 
 ## デプロイ済みコントラクト
 
 ### AgentRegistry (Base Sepolia)
 
-- **Network**: Base Sepolia Testnet (Chain ID: 84532)
-- **Block Explorer**: https://sepolia.basescan.org
-- **Features**: Agent image URLs supported
+- **Address**: `0xe2B64700330af9e408ACb3A04a827045673311C1`
+- **Network**: Base Sepolia (Chain ID: 84532)
+- **Explorer**: https://sepolia.basescan.org/address/0xe2B64700330af9e408ACb3A04a827045673311C1
 
-### USDC (Base Sepolia) - EIP-3009対応
+### USDC (Base Sepolia)
 
-- **Address**: `0x036CbD53842c5426634e7929541eC2318f3dCF7e` (最新デプロイ)
-- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
-- **Block Explorer**: https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e
-
-### Sample Agents
-
-1. **FlightFinderPro** - `0x0bdd...b75e` - 0.01 USDC (with image)
-2. **HotelBookerPro** - `0x70fc...dd0e` - 0.015 USDC (with image)
-3. **TourismGuide** - `0xc1de...b0fc` - 0.02 USDC (with image)
-
-## 構造
-
-```
-packages/contracts/
-├── contracts/      # Solidityコントラクト
-├── scripts/        # デプロイスクリプト
-├── test/          # テストファイル
-├── hardhat.config.ts
-└── package.json
-```
+- **Address**: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
 ## セットアップ
 
-### 環境変数の設定
-
-このディレクトリに`.env`ファイルを作成：
+**注意**: このプロジェクトはモノレポ構成です。依存関係のインストールは**ルートディレクトリ**から実行してください。
 
 ```bash
-# .env.exampleをコピー
-cp .env.example .env
+# ルートディレクトリから依存関係をインストール
+npm install
 
-# .envファイルを編集
-# Base Sepolia用
-BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
-PRIVATE_KEY=your_private_key_here
-BASESCAN_API_KEY=your_basescan_api_key_here  # Basescan API Key (Etherscan API Keyでも可)
+# 環境変数設定（.env.exampleを参照）
+cp .env.example .env
+# .envを編集
 ```
+
+### 環境変数
+
+環境変数の詳細は `.env.example` を参照してください。
 
 ## コマンド
 
-### 基本コマンド
-
 ```bash
-# コンパイル
+# ルートディレクトリから実行（推奨）
+npm run compile --workspace=contracts
+npm run test --workspace=contracts
+npm run deploy:base-sepolia --workspace=contracts
+
+# または、contractsディレクトリ内から実行
+cd contracts
 npm run compile
-
-# テスト実行
 npm run test
-
-# テストカバレッジ
-npx hardhat coverage
-
-# ガス使用量レポート
-REPORT_GAS=true npm run test
-
-# デプロイ（Base Sepolia - 推奨）
 npm run deploy:base-sepolia
-
-# デプロイ（ETH Sepolia - 非推奨、x402 SDK非対応）
-npm run deploy:sepolia
 ```
 
-### サンプルエージェント登録
+## 主要スクリプト
 
-```bash
-# デプロイ後、サンプルエージェントを登録（Base Sepolia）
-AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/register-sample-agents.ts --network base-sepolia
-
-# デプロイ検証（Base Sepolia）
-AGENT_REGISTRY_ADDRESS=0x... npx hardhat run scripts/verify-deployment.ts --network base-sepolia
-```
-
-### コントラクト検証
-
-```bash
-# Basescanでソースコードを検証（Base Sepolia）
-# 環境変数にBASESCAN_API_KEYまたはETHERSCAN_API_KEYを設定
-BASESCAN_API_KEY=your_api_key npx hardhat verify --network base-sepolia <contract-address>
-
-# Etherscanでソースコードを検証（ETH Sepolia - 非推奨）
-ETHERSCAN_API_KEY=your_api_key npx hardhat verify --network sepolia <contract-address>
-```
-
-**注意**: Etherscan API V2への移行により、単一のAPIキーを使用するようになりました。Base Sepoliaの場合はBasescan APIキーを推奨します。
-
-## 環境変数
-
-環境変数はルートディレクトリの`.env`ファイルから読み込まれます。
+- `scripts/deploy.ts`: コントラクトデプロイ
+- `scripts/register-sample-agents.ts`: サンプルエージェント登録
+- `scripts/verify-deployment.ts`: デプロイ検証
