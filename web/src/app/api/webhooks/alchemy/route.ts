@@ -84,12 +84,6 @@ export async function POST(request: NextRequest) {
     const payload = JSON.parse(rawBody) as unknown;
 
     const contractAddress = CONTRACT_ADDRESSES.AGENT_REGISTRY;
-    if (!contractAddress) {
-      return NextResponse.json(
-        { success: false, error: 'NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS is not set' },
-        { status: 500 }
-      );
-    }
 
     const iface = new ethers.Interface(AGENT_REGISTRY_ABI as any);
     const logs: CandidateLog[] = [];

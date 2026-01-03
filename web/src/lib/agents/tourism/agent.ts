@@ -6,12 +6,7 @@
 
 import { BaseAgent } from '../base-agent';
 import { AGENT_PRICES, AGENT_IDS, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
-import {
-  selectTourismSpots,
-  generateTourPlan,
-  type TourismSpot,
-  type TourPlan,
-} from './mock-data';
+import { selectTourismSpots, generateTourPlan, type TourismSpot, type TourPlan } from './mock-data';
 
 export interface TourismSearchParams {
   city?: string;
@@ -110,8 +105,7 @@ export class TourismAgent extends BaseAgent {
                           interests: {
                             type: 'array',
                             items: { type: 'string' },
-                            description:
-                              'Interests (e.g., history, art, food, nature)',
+                            description: 'Interests (e.g., history, art, food, nature)',
                           },
                           type: {
                             type: 'string',

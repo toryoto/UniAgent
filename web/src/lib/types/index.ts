@@ -8,49 +8,9 @@
 // A2A Protocol Types
 // ============================================================================
 
-export interface A2ASkill {
-  id: string;
-  name: string;
-  description: string;
-}
+import type { A2ASkill, AgentCard } from '@agent-marketplace/shared';
 
-export interface A2APaymentInfo {
-  tokenAddress: string; // USDC contract address
-  receiverAddress: string; // エージェントの受取アドレス
-  pricePerCall: bigint; // 1回あたりの価格（wei単位）
-  chain: string; // "base-sepolia"
-}
-
-export interface AgentCard {
-  // A2A標準フィールド
-  agentId: string; // bytes32 -> hex string
-  name: string;
-  description: string;
-  url: string; // A2Aエンドポイント
-  version: string;
-  defaultInputModes: string[];
-  defaultOutputModes: string[];
-  skills: A2ASkill[];
-
-  // ブロックチェーン拡張
-  owner: string; // address
-  isActive: boolean;
-  createdAt: bigint;
-
-  // 評価システム
-  totalRatings: bigint; // 評価の合計
-  ratingCount: bigint; // 評価回数
-  averageRating: number; // 計算された平均評価（表示用）
-
-  // x402決済情報
-  payment: A2APaymentInfo;
-
-  // カテゴリ
-  category: string;
-
-  // 表示用（オンチェーン拡張）
-  imageUrl?: string;
-}
+export type { AgentCard };
 
 // ============================================================================
 // API DTO Types (JSON-safe)

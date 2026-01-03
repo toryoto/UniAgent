@@ -4,12 +4,14 @@
  * 数値、日付、アドレスなどのフォーマット関数
  */
 
+import { formatUSDCAmount } from '@agent-marketplace/shared';
+
 /**
- * USDCの金額をフォーマット（6 decimals）
+ * UI表示用のUSDCの金額をフォーマット（6 decimals）
  */
 export function formatUSDC(amount: bigint | string): string {
   const value = typeof amount === 'string' ? BigInt(amount) : amount;
-  const dollars = Number(value) / 1_000_000;
+  const dollars = formatUSDCAmount(value);
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',

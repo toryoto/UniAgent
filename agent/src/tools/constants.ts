@@ -11,7 +11,3 @@ export const NETWORK_ID = `eip155:${CHAIN_ID}`;
 // Timeouts
 export const AGENT_JSON_TIMEOUT_MS = 5000;
 export const REQUEST_TIMEOUT_MS = 30000;
-
-// USDC decimals
-export const USDC_DECIMALS = 6;
-
