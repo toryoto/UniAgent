@@ -12,6 +12,7 @@ model User {
   id             String          @id @default(uuid()) @db.Uuid
   privyUserId    String          @unique @map("privy_user_id") @db.VarChar(255)
   walletAddress  String?         @unique @map("wallet_address") @db.VarChar(42)
+  isDelegated    Boolean         @default(false)
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   agentRatings   AgentRating[]

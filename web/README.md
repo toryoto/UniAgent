@@ -53,3 +53,25 @@ npm run build
 npm run lint
 npm run type-check
 ```
+
+## データベース管理
+
+### Prismaスキーマの変更をSupabaseに反映
+
+Prismaスキーマ（`prisma/schema.prisma`）を変更した後、以下の手順でデータベースに反映します：
+
+```bash
+# webディレクトリに移動
+cd web
+
+# 1. データベースにスキーマを反映（開発環境）
+npm run db:push
+
+# 2. Prismaクライアントを再生成
+npm run db:generate
+```
+
+**注意**:
+
+- `DATABASE_URL`と`DIRECT_URL`の環境変数が設定されている必要があります
+- 本番環境では`prisma migrate deploy`を使用してください

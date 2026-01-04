@@ -6,12 +6,45 @@ import { usePrivy } from '@privy-io/react-auth';
 import { Copy, ExternalLink, Shield, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
+import { useBalance, useReadContract } from 'wagmi';
+import { CONTRACT_ADDRESSES, formatUSDCAmount, ERC20_ABI } from '@/lib/blockchain/config';
+import { formatEther } from 'viem';
 
 export default function WalletPage() {
   const { user } = usePrivy();
-  const { wallet, isDelegating, error: delegationError, delegateWallet, isLoading } = useDelegatedWallet();
+  const {
+    wallet,
+    isDelegating,
+    error: delegationError,
+    delegateWallet,
+    undelegateWallet,
+    isLoading,
+  } = useDelegatedWallet();
   const [copied, setCopied] = useState(false);
   const [walletIdCopied, setWalletIdCopied] = useState(false);
+
+  const walletAddress = (wallet?.address || user?.wallet?.address) as `0x${string}` | undefined;
+
+  // Get ETH balance
+  const { data: ethBalance, isLoading: isLoadingEth } = useBalance({
+    address: walletAddress,
+    query: {
+      enabled: !!walletAddress,
+      refetchInterval: 10000,
+    },
+  });
+
+  // Get USDC balance
+  const { data: usdcBalance, isLoading: isLoadingUsdc } = useReadContract({
+    address: CONTRACT_ADDRESSES.USDC as `0x${string}`,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: walletAddress ? [walletAddress] : undefined,
+    query: {
+      enabled: !!walletAddress,
+      refetchInterval: 10000,
+    },
+  });
 
   const handleCopy = () => {
     if (user?.wallet?.address) {
@@ -33,6 +66,10 @@ export default function WalletPage() {
     await delegateWallet();
   };
 
+  const handleUndelegate = async () => {
+    await undelegateWallet();
+  };
+
   return (
     <AppLayout>
       <AuthGuard>
@@ -41,7 +78,9 @@ export default function WalletPage() {
             {/* Header */}
             <div className="mb-8">
               <h1 className="mb-2 text-3xl font-bold text-white">Wallet</h1>
-              <p className="text-slate-400">ウォレット情報の確認と予算設定ができます</p>
+              <p className="text-slate-400">
+                View your wallet information and configure budget settings
+              </p>
             </div>
 
             <div className="space-y-6">
@@ -103,7 +142,16 @@ export default function WalletPage() {
                         ETH Balance
                       </label>
                       <div className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-2xl font-bold text-white">
-                        0.0000 ETH
+                        {isLoadingEth ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span className="text-lg">Loading...</span>
+                          </div>
+                        ) : ethBalance ? (
+                          `${parseFloat(formatEther(ethBalance.value)).toFixed(4)} ETH`
+                        ) : (
+                          '0.0000 ETH'
+                        )}
                       </div>
                     </div>
                     <div>
@@ -111,7 +159,16 @@ export default function WalletPage() {
                         USDC Balance
                       </label>
                       <div className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-2xl font-bold text-white">
-                        0.00 USDC
+                        {isLoadingUsdc ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span className="text-lg">Loading...</span>
+                          </div>
+                        ) : usdcBalance ? (
+                          `${formatUSDCAmount(usdcBalance).toFixed(2)} USDC`
+                        ) : (
+                          '0.00 USDC'
+                        )}
                       </div>
                     </div>
                   </div>
@@ -141,18 +198,38 @@ export default function WalletPage() {
                       <div>
                         <p className="font-medium text-green-200">Delegation Active</p>
                         <p className="mt-1 text-sm text-green-200/70">
-                          Your wallet is delegated to the server. AI agents can now execute x402 payments on your behalf.
+                          Your wallet is delegated to the server. AI agents can now execute x402
+                          payments on your behalf.
                         </p>
                       </div>
                     </div>
+
+                    <button
+                      onClick={handleUndelegate}
+                      disabled={isDelegating || !wallet}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isDelegating ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Removing delegation...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="h-5 w-5" />
+                          Remove Delegation
+                        </>
+                      )}
+                    </button>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
                       <p className="text-sm text-yellow-200">
-                        <strong>Important:</strong> To enable AI agents to make x402 payments on your behalf,
-                        you need to delegate your wallet to the server. This allows the server to sign
-                        payment transactions without requiring your approval for each transaction.
+                        <strong>Important:</strong> To enable AI agents to make x402 payments on
+                        your behalf, you need to delegate your wallet to the server. This allows the
+                        server to sign payment transactions without requiring your approval for each
+                        transaction.
                       </p>
                     </div>
 
@@ -192,8 +269,7 @@ export default function WalletPage() {
 
                 <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
                   <p className="text-sm text-blue-200">
-                    エージェントを利用するには、USDCトークンが必要です。
-                    Faucetページでテスト用のUSDCを取得してください。
+                    You need USDC tokens to use agents. Get USDC from the Faucet page.
                   </p>
                 </div>
 
@@ -203,25 +279,20 @@ export default function WalletPage() {
                       Base Sepolia USDC Contract
                     </label>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-slate-400">
-                        Coming soon...
+                      <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-slate-300">
+                        {CONTRACT_ADDRESSES.USDC}
                       </div>
                       <a
-                        href="#"
+                        href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.USDC}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="rounded-lg border border-slate-700 bg-slate-800 p-3 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
-                        title="View on Etherscan"
+                        title="View on Basescan"
                       >
                         <ExternalLink className="h-5 w-5" />
                       </a>
                     </div>
                   </div>
-
-                  <button
-                    disabled
-                    className="w-full cursor-not-allowed rounded-lg bg-purple-600 px-6 py-3 font-semibold text-white opacity-50"
-                  >
-                    Approve USDC (Coming Soon)
-                  </button>
                 </div>
               </div>
 
@@ -251,7 +322,7 @@ export default function WalletPage() {
                       className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
                     />
                     <p className="mt-2 text-sm text-slate-500">
-                      この金額以下の取引は自動的に承認されます
+                      Transactions below this amount will be automatically approved
                     </p>
                   </div>
 

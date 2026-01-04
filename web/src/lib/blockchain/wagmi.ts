@@ -1,16 +1,14 @@
 /**
  * Wagmi Configuration
- *
- * WagmiとPrivyの統合設定
  */
 
-import { createConfig } from '@privy-io/wagmi';
-import { http } from 'wagmi';
+import { createConfig, http } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 
 export const config = createConfig({
   chains: [baseSepolia],
   transports: {
-    [baseSepolia.id]: http(),
+    [baseSepolia.id]: http(`${process.env.NEXT_PUBLIC_RPC_URL}`),
   },
+  ssr: true,
 });

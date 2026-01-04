@@ -13,7 +13,7 @@ import Link from 'next/link';
 const DEFAULT_MAX_BUDGET = 5.0;
 
 export default function ChatPage() {
-  const { wallet, isLoading: isWalletLoading } = useDelegatedWallet();
+  const { wallet } = useDelegatedWallet();
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
 
   // Privy embedded walletからwalletIdとwalletAddressを取得
@@ -66,13 +66,13 @@ export default function ChatPage() {
     }
   };
 
-  // ウォレット未接続またはdelegateされていない場合の警告
+  // Wallet connection and delegation status warning
   const walletWarning = !walletAddress ? (
     <div className="mb-4 flex items-start gap-3 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-4">
       <AlertCircle className="mt-0.5 h-5 w-5 text-yellow-400" />
       <div className="flex-1">
         <p className="text-sm text-yellow-200">
-          ウォレットが接続されていません。決済機能を使用するにはウォレットを接続してください。
+          Wallet is not connected. Please connect your wallet to use payment features.
         </p>
       </div>
     </div>
@@ -81,11 +81,12 @@ export default function ChatPage() {
       <Shield className="mt-0.5 h-5 w-5 text-yellow-400" />
       <div className="flex-1">
         <p className="text-sm text-yellow-200">
-          ウォレットがサーバーに委譲されていません。x402決済を使用するには{' '}
+          Wallet is not delegated to the server. To use x402 payments, please delegate your wallet
+          on the{' '}
           <Link href="/wallet" className="font-medium underline hover:text-yellow-100">
-            Walletページ
-          </Link>{' '}
-          でウォレットを委譲してください。
+            Wallet page
+          </Link>
+          .
         </p>
       </div>
     </div>
@@ -99,10 +100,8 @@ export default function ChatPage() {
           <div className="border-b border-slate-800 bg-slate-900/50 px-8 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-white">AI Agent Chat</h1>
-                <p className="text-sm text-slate-400">
-                  LangChain.js エージェントがタスクを実行します
-                </p>
+                <h1 className="text-2xl font-bold text-white">Chat</h1>
+                <p className="text-sm text-slate-400">Paygent X will execute your tasks</p>
               </div>
               {/* 予算設定 */}
               <div className="flex items-center gap-2">
@@ -140,7 +139,7 @@ export default function ChatPage() {
                 {isLoading && messages.length > 0 && (
                   <div className="flex items-center gap-2 text-sm text-slate-400">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>エージェント実行中...</span>
+                    <span>Agent is executing...</span>
                   </div>
                 )}
               </div>
@@ -155,7 +154,7 @@ export default function ChatPage() {
                       onClick={clearError}
                       className="mt-2 text-xs text-red-400 hover:text-red-300"
                     >
-                      閉じる
+                      Close
                     </button>
                   </div>
                 </div>
@@ -174,15 +173,15 @@ export default function ChatPage() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="タスクを入力してください..."
-                  disabled={isLoading}
+                  placeholder="Enter your task..."
+                  disabled={isLoading || !walletAddress || !wallet?.isDelegated}
                   rows={1}
                   className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
                   style={{ minHeight: '48px', maxHeight: '100px' }}
                 />
                 <button
                   onClick={handleSubmit}
-                  disabled={!input.trim() || isLoading}
+                  disabled={!input.trim() || isLoading || !walletAddress || !wallet?.isDelegated}
                   className="self-start rounded-lg bg-purple-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isLoading ? (
@@ -192,7 +191,9 @@ export default function ChatPage() {
                   )}
                 </button>
               </div>
-              <p className="mt-2 text-xs text-slate-500">Enter で送信、Shift+Enter で改行</p>
+              <p className="mt-2 text-xs text-slate-500">
+                Press Enter to send, Shift+Enter for new line
+              </p>
             </div>
           </div>
         </div>
@@ -206,16 +207,17 @@ function WelcomeMessage() {
     <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-6">
       <h2 className="mb-2 text-lg font-bold text-purple-300">Welcome to UniAgent!</h2>
       <p className="mb-3 text-purple-200/80">
-        LangChain.jsエージェントがマーケットプレイス上の外部エージェントを発見・実行します：
+        Paygent X will discover and execute external agents from the marketplace:
       </p>
       <ul className="space-y-2 text-sm text-purple-200/70">
-        <li>1. discover_agents でエージェントを検索</li>
-        <li>2. 価格・評価を考慮して最適なエージェントを選択</li>
-        <li>3. x402決済付きでエージェントを実行</li>
-        <li>4. 結果を統合してお届け</li>
+        <li>1. Search for agents using discover_agents</li>
+        <li>2. Select the best agent considering price and ratings</li>
+        <li>3. Execute agents with x402 payment</li>
+        <li>4. Deliver integrated results</li>
       </ul>
       <p className="mt-4 text-xs text-purple-300/60">
-        例: 「travelカテゴリのエージェントを検索して」「パリ3日間の旅行プランを作成して」
+        Examples: &quot;Search for agents in the travel category&quot;, &quot;Create a 3-day travel
+        plan for Paris&quot;
       </p>
     </div>
   );
@@ -252,7 +254,7 @@ function MessageBubble({ message }: { message: AgentChatMessage }) {
 
         {/* Content */}
         <div className={`whitespace-pre-wrap ${isUser ? 'text-white' : 'text-slate-300'}`}>
-          {message.content || <span className="text-slate-500 italic">実行中...</span>}
+          {message.content || <span className="text-slate-500 italic">Executing...</span>}
         </div>
 
         {/* Execution Log (アシスタントメッセージのみ) */}
@@ -260,7 +262,7 @@ function MessageBubble({ message }: { message: AgentChatMessage }) {
           <div className="mt-4 space-y-2 border-t border-slate-700 pt-4">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Wrench className="h-3 w-3" />
-              実行ログ
+              Execution Log
             </div>
             {message.executionLog.map((entry, index) => (
               <ExecutionLogCard key={index} entry={entry} />

@@ -6,8 +6,9 @@
  *
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { usePrivy, useSigners } from '@privy-io/react-auth';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { WalletWithMetadata } from '@privy-io/react-auth';
 
 export interface DelegatedWalletInfo {
@@ -17,15 +18,11 @@ export interface DelegatedWalletInfo {
 }
 
 export interface UseDelegatedWalletReturn {
-  /** Embedded wallet情報 */
   wallet: DelegatedWalletInfo | null;
-  /** 委譲処理中かどうか */
   isDelegating: boolean;
-  /** エラーメッセージ */
   error: string | null;
-  /** ウォレットを委譲する */
   delegateWallet: () => Promise<boolean>;
-  /** ローディング中かどうか */
+  undelegateWallet: () => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -53,17 +50,64 @@ function getEmbeddedWallet(linkedAccounts: unknown[]): WalletWithMetadata | null
 
 export function useDelegatedWallet(): UseDelegatedWalletReturn {
   const { user, ready } = usePrivy();
-  const { addSigners } = useSigners();
-
-  const [isDelegating, setIsDelegating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [delegatedAddresses, setDelegatedAddresses] = useState<Set<string>>(new Set());
+  const { addSigners, removeSigners } = useSigners();
+  const queryClient = useQueryClient();
 
   // Embedded walletを取得
   const embeddedWallet = useMemo(() => {
     if (!user?.linkedAccounts) return null;
     return getEmbeddedWallet(user.linkedAccounts);
   }, [user?.linkedAccounts]);
+
+  const privyUserId = user?.id || null;
+
+  const {
+    data: delegationData,
+    isLoading: isLoadingDelegation,
+    error: delegationError,
+  } = useQuery({
+    queryKey: ['wallet-delegation', privyUserId],
+    queryFn: async () => {
+      if (!privyUserId) return null;
+
+      const response = await fetch(
+        `/api/wallet/delegation?privyUserId=${encodeURIComponent(privyUserId)}`
+      );
+      if (!response.ok) {
+        if (response.status === 404) {
+          return { isDelegated: false, walletAddress: null };
+        }
+        throw new Error('Failed to fetch delegation status');
+      }
+      return response.json() as Promise<{ isDelegated: boolean; walletAddress: string | null }>;
+    },
+    enabled: !!privyUserId && ready,
+    staleTime: 30 * 1000,
+  });
+
+  // 委託状態を更新するMutation
+  const updateDelegationMutation = useMutation({
+    mutationFn: async (isDelegated: boolean) => {
+      if (!privyUserId) throw new Error('User not authenticated');
+
+      const response = await fetch('/api/wallet/delegation', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ privyUserId, isDelegated }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to update delegation status');
+      }
+
+      return response.json() as Promise<{ isDelegated: boolean; walletAddress: string | null }>;
+    },
+    onSuccess: () => {
+      // キャッシュを無効化して再取得
+      queryClient.invalidateQueries({ queryKey: ['wallet-delegation', privyUserId] });
+    },
+  });
 
   // wallet情報を構築
   const wallet = useMemo((): DelegatedWalletInfo | null => {
@@ -75,28 +119,24 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
       embeddedWallet.walletId ??
       embeddedWallet.address;
 
-    const isDelegated = delegatedAddresses.has(embeddedWallet.address.toLowerCase());
+    const isDelegated = delegationData?.isDelegated ?? false;
 
     return {
       walletId,
       address: embeddedWallet.address,
       isDelegated,
     };
-  }, [embeddedWallet, delegatedAddresses]);
+  }, [embeddedWallet, delegationData?.isDelegated]);
 
   // ウォレットにセッション署名者を追加
   const delegateWallet = useCallback(async (): Promise<boolean> => {
     if (!embeddedWallet) {
-      setError('Embedded wallet not found');
       return false;
     }
 
     if (wallet?.isDelegated) {
       return true;
     }
-
-    setIsDelegating(true);
-    setError(null);
 
     try {
       await addSigners({
@@ -109,45 +149,80 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
         ],
       });
 
-      // セッション署名者の追加が成功したら、ローカル状態を更新
-      setDelegatedAddresses((prev) => {
-        const newSet = new Set(prev);
-        newSet.add(embeddedWallet.address.toLowerCase());
-        return newSet;
-      });
+      await updateDelegationMutation.mutateAsync(true);
 
       console.log('Session signer added successfully:', embeddedWallet.address);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to add session signer';
 
-      // 重複エラーの場合（既に追加されている）、成功として扱う
+      // 既に追加されていて、重複エラーの場合
       if (errorMessage.toLowerCase().includes('duplicate')) {
         console.log('Session signer already added (duplicate):', embeddedWallet.address);
-        setDelegatedAddresses((prev) => {
-          const newSet = new Set(prev);
-          newSet.add(embeddedWallet.address.toLowerCase());
-          return newSet;
-        });
         return true;
       }
 
       console.error('Failed to add session signer:', err);
-      setError(errorMessage);
       return false;
-    } finally {
-      setIsDelegating(false);
     }
-  }, [embeddedWallet, wallet?.isDelegated, addSigners]);
+  }, [embeddedWallet, wallet?.isDelegated, addSigners, updateDelegationMutation]);
+
+  // ウォレットからセッション署名者を削除
+  const undelegateWallet = useCallback(async (): Promise<boolean> => {
+    if (!embeddedWallet) {
+      return false;
+    }
+
+    if (!wallet?.isDelegated) {
+      return true;
+    }
+
+    try {
+      await removeSigners({
+        address: embeddedWallet.address,
+      });
+
+      await updateDelegationMutation.mutateAsync(false);
+
+      console.log('Session signer removed successfully:', embeddedWallet.address);
+      return true;
+    } catch (err) {
+      console.error('Failed to remove session signer:', err);
+      return false;
+    }
+  }, [embeddedWallet, wallet?.isDelegated, removeSigners, updateDelegationMutation]);
+
+  const error = useMemo(() => {
+    if (delegationError) {
+      return delegationError instanceof Error
+        ? delegationError.message
+        : 'Failed to load delegation status';
+    }
+    if (updateDelegationMutation.error) {
+      return updateDelegationMutation.error instanceof Error
+        ? updateDelegationMutation.error.message
+        : 'Failed to update delegation status';
+    }
+    return null;
+  }, [delegationError, updateDelegationMutation.error]);
 
   return useMemo(
     () => ({
       wallet,
-      isDelegating,
+      isDelegating: updateDelegationMutation.isPending,
       error,
       delegateWallet,
-      isLoading: !ready,
+      undelegateWallet,
+      isLoading: !ready || isLoadingDelegation,
     }),
-    [wallet, isDelegating, error, delegateWallet, ready]
+    [
+      wallet,
+      updateDelegationMutation.isPending,
+      error,
+      delegateWallet,
+      undelegateWallet,
+      ready,
+      isLoadingDelegation,
+    ]
   );
 }
