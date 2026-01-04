@@ -97,6 +97,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   try {
     const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
 
+    // @ts-ignore - Type instantiation is excessively deep (TS2589)
     const agent = createAgent({
       model,
       tools: [discoverAgentsTool, executeAgentTool],
@@ -239,6 +240,7 @@ export async function* runAgentStream(
   try {
     const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
 
+    // @ts-ignore - Type instantiation is excessively deep (TS2589)
     const agent = createAgent({
       model,
       tools: [discoverAgentsTool, executeAgentTool],
