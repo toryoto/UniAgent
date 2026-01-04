@@ -7,9 +7,7 @@
  * - ストリーミング対応
  */
 
-import { ChatAnthropic } from '@langchain/anthropic';
-import { createAgent } from 'langchain'; // ← 正しいインポート (langchain v1)
-import { HumanMessage } from '@langchain/core/messages';
+import { createAgent, initChatModel } from 'langchain';
 import type { AgentRequest, AgentResponse, ExecutionLogEntry } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
@@ -76,23 +74,6 @@ const SYSTEM_PROMPT = `あなたは UniAgent の AI エージェントです。
 - 類似のタスクを1つのエージェントで処理できる場合は、それを使用
 - エージェントの評価と価格のバランスを考慮`;
 
-function createAgentInstance() {
-  const model = new ChatAnthropic({
-    model: 'claude-sonnet-4-20250514',
-    temperature: 0,
-  });
-
-  const tools = [discoverAgentsTool, executeAgentTool];
-
-  const agent = createAgent({
-    model,
-    tools,
-    systemPrompt: SYSTEM_PROMPT,
-  });
-
-  return agent;
-}
-
 /**
  * エージェントを実行（非ストリーミング）
  */
@@ -114,7 +95,13 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   });
 
   try {
-    const agent = createAgentInstance();
+    const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
+
+    const agent = createAgent({
+      model,
+      tools: [discoverAgentsTool, executeAgentTool],
+      systemPrompt: SYSTEM_PROMPT,
+    });
 
     // ユーザーメッセージにコンテキストを追加
     const userMessage = `
@@ -250,7 +237,13 @@ export async function* runAgentStream(
   yield { type: 'start', data: { message, maxBudget } };
 
   try {
-    const agent = createAgentInstance();
+    const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
+
+    const agent = createAgent({
+      model,
+      tools: [discoverAgentsTool, executeAgentTool],
+      systemPrompt: SYSTEM_PROMPT,
+    });
 
     const userMessage = `
 ## ユーザーのリクエスト
