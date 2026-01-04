@@ -100,10 +100,8 @@ export default function ChatPage() {
           <div className="border-b border-slate-800 bg-slate-900/50 px-8 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-white">AI Agent Chat</h1>
-                <p className="text-sm text-slate-400">
-                  LangChain.js agents will execute your tasks
-                </p>
+                <h1 className="text-2xl font-bold text-white">Chat</h1>
+                <p className="text-sm text-slate-400">Paygent X will execute your tasks</p>
               </div>
               {/* 予算設定 */}
               <div className="flex items-center gap-2">
@@ -209,7 +207,7 @@ function WelcomeMessage() {
     <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-6">
       <h2 className="mb-2 text-lg font-bold text-purple-300">Welcome to UniAgent!</h2>
       <p className="mb-3 text-purple-200/80">
-        LangChain.js agents will discover and execute external agents from the marketplace:
+        Paygent X will discover and execute external agents from the marketplace:
       </p>
       <ul className="space-y-2 text-sm text-purple-200/70">
         <li>1. Search for agents using discover_agents</li>
