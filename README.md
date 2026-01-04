@@ -21,7 +21,7 @@ AI エージェントの普及に伴い、エージェント同士が協調し�
 
 UniAgent は、これらの課題を解決するために、以下の技術を統合しています：
 
-- **[A2A プロトコル](https://github.com/anthropics/a2a-protocol)**: エージェント間の標準的な通信プロトコル
+- **[A2A プロトコル](https://a2aprotocol.ai/)**: エージェント間の標準的な通信プロトコル
 - **[x402 プロトコル](https://x402.org/)**: 自動マイクロペイメントによる決済
 - **ブロックチェーン**: 分散型レジストリと評価システム（[Base Sepolia](https://docs.base.org/)）
 - **LLM 統合**: タスク分析とエージェント選択の自動化
@@ -31,7 +31,7 @@ UniAgent は、これらの課題を解決するために、以下の技術を�
 - 🤖 **自律的なエージェント実行**: LLM がタスクを分析し、必要なエージェントを自動的に発見・実行
 - 💰 **自動マイクロペイメント**: [x402 プロトコル](https://x402.org/)による人間介入不要の決済
 - 🔗 **オンチェーン検証**: すべてのエージェント情報と評価がブロックチェーン上に記録
-- 🌐 **標準準拠**: [A2A プロトコル](https://github.com/anthropics/a2a-protocol)準拠やスマートコントラクトでのエージェント管理
+- 🌐 **標準準拠**: [A2A プロトコル]([https://github.com/anthropics/a2a-protocol](https://a2aprotocol.ai/))準拠やスマートコントラクトでのエージェント管理
 
 ### ユースケース
 
@@ -110,9 +110,9 @@ graph TB
 ### 主要コンポーネント
 
 - **Web UI (Next.js)**: ユーザーインターフェース、認証、ウォレット管理
-- **Paygent X**: [A2A プロトコル](https://github.com/anthropics/a2a-protocol)（discover_agents、execute_agent）と [x402](https://x402.org/) 決済を統合したエージェント実行エンジン
+- **Paygent X**: [A2A プロトコル](https://a2aprotocol.ai/)（discover_agents、execute_agent）と [x402](https://x402.org/) 決済を統合したエージェント実行エンジン
 - **Smart Contracts**: エージェントレジストリ、評価システム、トランザクション記録
-- **External Agents**: マーケットプレイスで提供されるエージェント（[A2A](https://github.com/anthropics/a2a-protocol) + [x402](https://x402.org/) 対応）
+- **External Agents**: マーケットプレイスで提供されるエージェント（[A2A](https://a2aprotocol.ai/) + [x402](https://x402.org/) 対応）
 
 ## 🛠️ 技術スタック
 
