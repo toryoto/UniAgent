@@ -13,6 +13,7 @@ import { logger } from '../utils/logger.js';
 /**
  * discover_agents ツール定義
  */
+// @ts-ignore - Type instantiation is excessively deep (TS2589)
 export const discoverAgentsTool = tool(
   async (input) => {
     try {

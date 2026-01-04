@@ -247,6 +247,7 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
 /**
  * execute_agent ツール定義
  */
+// @ts-ignore - Type instantiation is excessively deep (TS2589)
 export const executeAgentTool = tool(
   async (input) => {
     try {

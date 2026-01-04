@@ -2,4 +2,4 @@
  * Agent Core
  */
 
-export { runAgent } from './agent.js';
+export { runAgent, runAgentStream } from './agent.js';

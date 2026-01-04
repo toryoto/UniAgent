@@ -1,14 +1,13 @@
 /**
- * Paygent X
+ * Paygent X - LangChain v1 Implementation (Middleware不使用)
  *
- * LangChain.jsを使用したReActエージェント実装
+ * LangChain v1を使用したシンプルなReActエージェント実装
  * - discover_agents: MCPサーバー経由でエージェントを検索
  * - execute_agent: x402決済付きでエージェントを実行
+ * - ストリーミング対応
  */
 
-import { ChatAnthropic } from '@langchain/anthropic';
-import { createReactAgent } from '@langchain/langgraph/prebuilt';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
+import { createAgent, initChatModel } from 'langchain';
 import type { AgentRequest, AgentResponse, ExecutionLogEntry } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
@@ -16,42 +15,68 @@ import { logger, logStep, logSeparator } from '../utils/logger.js';
 const SYSTEM_PROMPT = `あなたは UniAgent の AI エージェントです。
 ユーザーのタスクを達成するために、マーケットプレイス上の外部エージェントを発見・選択・実行します。
 
-## あなたの役割
-1. ユーザーのタスクを理解し、必要なエージェントの種類を判断する
-2. discover_agents ツールで適切なエージェントを検索する
-3. 価格と評価を考慮して最適なエージェントを選択する
-4. execute_agent ツールでエージェントを実行する
-5. 結果をユーザーにわかりやすく報告する
+## あなたの役割と思考プロセス
 
-## 重要な制約
-- ユーザーの max_budget を超えないように注意してください
-- 複数のエージェントを使う場合は合計コストを計算してください
-- エージェント実行時は maxPrice を適切に設定してください
+### 1. タスク分析フェーズ
+- ユーザーのリクエストを詳細に分析する
+- 必要なエージェントの種類、カテゴリ、スキルを特定する
+- タスクの複雑さと必要なステップ数を評価する
 
-## ツールの使い方
-- discover_agents: カテゴリや価格でエージェントを検索
-- execute_agent: 選択したエージェントにタスクを依頼（x402決済を自動処理）
+### 2. エージェント検索フェーズ
+- discover_agents ツールを使用して適切なエージェントを検索
+- 検索パラメータ:
+  - category: タスクに関連するカテゴリ（例: "travel", "finance", "utility"）
+  - skillName: 必要なスキル名（部分一致可）
+  - maxPrice: 予算内に収まる価格範囲
+  - minRating: 最低評価（推奨: 3.0以上）
 
-## 応答形式
-最終的な結果は日本語で簡潔に報告してください。
-実行したエージェントと費用も含めてください。`;
+### 3. エージェント選択フェーズ
+検索結果から最適なエージェントを選択する際は以下を考慮:
+- **価格**: 予算内に収まり、かつコストパフォーマンスが良い
+- **評価**: 高い評価と十分な評価数
+- **説明**: タスク要件と一致するスキルと説明
+- **複数エージェント**: 必要に応じて複数のエージェントを組み合わせる
 
-function createAgent() {
-  const model = new ChatAnthropic({
-    model: 'claude-sonnet-4-20250514',
-    temperature: 0,
-  });
+### 4. エージェント実行フェーズ
+- execute_agent ツールで選択したエージェントを実行
+- 各実行前に残り予算を確認
+- 複数エージェントを使用する場合は、合計コストを常に追跡
 
-  const tools = [discoverAgentsTool, executeAgentTool];
+### 5. 結果統合フェーズ
+- 複数のエージェントからの結果を統合
+- ユーザーにわかりやすく、構造化された形で報告
 
-  const agent = createReactAgent({
-    llm: model,
-    tools,
-  });
+## 重要な制約とガイドライン
 
-  return agent;
-}
+### 予算管理
+- ユーザーの max_budget を絶対に超えないこと
+- 各エージェント実行の maxPrice は、残り予算の90%以下に設定（安全マージン）
+- 複数のエージェントを使う場合は、合計コストを事前に計算
+- 予算が不足する場合は、ユーザーに明確に報告
 
+### エラーハンドリング
+- エージェント実行が失敗した場合:
+  1. エラーメッセージを分析
+  2. 代替エージェントを検索
+  3. 予算不足の場合は、より安価なエージェントを探す
+  4. それでも解決できない場合は、ユーザーに状況を報告
+
+### 応答形式
+- 最終的な結果は日本語で簡潔かつ構造化して報告
+- 以下の情報を含める:
+  - 実行したエージェント名とその役割
+  - 各エージェントの実行結果
+  - 合計費用（USDC）
+  - エラーが発生した場合は、その内容と対処方法
+
+### 最適化のヒント
+- 可能な限り効率的にタスクを完了する（不要なエージェント呼び出しを避ける）
+- 類似のタスクを1つのエージェントで処理できる場合は、それを使用
+- エージェントの評価と価格のバランスを考慮`;
+
+/**
+ * エージェントを実行（非ストリーミング）
+ */
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   const { message, walletId, walletAddress, maxBudget } = request;
   const executionLog: ExecutionLogEntry[] = [];
@@ -70,7 +95,14 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   });
 
   try {
-    const agent = createAgent();
+    const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
+
+    // @ts-ignore - Type instantiation is excessively deep (TS2589)
+    const agent = createAgent({
+      model,
+      tools: [discoverAgentsTool, executeAgentTool],
+      systemPrompt: SYSTEM_PROMPT,
+    });
 
     // ユーザーメッセージにコンテキストを追加
     const userMessage = `
@@ -81,18 +113,23 @@ ${message}
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
 - max_budget: $${maxBudget} USDC
+- 現在の予算使用額: $${totalCost} USDC
+- 残り予算: $${maxBudget - totalCost} USDC
 
+## 重要な指示
 エージェントを使う場合は execute_agent に以下を指定してください:
 - walletId: "${walletId}"
 - walletAddress: "${walletAddress}"
-各エージェント実行の maxPrice の合計が max_budget を超えないようにしてください。
+- maxPrice: 残り予算の90%以下に設定してください（安全マージン）
+
+各エージェント実行の maxPrice の合計が max_budget を超えないように注意してください。
+予算が不足する場合は、より安価なエージェントを探すか、ユーザーに報告してください。
 `;
 
     logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
 
-    // エージェント実行
     const result = await agent.invoke({
-      messages: [new SystemMessage(SYSTEM_PROMPT), new HumanMessage(userMessage)],
+      messages: [{ role: 'user', content: userMessage }],
     });
 
     // メッセージからログを抽出
@@ -121,13 +158,15 @@ ${message}
       }
 
       if (msg._getType() === 'tool') {
-        // LangChainのToolMessage型にはcontentプロパティがある
         const toolMsg = msg as { content: string };
         try {
           const parsed = JSON.parse(toolMsg.content) as { paymentAmount?: number };
           if (parsed.paymentAmount) {
             totalCost += parsed.paymentAmount;
-            logger.payment.success(`Payment: $${parsed.paymentAmount} USDC`);
+            logger.payment.success(`Payment: $${parsed.paymentAmount} USDC`, {
+              totalCost,
+              remainingBudget: maxBudget - totalCost,
+            });
           }
         } catch {
           // JSON解析失敗は無視
@@ -154,7 +193,7 @@ ${message}
     });
 
     logSeparator('Agent Execution End');
-    logger.agent.success('Total cost', { totalCost });
+    logger.agent.success('Total cost', { totalCost, remainingBudget: maxBudget - totalCost });
 
     return {
       success: true,
@@ -183,5 +222,139 @@ ${message}
       totalCost,
       error: errorMessage,
     };
+  }
+}
+
+/**
+ * エージェントを実行（ストリーミング）
+ */
+export async function* runAgentStream(
+  request: AgentRequest
+): AsyncGenerator<{ type: string; data: unknown }, void, unknown> {
+  const { message, walletId, walletAddress, maxBudget } = request;
+  let totalCost = 0;
+  let stepCounter = 0;
+
+  yield { type: 'start', data: { message, maxBudget } };
+
+  try {
+    const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
+
+    // @ts-ignore - Type instantiation is excessively deep (TS2589)
+    const agent = createAgent({
+      model,
+      tools: [discoverAgentsTool, executeAgentTool],
+      systemPrompt: SYSTEM_PROMPT,
+    });
+
+    const userMessage = `
+## ユーザーのリクエスト
+${message}
+
+## コンテキスト
+- wallet_id: ${walletId}
+- wallet_address: ${walletAddress}
+- max_budget: $${maxBudget} USDC
+- 現在の予算使用額: $${totalCost} USDC
+- 残り予算: $${maxBudget - totalCost} USDC
+
+## 重要な指示
+エージェントを使う場合は execute_agent に以下を指定してください:
+- walletId: "${walletId}"
+- walletAddress: "${walletAddress}"
+- maxPrice: 残り予算の90%以下に設定してください（安全マージン）
+`;
+
+    yield {
+      type: 'log',
+      data: {
+        step: ++stepCounter,
+        type: 'llm',
+        action: 'Starting agent',
+        timestamp: new Date(),
+      },
+    };
+
+    const stream = await agent.stream({
+      messages: [{ role: 'user', content: userMessage }],
+    });
+
+    for await (const chunk of stream) {
+      // ストリームチャンクを処理
+      if (typeof chunk === 'object' && chunk !== null && 'messages' in chunk) {
+        const chunkRecord = chunk as Record<string, unknown>;
+        const messages = Array.isArray(chunkRecord.messages) ? chunkRecord.messages : [];
+        for (const msg of messages) {
+          if (typeof msg === 'object' && msg !== null && '_getType' in msg) {
+            const msgType = (msg as { _getType: () => string })._getType();
+
+            if (msgType === 'ai') {
+              const aiMsg = msg as {
+                content?: string;
+                tool_calls?: Array<{ name: string; args: Record<string, unknown> }>;
+              };
+
+              // テキストコンテンツをストリーミング
+              if (aiMsg.content) {
+                yield { type: 'content', data: { text: aiMsg.content } };
+              }
+
+              // ツール呼び出しを通知
+              if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+                for (const toolCall of aiMsg.tool_calls) {
+                  stepCounter++;
+                  yield {
+                    type: 'tool_call',
+                    data: {
+                      step: stepCounter,
+                      tool: toolCall.name,
+                      args: toolCall.args,
+                    },
+                  };
+                }
+              }
+            }
+
+            if (msgType === 'tool') {
+              const toolMsg = msg as unknown as { content: string };
+              try {
+                const parsed = JSON.parse(toolMsg.content) as {
+                  paymentAmount?: number;
+                  success?: boolean;
+                };
+
+                // 決済情報を処理
+                if (parsed.paymentAmount) {
+                  totalCost += parsed.paymentAmount;
+                  yield {
+                    type: 'payment',
+                    data: {
+                      amount: parsed.paymentAmount,
+                      totalCost,
+                      remainingBudget: maxBudget - totalCost,
+                    },
+                  };
+                }
+              } catch {
+                // JSON解析失敗は無視
+              }
+            }
+          }
+        }
+      }
+    }
+
+    yield {
+      type: 'end',
+      data: {
+        success: true,
+        totalCost,
+        remainingBudget: maxBudget - totalCost,
+      },
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.agent.error('Streaming execution failed', { error: errorMessage });
+    yield { type: 'error', data: { error: errorMessage } };
   }
 }

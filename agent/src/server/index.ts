@@ -8,7 +8,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
-import { runAgent } from '../core/agent.js';
+import { runAgent, runAgentStream } from '../core/agent.js';
 import { logger, logSeparator } from '../utils/logger.js';
 
 const app = express();
@@ -93,51 +93,67 @@ app.post('/api/agent', async (req, res) => {
 });
 
 /**
- * SSE Streaming endpoint (future enhancement)
+ * SSE Streaming endpoint
  *
  * POST /api/agent/stream
+ * リアルタイムでエージェントの実行状況をストリーミング
  */
 app.post('/api/agent/stream', async (req, res) => {
   // SSEヘッダー設定
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Nginxバッファリングを無効化
 
   try {
     const { message, walletId, walletAddress, maxBudget } = req.body as AgentRequest;
 
     // Validation
-    if (!message || !walletId || !walletAddress || typeof maxBudget !== 'number') {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Invalid request' })}\n\n`);
+    if (!message || typeof message !== 'string') {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'message is required' })}\n\n`);
       res.end();
       return;
     }
 
-    // Start event
-    res.write(`data: ${JSON.stringify({ type: 'start' })}\n\n`);
-
-    // Run agent (non-streaming for now)
-    const result = await runAgent({ message, walletId, walletAddress, maxBudget });
-
-    // Send execution log as events
-    for (const entry of result.executionLog) {
-      res.write(`data: ${JSON.stringify({ type: 'log', entry })}\n\n`);
+    if (!walletId || typeof walletId !== 'string') {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'walletId is required' })}\n\n`);
+      res.end();
+      return;
     }
 
-    // Final result
-    res.write(
-      `data: ${JSON.stringify({
-        type: 'end',
-        success: result.success,
-        message: result.message,
-        totalCost: result.totalCost,
-        error: result.error,
-      })}\n\n`
-    );
+    if (!walletAddress || typeof walletAddress !== 'string') {
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', error: 'walletAddress is required' })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
+      res.write(
+        `data: ${JSON.stringify({ type: 'error', error: 'maxBudget must be a positive number' })}\n\n`
+      );
+      res.end();
+      return;
+    }
+
+    // ストリーミング実行
+    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget });
+
+    for await (const event of stream) {
+      const data = JSON.stringify(event);
+      res.write(`data: ${data}\n\n`);
+
+      // クライアントが切断した場合の処理
+      if (res.closed) {
+        break;
+      }
+    }
 
     res.end();
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.agent.error('Streaming request failed', { error: errorMessage });
     res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`);
     res.end();
   }
