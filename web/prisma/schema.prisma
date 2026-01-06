@@ -102,3 +102,20 @@ model AgentCache {
   @@index([isActive])
   @@map("agent_cache")
 }
+
+model AccessLimit {
+  id            String   @id @default(uuid()) @db.Uuid
+  identifier    String   @map("identifier") @db.VarChar(255)
+  identifierType String  @map("identifier_type") @db.VarChar(20) // 'ip' | 'wallet'
+  feature       String   @map("feature") @db.VarChar(50)
+  firstRequestAt DateTime @map("first_request_at") @db.Timestamptz(6)
+  requestCount  Int      @default(0) @map("request_count")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([identifier, identifierType, feature], name: "idx_identifier_type_feature")
+  @@index([identifier])
+  @@index([identifierType])
+  @@index([feature])
+  @@map("access_limits")
+}

@@ -3,20 +3,14 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { usePrivy } from '@privy-io/react-auth';
-import { Copy, Droplet, CheckCircle2, XCircle } from 'lucide-react';
+import { Copy, Droplet, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
-
-type FaucetStatus = 'idle' | 'loading' | 'success' | 'error';
+import { useFaucet } from '@/lib/hooks/useFaucet';
 
 export default function FaucetPage() {
   const { user } = usePrivy();
   const [copiedAddress, setCopiedAddress] = useState(false);
-
-  // Faucet request states
-  const [ethStatus, setEthStatus] = useState<FaucetStatus>('idle');
-  const [usdcStatus, setUsdcStatus] = useState<FaucetStatus>('idle');
-  const [ethMessage, setEthMessage] = useState('');
-  const [usdcMessage, setUsdcMessage] = useState('');
+  const { requestUSDC, usdcStatus, usdcMessage, usdcTxHash } = useFaucet();
 
   const handleCopyAddress = () => {
     if (user?.wallet?.address) {
@@ -26,67 +20,13 @@ export default function FaucetPage() {
     }
   };
 
-  const handleRequestETH = async () => {
-    if (!user?.wallet?.address) return;
-
-    setEthStatus('loading');
-    setEthMessage('');
-
-    try {
-      const response = await fetch('/api/faucet/eth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: user.wallet.address,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setEthStatus('success');
-        setEthMessage(data.message || 'ETH successfully sent!');
-      } else {
-        setEthStatus('error');
-        setEthMessage(data.error || 'Failed to request ETH');
-      }
-    } catch (error) {
-      setEthStatus('error');
-      setEthMessage('Network error. Please try again.');
-    }
-  };
-
   const handleRequestUSDC = async () => {
     if (!user?.wallet?.address) return;
-
-    setUsdcStatus('loading');
-    setUsdcMessage('');
-
     try {
-      const response = await fetch('/api/faucet/usdc', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          address: user.wallet.address,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setUsdcStatus('success');
-        setUsdcMessage(data.message || 'USDC successfully sent!');
-      } else {
-        setUsdcStatus('error');
-        setUsdcMessage(data.error || 'Failed to request USDC');
-      }
+      await requestUSDC(user.wallet.address);
     } catch (error) {
-      setUsdcStatus('error');
-      setUsdcMessage('Network error. Please try again.');
+      // エラーはuseFaucetフック内で処理される
+      console.error('Failed to request USDC:', error);
     }
   };
 
@@ -98,7 +38,7 @@ export default function FaucetPage() {
             {/* Header */}
             <div className="mb-8">
               <h1 className="mb-2 text-3xl font-bold text-white">Faucet</h1>
-              <p className="text-slate-400">Request testnet ETH and USDC for your wallet</p>
+              <p className="text-slate-400">Request testnet USDC for your wallet</p>
             </div>
 
             {/* Wallet Address */}
@@ -125,46 +65,6 @@ export default function FaucetPage() {
             </div>
 
             <div className="space-y-6">
-              {/* Base Sepolia ETH Faucet */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500">
-                    <Droplet className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-white">Base Sepolia ETH</h2>
-                    <p className="text-sm text-slate-400">
-                      Get ETH for gas fees on Base Sepolia testnet
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleRequestETH}
-                  disabled={ethStatus === 'loading' || !user?.wallet?.address}
-                  className="w-full rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {ethStatus === 'loading' ? 'Requesting...' : 'Request ETH'}
-                </button>
-
-                {ethMessage && (
-                  <div
-                    className={`mt-4 flex items-center gap-2 rounded-lg p-4 ${
-                      ethStatus === 'success'
-                        ? 'bg-green-500/10 text-green-400'
-                        : 'bg-red-500/10 text-red-400'
-                    }`}
-                  >
-                    {ethStatus === 'success' ? (
-                      <CheckCircle2 className="h-5 w-5" />
-                    ) : (
-                      <XCircle className="h-5 w-5" />
-                    )}
-                    <span className="text-sm">{ethMessage}</span>
-                  </div>
-                )}
-              </div>
-
               {/* Base Sepolia USDC Faucet */}
               <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
                 <div className="mb-4 flex items-center gap-3">
@@ -200,9 +100,41 @@ export default function FaucetPage() {
                     ) : (
                       <XCircle className="h-5 w-5" />
                     )}
-                    <span className="text-sm">{usdcMessage}</span>
+                    <div className="flex-1">
+                      <span className="text-sm">{usdcMessage}</span>
+                      {usdcTxHash && usdcStatus === 'success' && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <a
+                            href={`https://sepolia.basescan.org/tx/${usdcTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-green-300 transition-colors hover:text-green-200 hover:underline"
+                          >
+                            <span className="font-mono">
+                              {usdcTxHash.slice(0, 10)}...{usdcTxHash.slice(-8)}
+                            </span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
+              </div>
+
+              {/* Rate Limit Rules */}
+              <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-6">
+                <h3 className="mb-3 font-bold text-yellow-300">Rate Limit Rules</h3>
+                <ul className="space-y-2 text-sm text-yellow-200/80">
+                  <li className="flex gap-2">
+                    <span className="font-bold">•</span>
+                    <span>Each wallet address can request USDC once per 24 hours</span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-bold">•</span>
+                    <span>Each IP address can request USDC up to 3 times per 24 hours</span>
+                  </li>
+                </ul>
               </div>
 
               {/* Instructions */}
@@ -211,18 +143,10 @@ export default function FaucetPage() {
                 <ol className="space-y-2 text-sm text-purple-200/80">
                   <li className="flex gap-2">
                     <span className="font-bold">1.</span>
-                    <span>First, request ETH to cover gas fees for transactions</span>
+                    <span>Request USDC tokens to pay for agent services</span>
                   </li>
                   <li className="flex gap-2">
                     <span className="font-bold">2.</span>
-                    <span>Then, request USDC tokens to pay for agent services</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-bold">3.</span>
-                    <span>Go to Wallet page to approve USDC spending</span>
-                  </li>
-                  <li className="flex gap-2">
-                    <span className="font-bold">4.</span>
                     <span>You&apos;re ready to use agents in the Chat!</span>
                   </li>
                 </ol>
