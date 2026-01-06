@@ -1,6 +1,7 @@
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
+import { PageHeader } from '@/components/layout/page-header';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { Send, Loader2, Bot, User, AlertCircle, Wrench, DollarSign, Shield } from 'lucide-react';
 import { useRef, useEffect, useState } from 'react';
@@ -68,19 +69,19 @@ export default function ChatPage() {
 
   // Wallet connection and delegation status warning
   const walletWarning = !walletAddress ? (
-    <div className="mb-4 flex items-start gap-3 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-4">
-      <AlertCircle className="mt-0.5 h-5 w-5 text-yellow-400" />
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3 md:gap-3 md:p-4">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400 md:h-5 md:w-5" />
       <div className="flex-1">
-        <p className="text-sm text-yellow-200">
+        <p className="text-xs text-yellow-200 md:text-sm">
           Wallet is not connected. Please connect your wallet to use payment features.
         </p>
       </div>
     </div>
   ) : !wallet?.isDelegated ? (
-    <div className="mb-4 flex items-start gap-3 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-4">
-      <Shield className="mt-0.5 h-5 w-5 text-yellow-400" />
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3 md:gap-3 md:p-4">
+      <Shield className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400 md:h-5 md:w-5" />
       <div className="flex-1">
-        <p className="text-sm text-yellow-200">
+        <p className="text-xs text-yellow-200 md:text-sm">
           Wallet is not delegated to the server. To use x402 payments, please delegate your wallet
           on the{' '}
           <Link href="/wallet" className="font-medium underline hover:text-yellow-100">
@@ -97,31 +98,28 @@ export default function ChatPage() {
       <AuthGuard>
         <div className="flex h-screen flex-col bg-slate-950">
           {/* Header */}
-          <div className="border-b border-slate-800 bg-slate-900/50 px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-white">Chat</h1>
-                <p className="text-sm text-slate-400">Paygent X will execute your tasks</p>
-              </div>
-              {/* 予算設定 */}
+          <PageHeader
+            title="Chat"
+            description="Paygent X will execute your tasks"
+            rightContent={
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-green-400" />
-                <span className="text-sm text-slate-400">Max Budget:</span>
+                <span className="text-xs text-slate-400 md:text-sm">Max Budget:</span>
                 <input
                   type="number"
                   value={maxBudget}
                   onChange={(e) => setMaxBudget(Number(e.target.value))}
                   min={0.01}
                   step={0.01}
-                  className="w-20 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-white"
+                  className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white md:w-20 md:text-sm"
                 />
-                <span className="text-sm text-slate-400">USDC</span>
+                <span className="text-xs text-slate-400 md:text-sm">USDC</span>
               </div>
-            </div>
-          </div>
+            }
+          />
 
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
             <div className="mx-auto max-w-4xl">
               {/* Wallet Warning */}
               {walletWarning}
@@ -137,7 +135,7 @@ export default function ChatPage() {
 
                 {/* Loading indicator */}
                 {isLoading && messages.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="flex items-center gap-2 text-xs text-slate-400 md:text-sm">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Agent is executing...</span>
                   </div>
@@ -146,10 +144,10 @@ export default function ChatPage() {
 
               {/* Error Alert */}
               {error && (
-                <div className="mt-4 flex items-start gap-3 rounded-lg border border-red-900/50 bg-red-950/30 p-4">
-                  <AlertCircle className="mt-0.5 h-5 w-5 text-red-400" />
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950/30 p-3 md:gap-3 md:p-4">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400 md:h-5 md:w-5" />
                   <div className="flex-1">
-                    <p className="text-sm text-red-200">{error}</p>
+                    <p className="text-xs text-red-200 md:text-sm">{error}</p>
                     <button
                       onClick={clearError}
                       className="mt-2 text-xs text-red-400 hover:text-red-300"
@@ -165,9 +163,9 @@ export default function ChatPage() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-slate-800 bg-slate-900/50 p-6">
+          <div className="border-t border-slate-800 bg-slate-900/50 p-4 md:p-6">
             <div className="mx-auto max-w-4xl">
-              <div className="flex gap-4">
+              <div className="flex gap-2 md:gap-4">
                 <textarea
                   ref={inputRef}
                   value={input}
@@ -176,13 +174,13 @@ export default function ChatPage() {
                   placeholder="Enter your task..."
                   disabled={isLoading || !walletAddress || !wallet?.isDelegated}
                   rows={1}
-                  className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50"
-                  style={{ minHeight: '48px', maxHeight: '100px' }}
+                  className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 md:px-4 md:py-3 md:text-base"
+                  style={{ minHeight: '44px', maxHeight: '100px' }}
                 />
                 <button
                   onClick={handleSubmit}
                   disabled={!input.trim() || isLoading || !walletAddress || !wallet?.isDelegated}
-                  className="self-start rounded-lg bg-purple-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="self-start rounded-lg bg-purple-600 p-2.5 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
                 >
                   {isLoading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -204,12 +202,12 @@ export default function ChatPage() {
 
 function WelcomeMessage() {
   return (
-    <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-6">
-      <h2 className="mb-2 text-lg font-bold text-purple-300">Welcome to UniAgent!</h2>
-      <p className="mb-3 text-purple-200/80">
+    <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 md:p-6">
+      <h2 className="mb-2 text-base font-bold text-purple-300 md:text-lg">Welcome to UniAgent!</h2>
+      <p className="mb-3 text-sm text-purple-200/80 md:text-base">
         Paygent X will discover and execute external agents from the marketplace:
       </p>
-      <ul className="space-y-2 text-sm text-purple-200/70">
+      <ul className="space-y-2 text-xs text-purple-200/70 md:text-sm">
         <li>1. Search for agents using discover_agents</li>
         <li>2. Select the best agent considering price and ratings</li>
         <li>3. Execute agents with x402 payment</li>
@@ -229,37 +227,39 @@ function MessageBubble({ message }: { message: AgentChatMessage }) {
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-3xl rounded-2xl px-6 py-4 ${
+        className={`w-full max-w-3xl rounded-2xl px-4 py-3 md:px-6 md:py-4 ${
           isUser ? 'bg-purple-600 text-white' : 'border border-slate-800 bg-slate-900/50'
         }`}
       >
         {/* Role indicator */}
         <div
-          className={`mb-2 flex items-center gap-2 text-sm font-medium ${
+          className={`mb-2 flex items-center gap-2 text-xs font-medium md:text-sm ${
             isUser ? 'text-purple-200' : 'text-purple-400'
           }`}
         >
           {isUser ? (
             <>
-              <User className="h-4 w-4" />
+              <User className="h-3 w-3 md:h-4 md:w-4" />
               You
             </>
           ) : (
             <>
-              <Bot className="h-4 w-4" />
+              <Bot className="h-3 w-3 md:h-4 md:w-4" />
               AI Agent
             </>
           )}
         </div>
 
         {/* Content */}
-        <div className={`whitespace-pre-wrap ${isUser ? 'text-white' : 'text-slate-300'}`}>
+        <div
+          className={`whitespace-pre-wrap text-sm md:text-base ${isUser ? 'text-white' : 'text-slate-300'}`}
+        >
           {message.content || <span className="text-slate-500 italic">Executing...</span>}
         </div>
 
         {/* Execution Log (アシスタントメッセージのみ) */}
         {!isUser && message.executionLog && message.executionLog.length > 0 && (
-          <div className="mt-4 space-y-2 border-t border-slate-700 pt-4">
+          <div className="mt-3 space-y-2 border-t border-slate-700 pt-3 md:mt-4 md:pt-4">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Wrench className="h-3 w-3" />
               Execution Log
@@ -272,8 +272,8 @@ function MessageBubble({ message }: { message: AgentChatMessage }) {
 
         {/* Total Cost */}
         {!isUser && message.totalCost !== undefined && message.totalCost > 0 && (
-          <div className="mt-3 flex items-center gap-2 border-t border-slate-700 pt-3 text-sm">
-            <DollarSign className="h-4 w-4 text-green-400" />
+          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-700 pt-2 text-xs md:mt-3 md:pt-3 md:text-sm">
+            <DollarSign className="h-3 w-3 text-green-400 md:h-4 md:w-4" />
             <span className="text-slate-400">Total Cost:</span>
             <span className="font-mono text-green-400">${message.totalCost.toFixed(4)} USDC</span>
           </div>
@@ -299,9 +299,9 @@ function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
   };
 
   return (
-    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3 text-xs">
-      <div className="flex items-center gap-2">
-        <span className={`h-2 w-2 rounded-full ${typeColors[entry.type]}`} />
+    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
+      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+        <span className={`h-2 w-2 shrink-0 rounded-full ${typeColors[entry.type]}`} />
         <span className="font-mono text-slate-500">[Step {entry.step}]</span>
         <span className="rounded bg-slate-700 px-1.5 py-0.5 text-slate-300">
           {typeLabels[entry.type]}
@@ -309,7 +309,7 @@ function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
         <span className="text-slate-300">{entry.action}</span>
       </div>
       {entry.details && Object.keys(entry.details).length > 0 && (
-        <pre className="mt-2 overflow-x-auto text-slate-400">
+        <pre className="mt-2 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
           {JSON.stringify(entry.details, null, 2)}
         </pre>
       )}

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MessageSquare, LayoutDashboard, History, Wallet, Droplet } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, History, Wallet, Droplet, X } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import { cn } from '@/lib/utils/cn';
 
@@ -14,7 +14,12 @@ const navigation = [
   { name: 'Faucet', href: '/faucet', icon: Droplet },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+  isMobile?: boolean;
+}
+
+export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { authenticated, user, logout } = usePrivy();
@@ -24,16 +29,35 @@ export function Sidebar() {
     router.push('/');
   };
 
+  const handleLinkClick = () => {
+    if (isMobile && onClose) {
+      onClose();
+    }
+  };
+
   return (
     <div className="flex h-screen w-64 flex-col border-r border-slate-700 bg-slate-900">
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b border-slate-700 px-6">
-        <Link href={authenticated ? '/chat' : '/'} className="flex items-center gap-2">
+      {/* Logo & Close Button */}
+      <div className="flex h-16 items-center justify-between border-b border-slate-700 px-6">
+        <Link
+          href={authenticated ? '/chat' : '/'}
+          className="flex items-center gap-2"
+          onClick={handleLinkClick}
+        >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-blue-600">
             <span className="text-lg font-bold text-white">U3</span>
           </div>
           <span className="text-xl font-bold text-white">UniAgent</span>
         </Link>
+        {isMobile && onClose && (
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-800 hover:text-white"
+            aria-label="メニューを閉じる"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -44,6 +68,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={handleLinkClick}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 isActive
@@ -70,7 +95,10 @@ export function Sidebar() {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              handleLogout();
+              handleLinkClick();
+            }}
             className="w-full rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
           >
             Disconnect

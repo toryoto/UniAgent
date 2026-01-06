@@ -1,6 +1,7 @@
 'use client';
 
 import { AppLayout } from '@/components/layout/app-layout';
+import { PageHeader } from '@/components/layout/page-header';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { usePrivy } from '@privy-io/react-auth';
 import { Copy, ExternalLink, Shield, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
@@ -73,265 +74,273 @@ export default function WalletPage() {
   return (
     <AppLayout>
       <AuthGuard>
-        <div className="min-h-screen bg-slate-950 p-8">
-          <div className="mx-auto max-w-4xl">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="mb-2 text-3xl font-bold text-white">Wallet</h1>
-              <p className="text-slate-400">
-                View your wallet information and configure budget settings
-              </p>
-            </div>
+        <div className="flex h-full flex-col bg-slate-950">
+          <PageHeader
+            title="Wallet"
+            description="View your wallet information and configure budget settings"
+          />
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="mx-auto max-w-4xl">
+              <div className="space-y-4 md:space-y-6">
+                {/* Wallet Info */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 md:p-6">
+                  <h2 className="mb-3 text-lg font-bold text-white md:mb-4 md:text-xl">
+                    Wallet Information
+                  </h2>
 
-            <div className="space-y-6">
-              {/* Wallet Info */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-                <h2 className="mb-4 text-xl font-bold text-white">Wallet Information</h2>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-400">
-                      Wallet Address
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-white">
-                        {user?.wallet?.address || 'No wallet connected'}
-                      </div>
-                      <button
-                        onClick={handleCopy}
-                        className="rounded-lg border border-slate-700 bg-slate-800 p-3 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
-                        title="Copy address"
-                      >
-                        {copied ? (
-                          <span className="text-green-400">✓</span>
-                        ) : (
-                          <Copy className="h-5 w-5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Wallet ID for Server Delegation */}
-                  {wallet && (
+                  <div className="space-y-3 md:space-y-4">
                     <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-400">
-                        Wallet ID (for x402 payments)
+                      <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                        Wallet Address
                       </label>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-xs text-slate-300 break-all">
-                          {wallet.walletId}
+                        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white md:px-4 md:py-3 md:text-sm">
+                          <span className="block truncate">
+                            {user?.wallet?.address || 'No wallet connected'}
+                          </span>
                         </div>
                         <button
-                          onClick={handleCopyWalletId}
-                          className="rounded-lg border border-slate-700 bg-slate-800 p-3 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
-                          title="Copy Wallet ID"
+                          onClick={handleCopy}
+                          className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white md:p-3"
+                          title="Copy address"
                         >
-                          {walletIdCopied ? (
+                          {copied ? (
                             <span className="text-green-400">✓</span>
                           ) : (
-                            <Copy className="h-5 w-5" />
+                            <Copy className="h-4 w-4 md:h-5 md:w-5" />
                           )}
                         </button>
                       </div>
                     </div>
-                  )}
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-400">
-                        ETH Balance
-                      </label>
-                      <div className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-2xl font-bold text-white">
-                        {isLoadingEth ? (
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            <span className="text-lg">Loading...</span>
-                          </div>
-                        ) : ethBalance ? (
-                          `${parseFloat(formatEther(ethBalance.value)).toFixed(4)} ETH`
-                        ) : (
-                          '0.0000 ETH'
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-slate-400">
-                        USDC Balance
-                      </label>
-                      <div className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-2xl font-bold text-white">
-                        {isLoadingUsdc ? (
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                            <span className="text-lg">Loading...</span>
-                          </div>
-                        ) : usdcBalance ? (
-                          `${formatUSDCAmount(usdcBalance).toFixed(2)} USDC`
-                        ) : (
-                          '0.00 USDC'
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Server Delegation */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-                <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
-                  {wallet?.isDelegated ? (
-                    <ShieldCheck className="h-6 w-6 text-green-400" />
-                  ) : (
-                    <Shield className="h-6 w-6 text-yellow-400" />
-                  )}
-                  Server Delegation
-                </h2>
-
-                {isLoading ? (
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Loading wallet status...</span>
-                  </div>
-                ) : wallet?.isDelegated ? (
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-                      <ShieldCheck className="mt-0.5 h-5 w-5 text-green-400" />
+                    {/* Wallet ID for Server Delegation */}
+                    {wallet && (
                       <div>
-                        <p className="font-medium text-green-200">Delegation Active</p>
-                        <p className="mt-1 text-sm text-green-200/70">
-                          Your wallet is delegated to the server. AI agents can now execute x402
-                          payments on your behalf.
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleUndelegate}
-                      disabled={isDelegating || !wallet}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isDelegating ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Removing delegation...
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="h-5 w-5" />
-                          Remove Delegation
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
-                      <p className="text-sm text-yellow-200">
-                        <strong>Important:</strong> To enable AI agents to make x402 payments on
-                        your behalf, you need to delegate your wallet to the server. This allows the
-                        server to sign payment transactions without requiring your approval for each
-                        transaction.
-                      </p>
-                    </div>
-
-                    {delegationError && (
-                      <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                        <AlertCircle className="mt-0.5 h-5 w-5 text-red-400" />
-                        <div>
-                          <p className="text-sm text-red-200">{delegationError}</p>
+                        <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                          Wallet ID (for x402 payments)
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-[10px] text-slate-300 md:px-4 md:py-3 md:text-xs">
+                            <span className="block break-all">{wallet.walletId}</span>
+                          </div>
+                          <button
+                            onClick={handleCopyWalletId}
+                            className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white md:p-3"
+                            title="Copy Wallet ID"
+                          >
+                            {walletIdCopied ? (
+                              <span className="text-green-400">✓</span>
+                            ) : (
+                              <Copy className="h-4 w-4 md:h-5 md:w-5" />
+                            )}
+                          </button>
                         </div>
                       </div>
                     )}
 
-                    <button
-                      onClick={handleDelegate}
-                      disabled={isDelegating || !wallet}
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {isDelegating ? (
-                        <>
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          Delegating...
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="h-5 w-5" />
-                          Delegate Wallet to Server
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* USDC Section */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-                <h2 className="mb-4 text-xl font-bold text-white">USDC Setup</h2>
-
-                <div className="mb-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
-                  <p className="text-sm text-blue-200">
-                    You need USDC tokens to use agents. Get USDC from the Faucet page.
-                  </p>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-400">
-                      Base Sepolia USDC Contract
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 font-mono text-sm text-slate-300">
-                        {CONTRACT_ADDRESSES.USDC}
+                    <div className="grid gap-3 md:grid-cols-2 md:gap-4">
+                      <div>
+                        <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                          ETH Balance
+                        </label>
+                        <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-lg font-bold text-white md:px-4 md:py-3 md:text-2xl">
+                          {isLoadingEth ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+                              <span className="text-sm md:text-lg">Loading...</span>
+                            </div>
+                          ) : ethBalance ? (
+                            `${parseFloat(formatEther(ethBalance.value)).toFixed(4)} ETH`
+                          ) : (
+                            '0.0000 ETH'
+                          )}
+                        </div>
                       </div>
-                      <a
-                        href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.USDC}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg border border-slate-700 bg-slate-800 p-3 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
-                        title="View on Basescan"
-                      >
-                        <ExternalLink className="h-5 w-5" />
-                      </a>
+                      <div>
+                        <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                          USDC Balance
+                        </label>
+                        <div className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-lg font-bold text-white md:px-4 md:py-3 md:text-2xl">
+                          {isLoadingUsdc ? (
+                            <div className="flex items-center gap-2">
+                              <Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+                              <span className="text-sm md:text-lg">Loading...</span>
+                            </div>
+                          ) : usdcBalance ? (
+                            `${formatUSDCAmount(usdcBalance).toFixed(2)} USDC`
+                          ) : (
+                            '0.00 USDC'
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Budget Settings */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-                <h2 className="mb-4 text-xl font-bold text-white">Budget Settings</h2>
+                {/* Server Delegation */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 md:p-6">
+                  <h2 className="mb-3 flex items-center gap-2 text-lg font-bold text-white md:mb-4 md:text-xl">
+                    {wallet?.isDelegated ? (
+                      <ShieldCheck className="h-5 w-5 text-green-400 md:h-6 md:w-6" />
+                    ) : (
+                      <Shield className="h-5 w-5 text-yellow-400 md:h-6 md:w-6" />
+                    )}
+                    Server Delegation
+                  </h2>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-400">
-                      Daily Limit (USDC)
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="100"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                    />
-                  </div>
+                  {isLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-slate-400 md:text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+                      <span>Loading wallet status...</span>
+                    </div>
+                  ) : wallet?.isDelegated ? (
+                    <div className="space-y-3 md:space-y-4">
+                      <div className="flex items-start gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-3 md:gap-3 md:p-4">
+                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-400 md:h-5 md:w-5" />
+                        <div>
+                          <p className="text-sm font-medium text-green-200 md:text-base">
+                            Delegation Active
+                          </p>
+                          <p className="mt-1 text-xs text-green-200/70 md:text-sm">
+                            Your wallet is delegated to the server. AI agents can now execute x402
+                            payments on your behalf.
+                          </p>
+                        </div>
+                      </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-400">
-                      Auto-Approve Threshold (USDC)
-                    </label>
-                    <input
-                      type="number"
-                      placeholder="10"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                    />
-                    <p className="mt-2 text-sm text-slate-500">
-                      Transactions below this amount will be automatically approved
+                      <button
+                        onClick={handleUndelegate}
+                        disabled={isDelegating || !wallet}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
+                      >
+                        {isDelegating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+                            Removing delegation...
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                            Remove Delegation
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 md:space-y-4">
+                      <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 md:p-4">
+                        <p className="text-xs text-yellow-200 md:text-sm">
+                          <strong>Important:</strong> To enable AI agents to make x402 payments on
+                          your behalf, you need to delegate your wallet to the server. This allows
+                          the server to sign payment transactions without requiring your approval
+                          for each transaction.
+                        </p>
+                      </div>
+
+                      {delegationError && (
+                        <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 md:gap-3 md:p-4">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400 md:h-5 md:w-5" />
+                          <div>
+                            <p className="text-xs text-red-200 md:text-sm">{delegationError}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleDelegate}
+                        disabled={isDelegating || !wallet}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
+                      >
+                        {isDelegating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+                            Delegating...
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-4 w-4 md:h-5 md:w-5" />
+                            Delegate Wallet to Server
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* USDC Section */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 md:p-6">
+                  <h2 className="mb-3 text-lg font-bold text-white md:mb-4 md:text-xl">
+                    USDC Setup
+                  </h2>
+
+                  <div className="mb-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3 md:mb-4 md:p-4">
+                    <p className="text-xs text-blue-200 md:text-sm">
+                      You need USDC tokens to use agents. Get USDC from the Faucet page.
                     </p>
                   </div>
 
-                  <button
-                    disabled
-                    className="w-full cursor-not-allowed rounded-lg bg-purple-600 px-6 py-3 font-semibold text-white opacity-50"
-                  >
-                    Save Settings (Coming Soon)
-                  </button>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                        Base Sepolia USDC Contract
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0 flex-1 overflow-hidden rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-slate-300 md:px-4 md:py-3 md:text-sm">
+                          <span className="block truncate">{CONTRACT_ADDRESSES.USDC}</span>
+                        </div>
+                        <a
+                          href={`https://sepolia.basescan.org/address/${CONTRACT_ADDRESSES.USDC}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 rounded-lg border border-slate-700 bg-slate-800 p-2 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white md:p-3"
+                          title="View on Basescan"
+                        >
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5" />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Budget Settings */}
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 md:p-6">
+                  <h2 className="mb-3 text-lg font-bold text-white md:mb-4 md:text-xl">
+                    Budget Settings
+                  </h2>
+
+                  <div className="space-y-3 md:space-y-4">
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                        Daily Limit (USDC)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="100"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:px-4 md:py-3 md:text-base"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
+                        Auto-Approve Threshold (USDC)
+                      </label>
+                      <input
+                        type="number"
+                        placeholder="10"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:px-4 md:py-3 md:text-base"
+                      />
+                      <p className="mt-2 text-xs text-slate-500 md:text-sm">
+                        Transactions below this amount will be automatically approved
+                      </p>
+                    </div>
+
+                    <button
+                      disabled
+                      className="w-full cursor-not-allowed rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white opacity-50 md:px-6 md:py-3"
+                    >
+                      Save Settings (Coming Soon)
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
