@@ -10,6 +10,17 @@ const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const IP_LIMIT = 3;
 const WALLET_LIMIT = 1;
 
+// ホワイトリスト（カンマ区切りで複数アドレスを指定可能）
+const FAUCET_WHITELIST = (process.env.FAUCET_WHITELIST || '')
+  .split(',')
+  .map((addr) => addr.trim().toLowerCase())
+  .filter((addr) => addr.length > 0);
+
+// ホワイトリストに含まれているかチェック
+function isWhitelisted(walletAddress: string): boolean {
+  return FAUCET_WHITELIST.includes(walletAddress.toLowerCase());
+}
+
 const ERC20_ABI = [
   {
     inputs: [
@@ -80,8 +91,9 @@ const checkAccessLimit = async (
         }
       }
 
-      // ウォレットアドレスの制限チェック
-      if (walletRecord) {
+      // ウォレットアドレスの制限チェック（ホワイトリストに含まれている場合はスキップ）
+      const isWhitelistedWallet = isWhitelisted(walletAddress);
+      if (!isWhitelistedWallet && walletRecord) {
         const elapsed = now.getTime() - new Date(walletRecord.firstRequestAt).getTime();
         if (elapsed < RATE_LIMIT_WINDOW_MS && walletRecord.requestCount >= WALLET_LIMIT) {
           return { limited: true, reason: 'wallet' as const };
@@ -123,36 +135,38 @@ const checkAccessLimit = async (
         );
       }
 
-      // ウォレットアドレスのレコード更新
-      if (walletRecord) {
-        const elapsed = now.getTime() - new Date(walletRecord.firstRequestAt).getTime();
-        if (elapsed >= RATE_LIMIT_WINDOW_MS) {
-          updatePromises.push(
-            tx.accessLimit.update({
-              where: { id: walletRecord.id },
-              data: { firstRequestAt: now, requestCount: 1 },
-            })
-          );
+      // ウォレットアドレスのレコード更新（ホワイトリストに含まれている場合はスキップ）
+      if (!isWhitelistedWallet) {
+        if (walletRecord) {
+          const elapsed = now.getTime() - new Date(walletRecord.firstRequestAt).getTime();
+          if (elapsed >= RATE_LIMIT_WINDOW_MS) {
+            updatePromises.push(
+              tx.accessLimit.update({
+                where: { id: walletRecord.id },
+                data: { firstRequestAt: now, requestCount: 1 },
+              })
+            );
+          } else {
+            updatePromises.push(
+              tx.accessLimit.update({
+                where: { id: walletRecord.id },
+                data: { requestCount: { increment: 1 } },
+              })
+            );
+          }
         } else {
           updatePromises.push(
-            tx.accessLimit.update({
-              where: { id: walletRecord.id },
-              data: { requestCount: { increment: 1 } },
+            tx.accessLimit.create({
+              data: {
+                identifier: walletAddress,
+                identifierType: 'wallet',
+                feature: func,
+                firstRequestAt: now,
+                requestCount: 1,
+              },
             })
           );
         }
-      } else {
-        updatePromises.push(
-          tx.accessLimit.create({
-            data: {
-              identifier: walletAddress,
-              identifierType: 'wallet',
-              feature: func,
-              firstRequestAt: now,
-              requestCount: 1,
-            },
-          })
-        );
       }
 
       await Promise.all(updatePromises);
