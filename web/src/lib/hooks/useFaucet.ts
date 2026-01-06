@@ -14,6 +14,7 @@ export interface UseFaucetReturn {
   requestUSDC: (walletAddress: string) => Promise<void>;
   usdcStatus: 'idle' | 'loading' | 'success' | 'error';
   usdcMessage: string;
+  usdcTxHash: string | null;
   usdcError: Error | null;
 }
 
@@ -52,11 +53,13 @@ export function useFaucet(): UseFaucetReturn {
     usdcMutation.status === 'pending' ? 'loading' : usdcMutation.status;
 
   const usdcMessage = usdcMutation.data?.message || usdcMutation.error?.message || '';
+  const usdcTxHash = usdcMutation.data?.txHash || null;
 
   return {
     requestUSDC,
     usdcStatus,
     usdcMessage,
+    usdcTxHash,
     usdcError: usdcMutation.error,
   };
 }
