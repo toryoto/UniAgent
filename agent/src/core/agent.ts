@@ -7,31 +7,11 @@
  * - ストリーミング対応
  */
 
-import { createAgent, createMiddleware, initChatModel } from 'langchain';
-import * as z from 'zod';
+import { initChatModel, createAgent } from 'langchain';
 import type { AgentRequest, AgentResponse, ExecutionLogEntry } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
-
-const contextSchema = z.object({
-  agentId: z.string().optional(),
-});
-type ContextType = z.infer<typeof contextSchema>;
-
-const loggingMiddleware = createMiddleware({
-  name: 'Logging',
-  // @ts-expect-error - Zod version mismatch
-  contextSchema,
-  beforeModel: (state, runtime) => {
-    const context = runtime.context as ContextType;
-    if (context?.agentId) {
-      logger.agent.info('Processing Agent ID: ', { agentId: context.agentId });
-      return;
-    }
-    return;
-  },
-});
 
 /**
  * エージェントを実行（非ストリーミング）
@@ -43,7 +23,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   let stepCounter = 0;
 
   logSeparator('Agent Execution Start');
-  logger.agent.info('Received request', { message, walletId, walletAddress, maxBudget });
+  logger.agent.info('Received request', { message, walletId, walletAddress, maxBudget, agentId });
 
   executionLog.push({
     step: ++stepCounter,
@@ -61,9 +41,6 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
       model,
       tools: [discoverAgentsTool, executeAgentTool],
       systemPrompt: SYSTEM_PROMPT,
-      // @ts-expect-error - Zod version mismatch
-      contextSchema: contextSchema,
-      middleware: [loggingMiddleware],
     });
 
     // ユーザーメッセージにコンテキストを追加
@@ -76,16 +53,24 @@ ${message}
 - wallet_address: ${walletAddress}
 - max_budget: $${maxBudget} USDC
 - 現在の予算使用額: $${totalCost} USDC
-- 残り予算: $${maxBudget - totalCost} USDC
+- 残り予算: $${maxBudget - totalCost} USDC${
+      agentId
+        ? `
+- 指定エージェントID: ${agentId}
+  ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
+  ※そのエージェントがタスクに適している場合のみ execute_agent で実行してください
+  ※タスクに合わない場合やタスク遂行するために追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
+        : ''
+    }
 
 ## 重要な指示
-エージェントを使う場合は execute_agent に以下を指定してください:
-- walletId: "${walletId}"
-- walletAddress: "${walletAddress}"
-- maxPrice: 残り予算の90%以下に設定してください（安全マージン）
-
-各エージェント実行の maxPrice の合計が max_budget を超えないように注意してください。
-予算が不足する場合は、より安価なエージェントを探すか、ユーザーに報告してください。
+- discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
+- execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
+- エージェントを実行する場合は execute_agent に以下を指定:
+  - walletId: "${walletId}"
+  - walletAddress: "${walletAddress}"
+  - maxPrice: 残り予算の90%以下に設定（安全マージン）
+- 各エージェント実行の maxPrice の合計が max_budget を超えないように注意してください
 `;
 
     logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
@@ -212,9 +197,6 @@ export async function* runAgentStream(
       model,
       tools: [discoverAgentsTool, executeAgentTool],
       systemPrompt: SYSTEM_PROMPT,
-      // @ts-expect-error - Zod version mismatch
-      contextSchema,
-      middleware: [loggingMiddleware],
     });
 
     const userMessage = `
@@ -226,13 +208,23 @@ ${message}
 - wallet_address: ${walletAddress}
 - max_budget: $${maxBudget} USDC
 - 現在の予算使用額: $${totalCost} USDC
-- 残り予算: $${maxBudget - totalCost} USDC
+- 残り予算: $${maxBudget - totalCost} USDC${
+      agentId
+        ? `
+- 指定エージェントID: ${agentId}
+  ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
+  ※そのエージェントがタスクに適している場合のみ execute_agent で実行してください
+  ※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
+        : ''
+    }
 
 ## 重要な指示
-エージェントを使う場合は execute_agent に以下を指定してください:
-- walletId: "${walletId}"
-- walletAddress: "${walletAddress}"
-- maxPrice: 残り予算の90%以下に設定してください（安全マージン）
+- discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
+- execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
+- エージェントを実行する場合は execute_agent に以下を指定:
+  - walletId: "${walletId}"
+  - walletAddress: "${walletAddress}"
+  - maxPrice: 残り予算の90%以下に設定（安全マージン）
 `;
 
     yield {

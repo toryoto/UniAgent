@@ -17,6 +17,7 @@ import {
 } from '@agent-marketplace/shared';
 
 export interface DiscoverAgentsInput {
+  agentId?: string;
   category?: string;
   skillName?: string;
   maxPrice?: number;
@@ -121,7 +122,7 @@ function parseOnChainAgent(onChainData: AgentCard): Omit<DiscoveredAgent, 'endpo
  */
 export async function discoverAgents(input: DiscoverAgentsInput): Promise<DiscoverAgentsOutput> {
   try {
-    const { category, skillName, maxPrice, minRating } = input;
+    const { agentId, category, skillName, maxPrice, minRating } = input;
 
     console.log('[agent-discovery] Input:', JSON.stringify(input));
 
@@ -136,7 +137,10 @@ export async function discoverAgents(input: DiscoverAgentsInput): Promise<Discov
     // オンチェーンからAgentCard取得
     let agentIds: string[];
 
-    if (category) {
+    // 特定のagentIdが指定されている場合
+    if (agentId) {
+      agentIds = [agentId];
+    } else if (category) {
       agentIds = await contract.getActiveAgentsByCategory(category);
     } else {
       agentIds = await contract.getAllAgentIds();
