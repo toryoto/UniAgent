@@ -7,7 +7,8 @@
 
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { discoverAgents, type A2ASkill } from '@agent-marketplace/shared';
+import { discoverAgents } from '../services/agent-discovery.js';
+import type { A2ASkill } from '@agent-marketplace/shared';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -18,6 +19,7 @@ export const discoverAgentsTool = tool(
   async (input) => {
     try {
       logger.logic.info('Searching agents on-chain', {
+        agentId: input.agentId,
         category: input.category,
         skillName: input.skillName,
         maxPrice: input.maxPrice,
@@ -25,6 +27,7 @@ export const discoverAgentsTool = tool(
 
       // 共有サービスを直接呼び出し
       const result = await discoverAgents({
+        agentId: input.agentId,
         category: input.category,
         skillName: input.skillName,
         maxPrice: input.maxPrice,
@@ -64,9 +67,11 @@ export const discoverAgentsTool = tool(
   {
     name: 'discover_agents',
     description: `ブロックチェーン上のAgentRegistryからエージェントを検索します。
-カテゴリやスキル名で検索可能で、価格・評価でのフィルタリングもサポートしています。
+特定のagentIdを指定するか、カテゴリやスキル名で検索可能です。
+価格・評価でのフィルタリングもサポートしています。
 結果にはエージェントのID、名前、説明、URL、価格（USDC）、評価が含まれます。`,
     schema: z.object({
+      agentId: z.string().optional().describe('特定のエージェントID (16進数文字列)'),
       category: z
         .string()
         .optional()

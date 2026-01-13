@@ -150,6 +150,19 @@ export interface ChatMessage {
   };
 }
 
+// ============================================================================
+// Structured Message Types (for Agent Chat with Commands)
+// ============================================================================
+
+/**
+ * Structured message with optional agent ID reference
+ */
+export interface StructuredChatMessage {
+  text: string;
+  agentId?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export interface ToolCallLog {
   id: string;
   toolName: string;

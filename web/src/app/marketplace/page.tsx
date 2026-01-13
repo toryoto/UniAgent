@@ -2,9 +2,9 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
-import { Search, Star } from 'lucide-react';
+import { Copy, Search, Star } from 'lucide-react';
 import { useState } from 'react';
-import { useAgents } from '@/lib/hooks/useAgents';
+import { useDiscoverAgents } from '@/lib/hooks/useDiscoverAgents';
 import type { AgentCardDto } from '@/lib/types';
 import { formatCategory, formatRating } from '@/lib/utils/format';
 
@@ -14,7 +14,7 @@ export default function MarketplacePage() {
   const [maxPrice, setMaxPrice] = useState('');
   const [minRating, setMinRating] = useState('');
 
-  const { agents, total, isLoading, error, refetch } = useAgents({
+  const { agents, total, isLoading, error, refetch } = useDiscoverAgents({
     searchQuery,
     category: category || undefined,
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
@@ -28,7 +28,7 @@ export default function MarketplacePage() {
       <div className="flex h-full flex-col bg-slate-950">
         <PageHeader
           title="Marketplace"
-          description="エージェントを検索・発見してタスクに活用できます"
+          description="Search and discover agents to use for your tasks"
         />
         <div className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="mx-auto max-w-7xl">
@@ -41,7 +41,7 @@ export default function MarketplacePage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="エージェントを検索..."
+                    placeholder="Search agents..."
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 py-2 pl-9 pr-4 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:py-3 md:pl-10 md:text-base"
                   />
                 </div>
@@ -49,7 +49,7 @@ export default function MarketplacePage() {
                   onClick={() => refetch()}
                   className="w-full rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-700 md:w-auto md:px-6 md:py-3"
                 >
-                  更新
+                  Refresh
                 </button>
               </div>
 
@@ -100,12 +100,12 @@ export default function MarketplacePage() {
               </div>
 
               <div className="mt-4 text-xs text-slate-400 md:text-sm">
-                {isLoading ? '読み込み中...' : `該当: ${total} 件`}
+                {isLoading ? 'Loading...' : `Found: ${total} agents`}
               </div>
-          </div>
+            </div>
 
             {/* Agent List */}
-            <div className="grid gap-4 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
               {agents.map((agent) => (
                 <AgentCard key={agent.agentId} agent={agent} />
               ))}
@@ -115,11 +115,9 @@ export default function MarketplacePage() {
             {!isLoading && !error && agents.length === 0 && (
               <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center md:p-12">
                 <div className="mb-4 text-4xl md:text-6xl">🤖</div>
-                <h3 className="mb-2 text-lg font-bold text-white md:text-xl">
-                  該当するエージェントがありません
-                </h3>
+                <h3 className="mb-2 text-lg font-bold text-white md:text-xl">No agents found</h3>
                 <p className="text-sm text-slate-400 md:text-base">
-                  検索条件を調整して再度お試しください
+                  Try adjusting your search filters
                 </p>
               </div>
             )}
@@ -137,10 +135,22 @@ export default function MarketplacePage() {
 }
 
 function AgentCard({ agent }: { agent: AgentCardDto }) {
+  const [copied, setCopied] = useState(false);
   const price = agent.payment?.pricePerCallUsdc ?? 0;
   const category = agent.category ? formatCategory(agent.category) : 'unknown';
+
+  const handleCopyAgentId = async () => {
+    try {
+      await navigator.clipboard.writeText(agent.agentId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy agent ID:', error);
+    }
+  };
+
   return (
-    <div className="group rounded-2xl border border-slate-800 bg-slate-900/50 p-4 transition-all hover:border-slate-700 hover:shadow-xl hover:shadow-purple-500/10 md:p-6">
+    <div className="group w-full min-w-0 rounded-2xl border border-slate-800 bg-slate-900/50 p-4 transition-all hover:border-slate-700 hover:shadow-xl hover:shadow-purple-500/10 md:p-6">
       <div className="mb-3 flex items-start justify-between md:mb-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-purple-600 to-blue-600 text-xl md:h-12 md:w-12 md:text-2xl">
           🤖
@@ -153,12 +163,25 @@ function AgentCard({ agent }: { agent: AgentCardDto }) {
       <h3 className="mb-2 text-base font-bold text-white md:text-lg">{agent.name}</h3>
       <p className="mb-3 text-xs text-slate-400 md:mb-4 md:text-sm">{agent.description}</p>
 
+      <div className="mb-3 flex min-w-0 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-2 py-1.5 md:mb-4">
+        <span className="min-w-0 flex-1 truncate text-xs font-mono text-slate-400 md:text-sm">
+          {agent.agentId}
+        </span>
+        <button
+          onClick={handleCopyAgentId}
+          className="shrink-0 rounded p-1 text-slate-400 transition-colors hover:bg-slate-700 hover:text-white"
+          title={copied ? 'Copied!' : 'Copy Agent ID'}
+        >
+          <Copy className={`h-3 w-3 md:h-4 md:w-4 ${copied ? 'text-green-400' : ''}`} />
+        </button>
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center gap-3 text-xs md:mb-4 md:gap-4 md:text-sm">
         <div className="flex items-center gap-1 text-yellow-400">
           <Star className="h-3 w-3 fill-current md:h-4 md:w-4" />
           <span className="font-medium">{formatRating(agent.averageRating)}</span>
         </div>
-        <div className="text-slate-400">評価数 {agent.ratingCountDisplay}</div>
+        <div className="text-slate-400">{agent.ratingCountDisplay} ratings</div>
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-800 pt-3 md:pt-4">
@@ -169,9 +192,9 @@ function AgentCard({ agent }: { agent: AgentCardDto }) {
         <button
           disabled
           className="cursor-not-allowed rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white/70 md:px-4 md:py-2 md:text-sm"
-          title="PoCでは詳細画面は未実装です"
+          title="Details page not implemented in PoC"
         >
-          詳細
+          Details
         </button>
       </div>
     </div>

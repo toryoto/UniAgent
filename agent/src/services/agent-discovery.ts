@@ -1,15 +1,23 @@
 /**
  * Agent Discovery Service
  *
- * オンチェーンからAgentCardを検索・取得し、.well-known/agent.jsonの情報を併せて返す
+ * オンチェーンからAgentCardを取得し、.well-known/agent.jsonの情報を併せて返す
  */
 
 import { ethers } from 'ethers';
-import { CONTRACT_ADDRESSES, RPC_URL, USDC_DECIMALS } from '../config.js';
-import { AGENT_REGISTRY_ABI } from '../contract.js';
-import type { AgentCard, AgentJson, A2ASkill, DiscoveredAgent } from '../types.js';
+import {
+  CONTRACT_ADDRESSES,
+  RPC_URL,
+  formatUSDCAmount,
+  AGENT_REGISTRY_ABI,
+  type AgentCard,
+  type AgentJson,
+  type A2ASkill,
+  type DiscoveredAgent,
+} from '@agent-marketplace/shared';
 
 export interface DiscoverAgentsInput {
+  agentId?: string;
   category?: string;
   skillName?: string;
   maxPrice?: number;
@@ -82,8 +90,8 @@ function parseOnChainAgent(onChainData: AgentCard): Omit<DiscoveredAgent, 'endpo
   const averageRating = ratingCount > 0 ? totalRatings / ratingCount : 0;
 
   // 価格をUSDC単位に変換 (6 decimals)
-  const pricePerCall = Number(onChainData.payment?.pricePerCall || 0);
-  const priceUsdc = pricePerCall / Math.pow(10, USDC_DECIMALS);
+  const pricePerCall = onChainData.payment?.pricePerCall || BigInt(0);
+  const priceUsdc = formatUSDCAmount(pricePerCall);
 
   return {
     agentId: onChainData.agentId,
@@ -106,10 +114,6 @@ function parseOnChainAgent(onChainData: AgentCard): Omit<DiscoveredAgent, 'endpo
   };
 }
 
-// ============================================================================
-// Main Function
-// ============================================================================
-
 /**
  * エージェント検索
  *
@@ -118,7 +122,7 @@ function parseOnChainAgent(onChainData: AgentCard): Omit<DiscoveredAgent, 'endpo
  */
 export async function discoverAgents(input: DiscoverAgentsInput): Promise<DiscoverAgentsOutput> {
   try {
-    const { category, skillName, maxPrice, minRating } = input;
+    const { agentId, category, skillName, maxPrice, minRating } = input;
 
     console.log('[agent-discovery] Input:', JSON.stringify(input));
 
@@ -133,7 +137,10 @@ export async function discoverAgents(input: DiscoverAgentsInput): Promise<Discov
     // オンチェーンからAgentCard取得
     let agentIds: string[];
 
-    if (category) {
+    // 特定のagentIdが指定されている場合
+    if (agentId) {
+      agentIds = [agentId];
+    } else if (category) {
       agentIds = await contract.getActiveAgentsByCategory(category);
     } else {
       agentIds = await contract.getAllAgentIds();

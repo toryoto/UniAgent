@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { message, walletId, walletAddress, maxBudget } = body;
+    const { message, walletId, walletAddress, maxBudget, agentId } = body;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       walletId,
       walletAddress,
       maxBudget,
+      agentId,
     });
 
     // Forward to Agent Service
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message, walletId, walletAddress, maxBudget }),
+      body: JSON.stringify({ message, walletId, walletAddress, maxBudget, agentId }),
     });
 
     if (!response.ok) {

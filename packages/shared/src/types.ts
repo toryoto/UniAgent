@@ -91,6 +91,7 @@ export interface AgentRequest {
   walletId: string;
   walletAddress: string;
   maxBudget: number;
+  agentId?: string;
 }
 
 export interface AgentResponse {

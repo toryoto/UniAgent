@@ -23,7 +23,7 @@ function buildDiscoveryAgentsQuery(filters: MarketplaceFilters): string {
   return sp.toString();
 }
 
-export function useAgents(filters: MarketplaceFilters) {
+export function useDiscoverAgents(filters: MarketplaceFilters) {
   // searchQueryだけは入力中のリクエスト連打を避ける
   const debouncedQuery = useDebouncedValue(filters.searchQuery ?? '', 250);
 

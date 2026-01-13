@@ -22,13 +22,14 @@ export interface UseAgentChatOptions {
   walletId: string;
   walletAddress: string;
   maxBudget: number;
+  agentId?: string;
 }
 
 export interface UseAgentChatReturn {
   messages: AgentChatMessage[];
   input: string;
   setInput: (value: string) => void;
-  sendMessage: (content?: string) => Promise<void>;
+  sendMessage: (content?: string, agentId?: string) => Promise<void>;
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
@@ -48,7 +49,7 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
   const [isLoading, setIsLoading] = useState(false);
 
   const sendMessage = useCallback(
-    async (content?: string) => {
+    async (content?: string, targetAgentId?: string) => {
       const text = (content ?? input).trim();
       if (!text) return;
 
@@ -77,15 +78,22 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
       setIsLoading(true);
 
       try {
+        // Prepare structured message
+        const requestBody: Record<string, unknown> = {
+          message: text,
+          walletId,
+          walletAddress,
+          maxBudget,
+        };
+
+        if (targetAgentId) {
+          requestBody.agentId = targetAgentId;
+        }
+
         const response = await fetch('/api/agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: text,
-            walletId,
-            walletAddress,
-            maxBudget,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {

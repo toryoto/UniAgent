@@ -39,7 +39,7 @@ app.get('/health', (_req, res) => {
  */
 app.post('/api/agent', async (req, res) => {
   try {
-    const { message, walletId, walletAddress, maxBudget } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, maxBudget, agentId } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -75,7 +75,13 @@ app.post('/api/agent', async (req, res) => {
     }
 
     // Run agent
-    const result: AgentResponse = await runAgent({ message, walletId, walletAddress, maxBudget });
+    const result: AgentResponse = await runAgent({
+      message,
+      walletId,
+      walletAddress,
+      maxBudget,
+      agentId,
+    });
 
     res.json(result);
   } catch (error) {

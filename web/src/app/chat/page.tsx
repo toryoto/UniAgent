@@ -4,21 +4,37 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { Send, Loader2, Bot, User, AlertCircle, Wrench, DollarSign, Shield } from 'lucide-react';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useAgentChat, type AgentChatMessage } from '@/lib/hooks/useAgentChat';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
+import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
+import { CommandDropdown } from '@/components/chat/CommandDropdown';
+import { CommandBadge } from '@/components/chat/CommandBadge';
+import { parseMessage } from '@/lib/utils/message-parser';
 import type { ExecutionLogEntry } from '@agent-marketplace/shared';
 import Link from 'next/link';
 
 // デフォルトの最大予算 (USDC)
 const DEFAULT_MAX_BUDGET = 5.0;
 
+// Slash command definitions
+const SLASH_COMMANDS: SlashCommandOption[] = [
+  {
+    id: 'use-agent',
+    label: '/use-agent',
+    description: 'Execute a specific agent by ID',
+    value: '/use-agent ',
+    metadata: {
+      usage: '/use-agent <agent-id>',
+      example: '/use-agent 0x1234...',
+    },
+  },
+];
+
 export default function ChatPage() {
   const { wallet } = useDelegatedWallet();
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
 
-  // Privy embedded walletからwalletIdとwalletAddressを取得
-  // delegated walletの場合のみサーバー側で署名可能
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
 
@@ -30,6 +46,7 @@ export default function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
 
   // 新しいメッセージが来たら自動スクロール
   useEffect(() => {
@@ -43,6 +60,55 @@ export default function ChatPage() {
     }
   }, [isLoading]);
 
+  // Slash command handler
+  const slashCommand = useSlashCommand({
+    options: SLASH_COMMANDS,
+    onSelect: (option) => {
+      // Replace the slash command with the selected command
+      const textarea = inputRef.current;
+      if (textarea) {
+        const beforeCursor = input.substring(0, textarea.selectionStart);
+        const afterCursor = input.substring(textarea.selectionStart);
+        const lastSlashIndex = beforeCursor.lastIndexOf('/');
+        const newInput = beforeCursor.substring(0, lastSlashIndex) + option.value + afterCursor;
+        setInput(newInput);
+
+        // Set cursor position after the inserted command
+        setTimeout(() => {
+          const newCursorPos = lastSlashIndex + option.value.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+          textarea.focus();
+        }, 0);
+      }
+    },
+  });
+
+  // Detect slash commands for dropdown
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      slashCommand.detectCommand(input, textarea.selectionStart);
+    }
+  }, [input, slashCommand]);
+
+  // Parse current input to detect active command
+  const activeCommand = useMemo(() => {
+    const parsed = parseMessage(input);
+    if (parsed.command && parsed.agentId) {
+      return {
+        command: parsed.command,
+        agentId: parsed.agentId,
+      };
+    }
+    return null;
+  }, [input]);
+
+  // Remove command from input
+  const handleRemoveCommand = () => {
+    setInput('');
+    inputRef.current?.focus();
+  };
+
   // textareaの高さを自動調整
   useEffect(() => {
     const textarea = inputRef.current;
@@ -54,10 +120,20 @@ export default function ChatPage() {
 
   const handleSubmit = () => {
     if (!input.trim() || isLoading) return;
-    sendMessage();
+
+    // Parse message to extract agent ID
+    const parsed = parseMessage(input);
+
+    // Send structured message
+    sendMessage(parsed.text, parsed.agentId);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Handle slash command navigation first
+    if (slashCommand.isOpen && slashCommand.handleKeyDown(e)) {
+      return;
+    }
+
     if (e.nativeEvent.isComposing) {
       return;
     }
@@ -121,19 +197,15 @@ export default function ChatPage() {
           {/* Chat Area */}
           <div className="flex-1 overflow-y-auto p-4 md:p-8">
             <div className="mx-auto max-w-4xl">
-              {/* Wallet Warning */}
               {walletWarning}
 
-              {/* Welcome Message (メッセージがない場合のみ表示) */}
               {messages.length === 0 && <WelcomeMessage />}
 
-              {/* Messages */}
               <div className="space-y-4">
                 {messages.map((message) => (
                   <MessageBubble key={message.id} message={message} />
                 ))}
 
-                {/* Loading indicator */}
                 {isLoading && messages.length > 0 && (
                   <div className="flex items-center gap-2 text-xs text-slate-400 md:text-sm">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -165,13 +237,30 @@ export default function ChatPage() {
           {/* Input Area */}
           <div className="border-t border-slate-800 bg-slate-900/50 p-4 md:p-6">
             <div className="mx-auto max-w-4xl">
-              <div className="flex gap-2 md:gap-4">
+              {activeCommand && (
+                <CommandBadge
+                  command={activeCommand.command}
+                  agentId={activeCommand.agentId}
+                  onRemove={handleRemoveCommand}
+                />
+              )}
+
+              <div ref={inputContainerRef} className="relative flex gap-2 md:gap-4">
+                {slashCommand.isOpen && (
+                  <CommandDropdown
+                    options={slashCommand.filteredOptions}
+                    selectedIndex={slashCommand.selectedIndex}
+                    onSelect={slashCommand.selectOption}
+                    onClose={slashCommand.close}
+                  />
+                )}
+
                 <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Enter your task..."
+                  placeholder="Enter your task... (Type / for commands)"
                   disabled={isLoading || !walletAddress || !wallet?.isDelegated}
                   rows={1}
                   className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 md:px-4 md:py-3 md:text-base"
@@ -190,7 +279,7 @@ export default function ChatPage() {
                 </button>
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                Press Enter to send, Shift+Enter for new line
+                Type / for commands • Enter to send • Shift+Enter for new line
               </p>
             </div>
           </div>
@@ -213,9 +302,20 @@ function WelcomeMessage() {
         <li>3. Execute agents with x402 payment</li>
         <li>4. Deliver integrated results</li>
       </ul>
+      <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+        <p className="mb-2 text-xs font-semibold text-purple-300 md:text-sm">Slash Commands:</p>
+        <ul className="space-y-1 text-xs text-purple-200/70">
+          <li>
+            <code className="rounded bg-purple-500/20 px-1.5 py-0.5 font-mono text-purple-300">
+              /use-agent &lt;agent-id&gt;
+            </code>{' '}
+            - Execute a specific agent by ID
+          </li>
+        </ul>
+      </div>
       <p className="mt-4 text-xs text-purple-300/60">
-        Examples: &quot;Search for agents in the travel category&quot;, &quot;Create a 3-day travel
-        plan for Paris&quot;
+        Examples: &quot;Search for agents in the travel category&quot;, &quot;/use-agent 0x1234...
+        Create a 3-day travel plan for Paris&quot;
       </p>
     </div>
   );
