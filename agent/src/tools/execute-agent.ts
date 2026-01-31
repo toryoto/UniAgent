@@ -6,7 +6,7 @@
  * Privy delegated walletを使用してユーザーのウォレットで署名を行う
  */
 
-import { tool } from '@langchain/core/tools';
+import { tool } from 'langchain';
 import { z } from 'zod';
 import { PrivyClient } from '@privy-io/server-auth';
 import type { JsonRpcRequest, JsonRpcResponse } from '@agent-marketplace/shared';

@@ -5,7 +5,7 @@
  * MCPサーバー経由ではなく、直接オンチェーンから検索
  */
 
-import { tool } from '@langchain/core/tools';
+import { tool } from 'langchain';
 import { z } from 'zod';
 import { discoverAgents } from '../services/agent-discovery.js';
 import type { A2ASkill } from '@agent-marketplace/shared';
