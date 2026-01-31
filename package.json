@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "workspaces": [
+    "packages/shared",
     "web",
     "contracts",
     "mcp",
-    "agent",
-    "packages/shared"
+    "agent"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",

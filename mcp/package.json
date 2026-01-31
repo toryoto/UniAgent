@@ -12,7 +12,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
-    "@agent-marketplace/shared": "file:../packages/shared",
+    "@agent-marketplace/shared": "*",
     "dotenv": "^16.4.7",
     "ethers": "^6.16.0",
     "fastmcp": "^3.26.7",

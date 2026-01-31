@@ -17,11 +17,6 @@
         "name": "next"
       }
     ],
-    "paths": {
-      "@/*": ["./src/*"],
-      "@agent-marketplace/shared": ["../packages/shared/src/index.ts"],
-      "@agent-marketplace/shared/*": ["../packages/shared/src/*"]
-    },
     "target": "ES2017"
   },
   "include": [

@@ -1,5 +1,8 @@
 {
   "typescript.enablePromptUseWorkspaceTsdk": false,
+  "files.associations": {
+    "*.ts": "typescript"
+  },
   "search.exclude": {
     "**/node_modules": true,
     "**/dist": true,

@@ -15,7 +15,7 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@agent-marketplace/shared": "file:../packages/shared",
+    "@agent-marketplace/shared": "*",
     "@coinbase/x402": "0.7.0",
     "@prisma/client": "^6.2.0",
     "@privy-io/react-auth": "^3.10.0",

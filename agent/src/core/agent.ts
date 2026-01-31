@@ -26,6 +26,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   logger.agent.info('Received request', { message, walletId, walletAddress, maxBudget, agentId });
 
   executionLog.push({
+    
     step: ++stepCounter,
     type: 'llm',
     action: 'Request received',

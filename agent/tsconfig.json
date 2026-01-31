@@ -14,16 +14,6 @@
     "declarationMap": true,
     "sourceMap": true,
     "resolveJsonModule": true,
-    "composite": true,
-    "baseUrl": ".",
-    "paths": {
-      "@agent-marketplace/shared": ["../packages/shared/src/index.ts"],
-      "@agent-marketplace/shared/*": ["../packages/shared/src/*"]
-    }
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../packages/shared" }
-  ]
+    "composite": true
+  }
 }
