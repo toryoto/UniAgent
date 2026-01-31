@@ -18,7 +18,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@agent-marketplace/shared": ["../packages/shared/src/index.ts"],
+      "@agent-marketplace/shared/*": ["../packages/shared/src/*"]
     },
     "target": "ES2017"
   },
@@ -29,5 +31,8 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
+  "references": [
+    { "path": "../packages/shared" }
+  ]
 }

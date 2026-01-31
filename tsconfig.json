@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/shared" },
+    { "path": "./agent" },
+    { "path": "./web" },
+    { "path": "./mcp" },
+    { "path": "./contracts" }
+  ]
+}

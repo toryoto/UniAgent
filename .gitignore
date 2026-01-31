@@ -17,9 +17,6 @@ contracts/deployments/*.json
 .env*.local
 contracts/.env
 web/.env.local
-
-# IDE
-.vscode/
 .idea/
 *.swp
 *.swo
