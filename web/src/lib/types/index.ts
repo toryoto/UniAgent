@@ -8,7 +8,11 @@
 // A2A Protocol Types
 // ============================================================================
 
-import type { A2ASkill, AgentCard } from '@agent-marketplace/shared';
+import type {
+  A2ASkill,
+  AgentCard,
+  ExecutionLogEntry,
+} from '@agent-marketplace/shared';
 
 export type { AgentCard };
 
@@ -252,6 +256,32 @@ export interface RatingFormData {
 export interface BudgetSettingsFormData {
   dailyLimit: number;
   autoApproveThreshold: number;
+}
+
+// ============================================================================
+// Agent Streaming Types (SSE from /api/agent/stream)
+// ============================================================================
+
+export type { StreamEvent } from '@agent-marketplace/shared';
+
+export interface AgentToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result?: string;
+  status: 'calling' | 'completed';
+  step: number;
+}
+
+export interface AgentStreamMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  toolCalls?: AgentToolCall[];
+  executionLog?: ExecutionLogEntry[];
+  totalCost?: number;
+  payment?: { amount: number; totalCost: number; remainingBudget: number };
 }
 
 // ============================================================================

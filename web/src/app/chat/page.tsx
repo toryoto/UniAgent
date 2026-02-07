@@ -3,9 +3,23 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
 import { AuthGuard } from '@/components/auth/auth-guard';
-import { Send, Loader2, Bot, User, AlertCircle, Wrench, DollarSign, Shield } from 'lucide-react';
+import {
+  Send,
+  Loader2,
+  Bot,
+  User,
+  AlertCircle,
+  Wrench,
+  DollarSign,
+  Shield,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+} from 'lucide-react';
 import { useRef, useEffect, useState, useMemo } from 'react';
-import { useAgentChat, type AgentChatMessage } from '@/lib/hooks/useAgentChat';
+import { useAgentStream } from '@/lib/hooks/useAgentStream';
+import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
 import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
 import { CommandDropdown } from '@/components/chat/CommandDropdown';
@@ -38,11 +52,12 @@ export default function ChatPage() {
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
 
-  const { messages, input, setInput, sendMessage, isLoading, error, clearError } = useAgentChat({
-    walletId,
-    walletAddress,
-    maxBudget,
-  });
+  const { messages, input, setInput, sendMessage, abort, isStreaming, error, clearError } =
+    useAgentStream({
+      walletId,
+      walletAddress,
+      maxBudget,
+    });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -55,10 +70,10 @@ export default function ChatPage() {
 
   // 送信後に入力欄にフォーカス
   useEffect(() => {
-    if (!isLoading) {
+    if (!isStreaming) {
       inputRef.current?.focus();
     }
-  }, [isLoading]);
+  }, [isStreaming]);
 
   // Slash command handler
   const slashCommand = useSlashCommand({
@@ -119,7 +134,7 @@ export default function ChatPage() {
   }, [input]);
 
   const handleSubmit = () => {
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isStreaming) return;
 
     // Parse message to extract agent ID
     const parsed = parseMessage(input);
@@ -206,7 +221,7 @@ export default function ChatPage() {
                   <MessageBubble key={message.id} message={message} />
                 ))}
 
-                {isLoading && messages.length > 0 && (
+                {isStreaming && messages.length > 0 && !messages[messages.length - 1]?.isStreaming && (
                   <div className="flex items-center gap-2 text-xs text-slate-400 md:text-sm">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Agent is executing...</span>
@@ -261,22 +276,28 @@ export default function ChatPage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   placeholder="Enter your task... (Type / for commands)"
-                  disabled={isLoading || !walletAddress || !wallet?.isDelegated}
+                  disabled={isStreaming || !walletAddress || !wallet?.isDelegated}
                   rows={1}
                   className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 md:px-4 md:py-3 md:text-base"
                   style={{ minHeight: '44px', maxHeight: '100px' }}
                 />
-                <button
-                  onClick={handleSubmit}
-                  disabled={!input.trim() || isLoading || !walletAddress || !wallet?.isDelegated}
-                  className="self-start rounded-lg bg-purple-600 p-2.5 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                  ) : (
+                {isStreaming ? (
+                  <button
+                    onClick={abort}
+                    className="self-start rounded-lg bg-red-600 p-2.5 font-semibold text-white transition-colors hover:bg-red-700 md:px-6 md:py-3"
+                    title="Stop streaming"
+                  >
+                    <Square className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!input.trim() || !walletAddress || !wallet?.isDelegated}
+                    className="self-start rounded-lg bg-purple-600 p-2.5 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
+                  >
                     <Send className="h-5 w-5" />
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
               <p className="mt-2 text-xs text-slate-500">
                 Type / for commands • Enter to send • Shift+Enter for new line
@@ -321,7 +342,7 @@ function WelcomeMessage() {
   );
 }
 
-function MessageBubble({ message }: { message: AgentChatMessage }) {
+function MessageBubble({ message }: { message: AgentStreamMessage }) {
   const isUser = message.role === 'user';
 
   return (
@@ -346,19 +367,58 @@ function MessageBubble({ message }: { message: AgentChatMessage }) {
             <>
               <Bot className="h-3 w-3 md:h-4 md:w-4" />
               AI Agent
+              {message.isStreaming && (
+                <Loader2 className="h-3 w-3 animate-spin text-purple-300" />
+              )}
             </>
           )}
         </div>
+
+        {/* Tool Calls (ストリーミング中にリアルタイム表示) */}
+        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {message.toolCalls.map((tc, index) => (
+              <ToolCallCard key={`${tc.name}-${tc.step}-${index}`} toolCall={tc} />
+            ))}
+          </div>
+        )}
+
+        {/* Payment info */}
+        {!isUser && message.payment && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-900/50 bg-green-950/30 p-2 text-xs">
+            <CreditCard className="h-3 w-3 text-green-400" />
+            <span className="text-green-300">
+              Payment: ${message.payment.amount.toFixed(4)} USDC
+            </span>
+            <span className="text-slate-500">|</span>
+            <span className="text-slate-400">
+              Total: ${message.payment.totalCost.toFixed(4)} USDC
+            </span>
+            <span className="text-slate-500">|</span>
+            <span className="text-slate-400">
+              Remaining: ${message.payment.remainingBudget.toFixed(4)} USDC
+            </span>
+          </div>
+        )}
 
         {/* Content */}
         <div
           className={`whitespace-pre-wrap text-sm md:text-base ${isUser ? 'text-white' : 'text-slate-300'}`}
         >
-          {message.content || <span className="text-slate-500 italic">Executing...</span>}
+          {message.content || (
+            message.isStreaming ? (
+              <span className="flex items-center gap-2 text-slate-500 italic">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Thinking...
+              </span>
+            ) : (
+              <span className="text-slate-500 italic">No response</span>
+            )
+          )}
         </div>
 
-        {/* Execution Log (アシスタントメッセージのみ) */}
-        {!isUser && message.executionLog && message.executionLog.length > 0 && (
+        {/* Execution Log (完了後に表示) */}
+        {!isUser && !message.isStreaming && message.executionLog && message.executionLog.length > 0 && (
           <div className="mt-3 space-y-2 border-t border-slate-700 pt-3 md:mt-4 md:pt-4">
             <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
               <Wrench className="h-3 w-3" />
@@ -383,7 +443,71 @@ function MessageBubble({ message }: { message: AgentChatMessage }) {
   );
 }
 
+function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isCalling = toolCall.status === 'calling';
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2"
+      >
+        {isCalling ? (
+          <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
+        ) : (
+          <Wrench className="h-3 w-3 text-green-400" />
+        )}
+        <span className="font-mono font-medium text-slate-200">{toolCall.name}</span>
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] ${
+            isCalling
+              ? 'bg-yellow-500/20 text-yellow-300'
+              : 'bg-green-500/20 text-green-300'
+          }`}
+        >
+          {isCalling ? 'Running...' : 'Done'}
+        </span>
+        <span className="ml-auto text-slate-500">
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 space-y-2">
+          <div>
+            <span className="text-[10px] font-medium text-slate-500">ARGS</span>
+            <pre className="mt-0.5 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
+              {JSON.stringify(toolCall.args, null, 2)}
+            </pre>
+          </div>
+          {toolCall.result && (
+            <div>
+              <span className="text-[10px] font-medium text-slate-500">RESULT</span>
+              <pre className="mt-0.5 max-h-40 overflow-auto text-[10px] text-slate-400 md:text-xs">
+                {(() => {
+                  try {
+                    return JSON.stringify(JSON.parse(toolCall.result), null, 2);
+                  } catch {
+                    return toolCall.result;
+                  }
+                })()}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
+  const [collapsed, setCollapsed] = useState(true);
+
   const typeColors = {
     llm: 'bg-purple-500',
     logic: 'bg-blue-500',
@@ -400,15 +524,19 @@ function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
-      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full flex-wrap items-center gap-1.5 text-left md:gap-2"
+      >
         <span className={`h-2 w-2 shrink-0 rounded-full ${typeColors[entry.type]}`} />
         <span className="font-mono text-slate-500">[Step {entry.step}]</span>
         <span className="rounded bg-slate-700 px-1.5 py-0.5 text-slate-300">
           {typeLabels[entry.type]}
         </span>
         <span className="text-slate-300">{entry.action}</span>
-      </div>
-      {entry.details && Object.keys(entry.details).length > 0 && (
+      </button>
+      {!collapsed && (
         <pre className="mt-2 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
           {JSON.stringify(entry.details, null, 2)}
         </pre>

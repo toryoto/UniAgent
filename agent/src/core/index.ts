@@ -2,4 +2,5 @@
  * Agent Core
  */
 
-export { runAgent, runAgentStream } from './agent.js';
+export { runAgent } from './agent.js';
+export { runAgentStream, type StreamEvent } from './agent-streaming.js';

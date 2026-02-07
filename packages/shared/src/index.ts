@@ -25,6 +25,7 @@ export type {
   AgentRequest,
   AgentResponse,
   ExecutionLogEntry,
+  StreamEvent,
   X402PaymentInfo,
   JsonRpcRequest,
   JsonRpcResponse,
