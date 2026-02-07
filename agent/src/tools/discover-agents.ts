@@ -5,7 +5,7 @@
  * MCPサーバー経由ではなく、直接オンチェーンから検索
  */
 
-import { tool } from '@langchain/core/tools';
+import { tool } from 'langchain';
 import { z } from 'zod';
 import { discoverAgents } from '../services/agent-discovery.js';
 import type { A2ASkill } from '@agent-marketplace/shared';
@@ -14,9 +14,19 @@ import { logger } from '../utils/logger.js';
 /**
  * discover_agents ツール定義
  */
-// @ts-ignore - Type instantiation is excessively deep (TS2589)
+const discoverAgentsSchema = z.object({
+  agentId: z.string().optional().describe('特定のエージェントID (16進数文字列)'),
+  category: z
+    .string()
+    .optional()
+    .describe('検索するカテゴリ (例: "travel", "finance", "utility")'),
+  skillName: z.string().optional().describe('検索するスキル名 (部分一致)'),
+  maxPrice: z.number().optional().describe('最大価格 (USDC)'),
+  minRating: z.number().min(0).max(5).optional().describe('最小評価 (0-5)'),
+});
+
 export const discoverAgentsTool = tool(
-  async (input) => {
+  async (input: z.infer<typeof discoverAgentsSchema>) => {
     try {
       logger.logic.info('Searching agents on-chain', {
         agentId: input.agentId,
@@ -25,7 +35,6 @@ export const discoverAgentsTool = tool(
         maxPrice: input.maxPrice,
       });
 
-      // 共有サービスを直接呼び出し
       const result = await discoverAgents({
         agentId: input.agentId,
         category: input.category,
@@ -70,15 +79,6 @@ export const discoverAgentsTool = tool(
 特定のagentIdを指定するか、カテゴリやスキル名で検索可能です。
 価格・評価でのフィルタリングもサポートしています。
 結果にはエージェントのID、名前、説明、URL、価格（USDC）、評価が含まれます。`,
-    schema: z.object({
-      agentId: z.string().optional().describe('特定のエージェントID (16進数文字列)'),
-      category: z
-        .string()
-        .optional()
-        .describe('検索するカテゴリ (例: "travel", "finance", "utility")'),
-      skillName: z.string().optional().describe('検索するスキル名 (部分一致)'),
-      maxPrice: z.number().optional().describe('最大価格 (USDC)'),
-      minRating: z.number().min(0).max(5).optional().describe('最小評価 (0-5)'),
-    }),
+    schema: discoverAgentsSchema,
   }
 );

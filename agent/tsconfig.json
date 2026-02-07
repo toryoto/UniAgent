@@ -14,6 +14,24 @@
     "declarationMap": true,
     "sourceMap": true,
     "resolveJsonModule": true,
-    "composite": true
-  }
+    "composite": true,
+    "incremental": true,
+    "types": [],
+    "typeRoots": []  
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "../web",
+    "../contracts",
+    "../mcp",
+    "../packages/shared/node_modules"
+  ],
+  "references": [
+    { "path": "../packages/shared" }
+  ],
+  
 }

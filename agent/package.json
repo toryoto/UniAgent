@@ -16,9 +16,6 @@
   "dependencies": {
     "@agent-marketplace/shared": "*",
     "langchain": "^1.0.0",
-    "@langchain/anthropic": "^1.0.0",
-    "@langchain/core": "^1.0.0",
-    "@langchain/langgraph": "^1.0.0",
     "@privy-io/server-auth": "^1.18.5",
     "@x402/core": "^2.1.0",
     "@x402/evm": "^2.1.0",

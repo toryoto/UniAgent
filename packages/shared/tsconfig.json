@@ -16,5 +16,6 @@
     "sourceMap": true,
     "composite": true
   },
+  "include": ["src/**/*.ts", "src/**/*.json"],
   "exclude": ["node_modules", "dist"]
 }
