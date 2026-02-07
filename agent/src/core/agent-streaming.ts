@@ -1,22 +1,14 @@
 import { initChatModel, createAgent } from 'langchain';
-import type { AgentRequest, ExecutionLogEntry } from '@agent-marketplace/shared';
+import type {
+  AgentRequest,
+  ExecutionLogEntry,
+  StreamEvent,
+} from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
-export type StreamEvent =
-  | { type: 'start'; data: { message: string; maxBudget: number } }
-  | { type: 'step'; data: ExecutionLogEntry }
-  | { type: 'llm_token'; data: { token: string; step: number } }
-  | { type: 'llm_thinking'; data: { content: string; step: number } }
-  | { type: 'tool_call'; data: { name: string; args: Record<string, unknown>; step: number } }
-  | { type: 'tool_result'; data: { name: string; result: string; step: number } }
-  | { type: 'payment'; data: { amount: number; totalCost: number; remainingBudget: number } }
-  | {
-      type: 'final';
-      data: { message: string; totalCost: number; executionLog: ExecutionLogEntry[] };
-    }
-  | { type: 'error'; data: { error: string; executionLog: ExecutionLogEntry[] } };
+export type { StreamEvent };
 
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
   const { message, walletId, walletAddress, maxBudget, agentId } = request;

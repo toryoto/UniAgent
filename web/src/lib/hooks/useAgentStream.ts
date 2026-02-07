@@ -5,9 +5,9 @@
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type {
-  AgentSSEEvent,
   AgentStreamMessage,
   AgentToolCall,
+  StreamEvent,
 } from '@/lib/types';
 
 export interface UseAgentStreamOptions {
@@ -130,7 +130,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             if (!data) continue;
 
             try {
-              const event = JSON.parse(data) as AgentSSEEvent;
+              const event = JSON.parse(data) as StreamEvent;
               applyEvent(assistantId, event);
             } catch (parseError) {
               if (parseError instanceof SyntaxError) continue;
@@ -144,7 +144,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           const data = buffer.slice(6).trim();
           if (data) {
             try {
-              const event = JSON.parse(data) as AgentSSEEvent;
+              const event = JSON.parse(data) as StreamEvent;
               applyEvent(assistantId, event);
             } catch {}
           }
@@ -176,7 +176,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   /**
    * SSE イベントを受信してアシスタントメッセージを更新
    */
-  function applyEvent(assistantId: string, event: AgentSSEEvent) {
+  function applyEvent(assistantId: string, event: StreamEvent) {
     setMessages((prev) =>
       prev.map((m) => {
         if (m.id !== assistantId) return m;

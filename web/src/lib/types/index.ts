@@ -8,7 +8,11 @@
 // A2A Protocol Types
 // ============================================================================
 
-import type { A2ASkill, AgentCard } from '@agent-marketplace/shared';
+import type {
+  A2ASkill,
+  AgentCard,
+  ExecutionLogEntry,
+} from '@agent-marketplace/shared';
 
 export type { AgentCard };
 
@@ -258,21 +262,7 @@ export interface BudgetSettingsFormData {
 // Agent Streaming Types (SSE from /api/agent/stream)
 // ============================================================================
 
-import type { ExecutionLogEntry } from '@agent-marketplace/shared';
-
-export type AgentSSEEvent =
-  | { type: 'start'; data: { message: string; maxBudget: number } }
-  | { type: 'step'; data: ExecutionLogEntry }
-  | { type: 'llm_token'; data: { token: string; step: number } }
-  | { type: 'llm_thinking'; data: { content: string; step: number } }
-  | { type: 'tool_call'; data: { name: string; args: Record<string, unknown>; step: number } }
-  | { type: 'tool_result'; data: { name: string; result: string; step: number } }
-  | { type: 'payment'; data: { amount: number; totalCost: number; remainingBudget: number } }
-  | {
-      type: 'final';
-      data: { message: string; totalCost: number; executionLog: ExecutionLogEntry[] };
-    }
-  | { type: 'error'; data: { error: string; executionLog?: ExecutionLogEntry[] } };
+export type { StreamEvent } from '@agent-marketplace/shared';
 
 export interface AgentToolCall {
   name: string;
