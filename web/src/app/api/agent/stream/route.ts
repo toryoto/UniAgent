@@ -40,8 +40,11 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
       },
       body: JSON.stringify({ message, walletId, walletAddress, maxBudget }),
+      // @ts-expect-error -- Node.js undici option to disable response buffering
+      duplex: 'half',
     });
 
     if (!response.ok || !response.body) {
@@ -53,12 +56,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSEとしてストリーミング
-    return new Response(response.body, {
+    // ReadableStream で明示的にチャンクを転送し即座にフラッシュする
+    const reader = response.body.getReader();
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            controller.enqueue(value);
+          }
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
+      },
+      cancel() {
+        reader.cancel();
+      },
+    });
+
+    return new Response(stream, {
       headers: {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
       },
     });
   } catch (error) {

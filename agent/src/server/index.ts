@@ -108,9 +108,10 @@ app.post('/api/agent', async (req, res) => {
 app.post('/api/agent/stream', async (req, res) => {
   // SSEヘッダー設定
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // Nginxバッファリングを無効化
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
 
   try {
     const { message, walletId, walletAddress, maxBudget, agentId } = req.body as AgentRequest;

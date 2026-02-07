@@ -255,6 +255,46 @@ export interface BudgetSettingsFormData {
 }
 
 // ============================================================================
+// Agent Streaming Types (SSE from /api/agent/stream)
+// ============================================================================
+
+import type { ExecutionLogEntry } from '@agent-marketplace/shared';
+
+export type AgentSSEEvent =
+  | { type: 'start'; data: { message: string; maxBudget: number } }
+  | { type: 'step'; data: ExecutionLogEntry }
+  | { type: 'llm_token'; data: { token: string; step: number } }
+  | { type: 'llm_thinking'; data: { content: string; step: number } }
+  | { type: 'tool_call'; data: { name: string; args: Record<string, unknown>; step: number } }
+  | { type: 'tool_result'; data: { name: string; result: string; step: number } }
+  | { type: 'payment'; data: { amount: number; totalCost: number; remainingBudget: number } }
+  | {
+      type: 'final';
+      data: { message: string; totalCost: number; executionLog: ExecutionLogEntry[] };
+    }
+  | { type: 'error'; data: { error: string; executionLog?: ExecutionLogEntry[] } };
+
+export interface AgentToolCall {
+  name: string;
+  args: Record<string, unknown>;
+  result?: string;
+  status: 'calling' | 'completed';
+  step: number;
+}
+
+export interface AgentStreamMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+  isStreaming?: boolean;
+  toolCalls?: AgentToolCall[];
+  executionLog?: ExecutionLogEntry[];
+  totalCost?: number;
+  payment?: { amount: number; totalCost: number; remainingBudget: number };
+}
+
+// ============================================================================
 // Filter Types
 // ============================================================================
 
