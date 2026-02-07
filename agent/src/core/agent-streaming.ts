@@ -51,161 +51,38 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       ? `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, maxBudget=${maxBudget} USDC, agentId=${agentId}]`
       : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, maxBudget=${maxBudget} USDC]`;
 
+    // messages: トークン単位の LLM テキスト / updates: 完全なツール呼び出し・結果
     const stream = await agent.stream(
       { messages: [{ role: 'user', content: userMessage }] },
-      { streamMode: 'messages' }
+      { streamMode: ['messages', 'updates'] },
     );
 
     let finalResponse = '';
-    let currentTurnText = '';
-    let prevNode = '';
 
-    // ツール呼び出しチャンクの蓄積用
-    const pendingToolCalls = new Map<
-      number,
-      { name: string; args: string; id: string }
-    >();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for await (const [mode, chunk] of stream as AsyncIterable<[string, any]>) {
+      if (mode === 'messages') {
+        // ----- トークン単位の LLM テキストストリーミング -----
+        const [msg, metadata] = chunk as [
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          any,
+          { langgraph_node?: string },
+        ];
 
-    /**
-     * 蓄積したツール呼び出しを flush して yield する
-     */
-    function* flushPendingToolCalls(): Generator<StreamEvent> {
-      for (const [, tc] of pendingToolCalls) {
-        stepCounter++;
-        let parsedArgs: Record<string, unknown> = {};
-        try {
-          parsedArgs = JSON.parse(tc.args);
-        } catch {}
+        // ToolMessage は updates モードで処理するためスキップ
+        if (metadata?.langgraph_node === 'tools') continue;
 
-        yield {
-          type: 'tool_call',
-          data: { name: tc.name, args: parsedArgs, step: stepCounter },
-        };
-
-        executionLog.push({
-          step: stepCounter,
-          type: tc.name === 'execute_agent' ? 'payment' : 'logic',
-          action: `Tool call: ${tc.name}`,
-          details: parsedArgs,
-          timestamp: new Date(),
-        });
-
-        yield { type: 'step', data: executionLog[executionLog.length - 1] };
-
-        logger.agent.info(
-          `[model] tool_call: ${tc.name}(${JSON.stringify(parsedArgs)})`,
-        );
-      }
-      pendingToolCalls.clear();
-    }
-
-    /**
-     * モデルターン終了時に execution log を追加する
-     */
-    function addModelResponseLog(text: string) {
-      if (!text) return;
-      stepCounter++;
-      executionLog.push({
-        step: stepCounter,
-        type: 'llm',
-        action: 'LLM response',
-        details: { content: text },
-        timestamp: new Date(),
-      });
-      logger.agent.info(`[model] text: ${text.slice(0, 120)}...`);
-    }
-
-    for await (const event of stream) {
-      // streamMode: 'messages' は [MessageChunk, metadata] タプルを yield する
-      const [chunk, metadata] = event as [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        any,
-        { langgraph_node?: string; langgraph_step?: number },
-      ];
-      const node: string = metadata?.langgraph_node ?? '';
-
-      // ノード遷移の検出: model → tools
-      if (node === 'tools' && prevNode !== 'tools' && prevNode !== '') {
-        // モデルターンのテキストを記録
-        addModelResponseLog(currentTurnText);
-        // 蓄積したツール呼び出しを flush
-        yield* flushPendingToolCalls();
-      }
-
-      // ノード遷移の検出: tools → model（再度モデル呼び出し）
-      if (node !== 'tools' && prevNode === 'tools') {
-        // 新しいモデルターン開始 → テキストをリセット
-        currentTurnText = '';
-      }
-
-      prevNode = node;
-
-      if (node === 'tools') {
-        // ----- ツール実行結果 -----
-        const toolName =
-          typeof chunk.name === 'string' ? chunk.name : 'unknown';
-        const resultContent =
-          typeof chunk.content === 'string'
-            ? chunk.content
-            : JSON.stringify(chunk.content);
-
-        stepCounter++;
-
-        yield {
-          type: 'tool_result',
-          data: { name: toolName, result: resultContent, step: stepCounter },
-        };
-
-        executionLog.push({
-          step: stepCounter,
-          type: 'logic',
-          action: `Tool result: ${toolName}`,
-          details: { result: resultContent },
-          timestamp: new Date(),
-        });
-
-        yield { type: 'step', data: executionLog[executionLog.length - 1] };
-
-        logger.agent.info(
-          `[tools] ${toolName} => ${resultContent.slice(0, 120)}`,
-        );
-
-        // execute_agent の結果から支払い情報を抽出
-        if (toolName === 'execute_agent') {
-          try {
-            const parsed = JSON.parse(resultContent);
-            if (parsed?.paymentAmount) {
-              totalCost += parsed.paymentAmount;
-              yield {
-                type: 'payment',
-                data: {
-                  amount: parsed.paymentAmount,
-                  totalCost,
-                  remainingBudget: maxBudget - totalCost,
-                },
-              };
-            }
-          } catch {}
-        }
-      } else {
-        // ----- モデル出力: トークン単位でストリーミング -----
-        if (typeof chunk.content === 'string' && chunk.content) {
-          currentTurnText += chunk.content;
-          finalResponse = currentTurnText;
+        // テキストトークン
+        if (typeof msg.content === 'string' && msg.content) {
+          finalResponse += msg.content;
           yield {
             type: 'llm_token',
-            data: { token: chunk.content, step: stepCounter + 1 },
+            data: { token: msg.content, step: stepCounter + 1 },
           };
-        } else if (Array.isArray(chunk.content)) {
-          for (const part of chunk.content) {
-            if (
-              typeof part === 'object' &&
-              part !== null &&
-              part.type === 'text' &&
-              part.text
-            ) {
-              currentTurnText += part.text;
-              finalResponse = currentTurnText;
+        } else if (Array.isArray(msg.content)) {
+          for (const part of msg.content) {
+            if (part?.type === 'text' && part.text) {
+              finalResponse += part.text;
               yield {
                 type: 'llm_token',
                 data: { token: part.text, step: stepCounter + 1 },
@@ -213,32 +90,139 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
             }
           }
         }
+        // tool_call_chunks は無視（updates で完全な形で取得）
+      } else if (mode === 'updates') {
+        // ----- ノード完了時の完全な出力 -----
+        const entries = Object.entries(chunk) as [
+          string,
+          { messages?: unknown[] },
+        ][];
+        if (entries.length === 0) continue;
+        const [nodeName, state] = entries[0];
+        const msgs = (state?.messages || []) as Array<
+          Record<string, unknown>
+        >;
 
-        // ツール呼び出しチャンクの蓄積
-        const toolCallChunks = (chunk.tool_call_chunks ?? []) as Array<{
-          name?: string;
-          args?: string;
-          id?: string;
-          index?: number;
-        }>;
-        for (const tc of toolCallChunks) {
-          const idx = tc.index ?? 0;
-          if (!pendingToolCalls.has(idx)) {
-            pendingToolCalls.set(idx, { name: '', args: '', id: '' });
+        if (nodeName === 'model' || nodeName === 'model_request') {
+          for (const msg of msgs) {
+            const kwargs = (msg.kwargs as Record<string, unknown>) || msg;
+
+            // テキストの execution log 記録
+            const textContent = kwargs.content;
+            let textStr = '';
+            if (typeof textContent === 'string' && textContent) {
+              textStr = textContent;
+            } else if (Array.isArray(textContent)) {
+              textStr = textContent
+                .filter((p) => p?.type === 'text')
+                .map((p) => p.text)
+                .join('');
+            }
+            if (textStr) {
+              stepCounter++;
+              finalResponse = textStr;
+              executionLog.push({
+                step: stepCounter,
+                type: 'llm',
+                action: 'LLM response',
+                details: { content: textStr },
+                timestamp: new Date(),
+              });
+              logger.agent.info(
+                `[model] text: ${textStr.slice(0, 120)}...`,
+              );
+            }
+
+            const toolCalls = (
+              Array.isArray(kwargs.tool_calls) ? kwargs.tool_calls : []
+            ) as Array<{ name: string; args: Record<string, unknown> }>;
+
+            for (const tc of toolCalls) {
+              stepCounter++;
+
+              yield {
+                type: 'tool_call',
+                data: { name: tc.name, args: tc.args, step: stepCounter },
+              };
+
+              executionLog.push({
+                step: stepCounter,
+                type:
+                  tc.name === 'execute_agent' ? 'payment' : 'logic',
+                action: `Tool call: ${tc.name}`,
+                details: tc.args,
+                timestamp: new Date(),
+              });
+
+              yield {
+                type: 'step',
+                data: executionLog[executionLog.length - 1],
+              };
+
+              logger.agent.info(
+                `[model] tool_call: ${tc.name}(${JSON.stringify(tc.args)})`,
+              );
+            }
           }
-          const entry = pendingToolCalls.get(idx)!;
-          if (tc.name) entry.name += tc.name;
-          if (tc.args) entry.args += tc.args;
-          if (tc.id) entry.id = tc.id;
+        } else if (nodeName === 'tools') {
+          for (const msg of msgs) {
+            const kwargs = (msg.kwargs as Record<string, unknown>) || msg;
+            const toolName =
+              typeof kwargs.name === 'string' ? kwargs.name : 'unknown';
+            const resultContent =
+              typeof kwargs.content === 'string'
+                ? kwargs.content
+                : JSON.stringify(kwargs.content);
+
+            stepCounter++;
+
+            yield {
+              type: 'tool_result',
+              data: {
+                name: toolName,
+                result: resultContent,
+                step: stepCounter,
+              },
+            };
+
+            executionLog.push({
+              step: stepCounter,
+              type: 'logic',
+              action: `Tool result: ${toolName}`,
+              details: { result: resultContent },
+              timestamp: new Date(),
+            });
+
+            yield {
+              type: 'step',
+              data: executionLog[executionLog.length - 1],
+            };
+
+            logger.agent.info(
+              `[tools] ${toolName} => ${resultContent.slice(0, 120)}`,
+            );
+
+            // execute_agent の結果から支払い情報を抽出
+            if (toolName === 'execute_agent') {
+              try {
+                const parsed = JSON.parse(resultContent);
+                if (parsed?.paymentAmount) {
+                  totalCost += parsed.paymentAmount;
+                  yield {
+                    type: 'payment',
+                    data: {
+                      amount: parsed.paymentAmount,
+                      totalCost,
+                      remainingBudget: maxBudget - totalCost,
+                    },
+                  };
+                }
+              } catch {}
+            }
+          }
         }
       }
     }
-
-    // ストリーム終了: 残りの蓄積データを flush
-    if (currentTurnText && prevNode !== 'tools') {
-      addModelResponseLog(currentTurnText);
-    }
-    yield* flushPendingToolCalls();
 
     executionLog.push({
       step: ++stepCounter,
