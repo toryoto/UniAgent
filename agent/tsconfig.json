@@ -15,15 +15,23 @@
     "sourceMap": true,
     "resolveJsonModule": true,
     "composite": true,
-    "baseUrl": ".",
-    "paths": {
-      "@agent-marketplace/shared": ["../packages/shared/src/index.ts"],
-      "@agent-marketplace/shared/*": ["../packages/shared/src/*"]
-    }
+    "incremental": true,
+    "types": [],
+    "typeRoots": []  
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "../web",
+    "../contracts",
+    "../mcp",
+    "../packages/shared/node_modules"
+  ],
   "references": [
     { "path": "../packages/shared" }
-  ]
+  ],
+  
 }

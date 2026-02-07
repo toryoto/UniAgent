@@ -34,7 +34,7 @@ export function createX402FetchClient(
 
   // 3. EVM exact schemeを登録 (v2対応)
   registerExactEvmScheme(client, {
-    signer: signer as any, // PrivyEIP712Signer を ClientEvmSigner として扱う
+    signer: signer as any,
     networks: [NETWORK_ID],
   });
 

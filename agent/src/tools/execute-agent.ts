@@ -6,7 +6,7 @@
  * Privy delegated walletを使用してユーザーのウォレットで署名を行う
  */
 
-import { tool } from '@langchain/core/tools';
+import { tool } from 'langchain';
 import { z } from 'zod';
 import { PrivyClient } from '@privy-io/server-auth';
 import type { JsonRpcRequest, JsonRpcResponse } from '@agent-marketplace/shared';
@@ -247,9 +247,16 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
 /**
  * execute_agent ツール定義
  */
-// @ts-ignore - Type instantiation is excessively deep (TS2589)
+const executeAgentSchema = z.object({
+  agentUrl: z.string().describe('エージェントのBase URL'),
+  task: z.string().describe('エージェントに依頼するタスク'),
+  maxPrice: z.number().describe('許容する最大価格 (USDC) - 参考値'),
+  walletId: z.string().describe('Privyウォレット ID'),
+  walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
+});
+
 export const executeAgentTool = tool(
-  async (input) => {
+  async (input: z.infer<typeof executeAgentSchema>) => {
     try {
       const result = await executeAgentImpl(input);
       return JSON.stringify(result, null, 2);
@@ -292,12 +299,6 @@ export const executeAgentTool = tool(
   "walletId": "privy-wallet-id",
   "walletAddress": "0x..."
 }`,
-    schema: z.object({
-      agentUrl: z.string().describe('エージェントのBase URL'),
-      task: z.string().describe('エージェントに依頼するタスク'),
-      maxPrice: z.number().describe('許容する最大価格 (USDC) - 参考値'),
-      walletId: z.string().describe('Privyウォレット ID'),
-      walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
-    }),
+    schema: executeAgentSchema,
   }
 );

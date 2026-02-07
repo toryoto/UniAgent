@@ -14,12 +14,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "composite": true,
-    "baseUrl": ".",
-    "paths": {
-      "@agent-marketplace/shared": ["../packages/shared/src/index.ts"],
-      "@agent-marketplace/shared/*": ["../packages/shared/src/*"]
-    }
+    "composite": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
