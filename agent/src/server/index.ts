@@ -8,7 +8,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
-import { runAgent, runAgentStream } from '../core/agent.js';
+import { runAgent } from '../core/agent.js';
+import { runAgentStream } from '../core/agent-streaming.js';
 import { logger, logSeparator } from '../utils/logger.js';
 
 const app = express();
@@ -112,7 +113,7 @@ app.post('/api/agent/stream', async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no'); // Nginxバッファリングを無効化
 
   try {
-    const { message, walletId, walletAddress, maxBudget } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, maxBudget, agentId } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -144,7 +145,7 @@ app.post('/api/agent/stream', async (req, res) => {
     }
 
     // ストリーミング実行
-    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget });
+    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget, agentId });
 
     for await (const event of stream) {
       const data = JSON.stringify(event);
