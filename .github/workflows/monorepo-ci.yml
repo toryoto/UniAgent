@@ -65,12 +65,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Clear npm cache
-        run: npm cache clean --force
-      
-      # node_modules を明示的に削除
-      - run: rm -rf node_modules */node_modules packages/*/node_modules
-        
+
       - run: npm ci
       - run: npm run build --workspace=packages/shared
       - run: npm run db:generate --workspace=web
