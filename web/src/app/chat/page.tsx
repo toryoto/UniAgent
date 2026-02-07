@@ -506,6 +506,8 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
 }
 
 function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
+  const [collapsed, setCollapsed] = useState(true);
+
   const typeColors = {
     llm: 'bg-purple-500',
     logic: 'bg-blue-500',
@@ -522,15 +524,19 @@ function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
-      <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full flex-wrap items-center gap-1.5 text-left md:gap-2"
+      >
         <span className={`h-2 w-2 shrink-0 rounded-full ${typeColors[entry.type]}`} />
         <span className="font-mono text-slate-500">[Step {entry.step}]</span>
         <span className="rounded bg-slate-700 px-1.5 py-0.5 text-slate-300">
           {typeLabels[entry.type]}
         </span>
         <span className="text-slate-300">{entry.action}</span>
-      </div>
-      {entry.details && Object.keys(entry.details).length > 0 && (
+      </button>
+      {!collapsed && (
         <pre className="mt-2 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
           {JSON.stringify(entry.details, null, 2)}
         </pre>
