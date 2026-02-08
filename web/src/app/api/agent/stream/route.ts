@@ -2,7 +2,7 @@
  * Agent Stream API Route
  *
  * Agent ServiceへのSSEプロキシエンドポイント
- * リアルタイムでエージェントの実行状況を取得
+ * リアルタイムでエージェントの実行状況を取得してフロントに流す
  */
 
 import { NextRequest } from 'next/server';
@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { message, walletId, walletAddress, maxBudget } = body;
 
-    // Validation
     if (!message || !walletId || !walletAddress || typeof maxBudget !== 'number') {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid request' }),
@@ -56,27 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ReadableStream で明示的にチャンクを転送し即座にフラッシュする
-    const reader = response.body.getReader();
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            controller.enqueue(value);
-          }
-          controller.close();
-        } catch (err) {
-          controller.error(err);
-        }
-      },
-      cancel() {
-        reader.cancel();
-      },
-    });
-
-    return new Response(stream, {
+    return new Response(response.body, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
