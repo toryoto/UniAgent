@@ -32,10 +32,10 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "ethers": "^6.16.0"
+    "ethers": "^6.16.0",
+    "pinata": "^2.5.4"
   },
   "devDependencies": {
     "typescript": "^5"
   }
 }
-

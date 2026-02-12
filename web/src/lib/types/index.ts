@@ -10,11 +10,8 @@
 
 import type {
   A2ASkill,
-  AgentCard,
   ExecutionLogEntry,
 } from '@agent-marketplace/shared';
-
-export type { AgentCard };
 
 // ============================================================================
 // API DTO Types (JSON-safe)
@@ -113,7 +110,7 @@ export interface MCPToolDiscoverAgentsInput {
 }
 
 export interface MCPToolDiscoverAgentsOutput {
-  agents: AgentCard[];
+  agents: AgentCardDto[];
 }
 
 export interface MCPToolExecuteAgentInput {

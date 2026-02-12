@@ -15,33 +15,6 @@ export interface A2ASkill {
   inputSchema?: Record<string, unknown>;
 }
 
-export interface A2APaymentInfo {
-  tokenAddress: string;
-  receiverAddress: string;
-  pricePerCall: bigint;
-  chain: string;
-}
-
-export interface AgentCard {
-  agentId: string;
-  name: string;
-  description: string;
-  url: string;
-  version: string;
-  defaultInputModes: string[];
-  defaultOutputModes: string[];
-  skills: A2ASkill[];
-  owner: string;
-  isActive: boolean;
-  createdAt: bigint;
-  totalRatings: bigint;
-  ratingCount: bigint;
-  averageRating: number;
-  payment: A2APaymentInfo;
-  category: string;
-  imageUrl?: string;
-}
-
 // ============================================================================
 // Agent JSON Types (.well-known/agent.json)
 // ============================================================================
@@ -139,6 +112,36 @@ export interface X402PaymentInfo {
   asset: string;
   payTo: string;
   facilitator?: string;
+}
+
+// ============================================================================
+// ERC-8004 Types (Trustless Agents)
+// ============================================================================
+
+export interface ERC8004RegistrationFile {
+  type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1';
+  name: string;
+  description: string;
+  image: string;
+  services: ERC8004Service[];
+  x402Support?: boolean;
+  active?: boolean;
+  registrations?: ERC8004RegistrationEntry[];
+  supportedTrust?: string[];
+  category?: string;
+}
+
+export interface ERC8004Service {
+  name: string;
+  endpoint: string;
+  version?: string;
+  skills?: A2ASkill[];
+  domains?: string[];
+}
+
+export interface ERC8004RegistrationEntry {
+  agentId: number;
+  agentRegistry: string;
 }
 
 // ============================================================================

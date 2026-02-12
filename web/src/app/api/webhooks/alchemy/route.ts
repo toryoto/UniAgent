@@ -1,11 +1,10 @@
 /**
- * Alchemy Webhook エンドポイント（コントラクトイベント）
+ * Alchemy Webhook エンドポイント（ERC-8004 コントラクトイベント）
  *
- * - AgentRegistry の AgentRegistered / AgentUpdated を受信
- * - event log から agentId を抽出
- * - getAgentCard(agentId) でオンチェーンの完全データを取得
- * - Prisma に JSON（BigIntは文字列化）で upsert
- *
+ * - AgentIdentityRegistry の Transfer (mint) イベントを受信
+ * - event log から agentId (tokenId) を抽出
+ * - tokenURI → IPFS メタデータを取得
+ * - Prisma に JSON で upsert
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -13,7 +12,11 @@ import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { prisma } from '@/lib/db/prisma';
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/config';
-import { AGENT_REGISTRY_ABI, getAgentCard } from '@/lib/blockchain/contract';
+import { AGENT_IDENTITY_REGISTRY_ABI } from '@/lib/blockchain/contract';
+import {
+  getProvider,
+  fetchAgentMetadata,
+} from '@agent-marketplace/shared';
 
 export const runtime = 'nodejs';
 
@@ -31,9 +34,8 @@ function timingSafeEqualHex(aHex: string, bHex: string): boolean {
  */
 function verifyAlchemySignature(rawBody: string, signatureHeader: string | null) {
   const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
-  if (!signingKey) return; // キー未設定なら検証しない
+  if (!signingKey) return;
 
-  // Header: X-Alchemy-Signature: <hex>
   if (!signatureHeader) throw new Error('Missing X-Alchemy-Signature');
 
   const signature = signatureHeader.trim().replace(/^sha256=/i, '');
@@ -77,15 +79,12 @@ function toJsonSafe<T>(value: T): unknown {
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
-
-    // WebhookからのリクエストHeaderはX-Alchemy-Signatureで受け取る
     verifyAlchemySignature(rawBody, request.headers.get('x-alchemy-signature'));
 
     const payload = JSON.parse(rawBody) as unknown;
 
-    const contractAddress = CONTRACT_ADDRESSES.AGENT_REGISTRY;
-
-    const iface = new ethers.Interface(AGENT_REGISTRY_ABI as any);
+    const contractAddress = CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY;
+    const iface = new ethers.Interface(AGENT_IDENTITY_REGISTRY_ABI as any);
     const logs: CandidateLog[] = [];
     extractLogs(payload, logs);
 
@@ -104,36 +103,59 @@ export async function POST(request: NextRequest) {
         // ignore
       }
       if (!parsed) continue;
-      if (parsed.name !== 'AgentRegistered' && parsed.name !== 'AgentUpdated') continue;
 
-      const agentId = (parsed.args as any)?.agentId ?? (parsed.args as any)?.[0];
-      if (typeof agentId === 'string' && agentId.startsWith('0x')) agentIds.add(agentId);
+      // ERC-721 Transfer event: Transfer(address from, address to, uint256 tokenId)
+      if (parsed.name === 'Transfer') {
+        const tokenId = parsed.args?.tokenId?.toString();
+        if (tokenId) agentIds.add(tokenId);
+      }
     }
 
     let processedCount = 0;
     const errors: Array<{ agentId: string; error: string }> = [];
 
+    const provider = getProvider();
+    const contract = new ethers.Contract(contractAddress, AGENT_IDENTITY_REGISTRY_ABI as any, provider);
+
     for (const agentId of agentIds) {
       try {
-        const agentCard = await getAgentCard(agentId);
-        const agentCardJson = toJsonSafe(agentCard);
+        const [tokenURI, owner] = await Promise.all([
+          contract.tokenURI(agentId) as Promise<string>,
+          contract.ownerOf(agentId) as Promise<string>,
+        ]);
+
+        const metadata = await fetchAgentMetadata(tokenURI);
+        const a2aService = metadata.services?.find((s) => s.name === 'A2A');
+
+        const agentCard = toJsonSafe({
+          agentId,
+          name: metadata.name,
+          description: metadata.description,
+          url: a2aService?.endpoint || '',
+          version: a2aService?.version || '1.0.0',
+          skills: a2aService?.skills || [],
+          owner,
+          isActive: metadata.active !== false,
+          category: metadata.category || a2aService?.domains?.[0] || '',
+          imageUrl: metadata.image,
+        });
 
         await prisma.agentCache.upsert({
           where: { agentId },
           create: {
             agentId,
-            owner: agentCard.owner,
-            category: agentCard.category,
-            isActive: agentCard.isActive,
-            agentCard: agentCardJson as any,
+            owner,
+            category: metadata.category || a2aService?.domains?.[0] || '',
+            isActive: metadata.active !== false,
+            agentCard: agentCard as any,
             lastSyncedBlock: 0,
             lastSyncedLogIdx: 0,
           },
           update: {
-            owner: agentCard.owner,
-            category: agentCard.category,
-            isActive: agentCard.isActive,
-            agentCard: agentCardJson as any,
+            owner,
+            category: metadata.category || a2aService?.domains?.[0] || '',
+            isActive: metadata.active !== false,
+            agentCard: agentCard as any,
             lastSyncedBlock: 0,
             lastSyncedLogIdx: 0,
           },
@@ -145,7 +167,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[Alchemy Webhook] Summary', {
-      contractAddress: contractAddress.toLowerCase(),
+      contractAddress: contractAddrLower,
       logsFound: logs.length,
       agentIdsFound: agentIds.size,
       processedCount,
@@ -154,7 +176,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      contractAddress: contractAddress.toLowerCase(),
+      contractAddress: contractAddrLower,
       logsFound: logs.length,
       agentIdsFound: agentIds.size,
       processedCount,

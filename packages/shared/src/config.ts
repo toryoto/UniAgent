@@ -3,11 +3,17 @@
  */
 
 export const CONTRACT_ADDRESSES = {
-  AGENT_REGISTRY: '0xe2b64700330af9e408acb3a04a827045673311c1',
+  AGENT_IDENTITY_REGISTRY:
+    process.env.AGENT_IDENTITY_REGISTRY_ADDRESS ||
+    process.env.NEXT_PUBLIC_AGENT_IDENTITY_REGISTRY_ADDRESS ||
+    '',
   USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
 } as const;
 
 export const RPC_URL = process.env.RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || '';
+
+export const PINATA_GATEWAY_URL =
+  process.env.PINATA_GATEWAY_URL || process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL || '';
 
 // USDC設定（6 decimals）
 export const USDC_DECIMALS = 6;

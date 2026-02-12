@@ -1,13 +1,15 @@
 /**
- * Agent Discovery Service
+ * Agent Discovery Service (ERC-8004)
  *
- * オンチェーンからAgentCardを検索・取得し、.well-known/agent.jsonの情報を併せて返す
+ * オンチェーンのAgentIdentityRegistryからエージェントを検索し、
+ * IPFSメタデータと.well-known/agent.jsonの情報を併せて返す
  */
 
 import { ethers } from 'ethers';
 import { CONTRACT_ADDRESSES, RPC_URL, USDC_DECIMALS } from '../config.js';
-import { AGENT_REGISTRY_ABI } from '../contract.js';
-import type { AgentCard, AgentJson, A2ASkill, DiscoveredAgent } from '../types.js';
+import { AGENT_IDENTITY_REGISTRY_ABI } from '../contract.js';
+import type { A2ASkill, AgentJson, DiscoveredAgent, ERC8004RegistrationFile } from '../types.js';
+import { fetchAgentMetadata } from './pinata.js';
 
 export interface DiscoverAgentsInput {
   category?: string;
@@ -22,19 +24,22 @@ export interface DiscoverAgentsOutput {
   source: 'on-chain';
 }
 
+// ============================================================================
+// Utilities
+// ============================================================================
+
 /**
  * .well-known/agent.jsonを取得
  */
 async function fetchAgentJson(baseUrl: string): Promise<{
   endpoint?: string;
   openapi?: string;
+  price?: number;
 } | null> {
   try {
-    // URLの正規化
     const normalizedUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const agentJsonUrl = `${normalizedUrl}`;
 
-    const response = await fetch(agentJsonUrl, {
+    const response = await fetch(normalizedUrl, {
       method: 'GET',
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(5000),
@@ -42,159 +47,180 @@ async function fetchAgentJson(baseUrl: string): Promise<{
 
     if (!response.ok) {
       console.warn(
-        `[agent-discovery] Failed to fetch agent.json from ${agentJsonUrl}: ${response.status}`
+        `[agent-discovery] Failed to fetch agent.json from ${normalizedUrl}: ${response.status}`
       );
       return null;
     }
 
     const agentJson = (await response.json()) as
       | AgentJson
-      | { endpoint?: string; openapi?: string };
+      | (Record<string, unknown> & { payment?: { pricePerCall?: string } });
 
-    // agent.json構造に応じてエンドポイント情報を抽出
+    let endpoint: string | undefined;
+    let openapi: string | undefined;
+    let price: number | undefined;
+
     if (
       'endpoints' in agentJson &&
       Array.isArray(agentJson.endpoints) &&
       agentJson.endpoints.length > 0
     ) {
-      return {
-        endpoint: agentJson.endpoints[0].url,
-        openapi: agentJson.endpoints[0].spec,
-      };
+      endpoint = agentJson.endpoints[0].url;
+      openapi = agentJson.endpoints[0].spec;
+    } else if ('endpoint' in agentJson) {
+      endpoint = agentJson.endpoint as string;
+      openapi = 'openapi' in agentJson ? (agentJson.openapi as string) : undefined;
     }
 
-    return {
-      endpoint: 'endpoint' in agentJson ? agentJson.endpoint : undefined,
-      openapi: 'openapi' in agentJson ? agentJson.openapi : undefined,
-    };
+    if ('payment' in agentJson && agentJson.payment) {
+      const payment = agentJson.payment as { pricePerCall?: string };
+      if (payment.pricePerCall) {
+        price = Number(payment.pricePerCall) / Math.pow(10, USDC_DECIMALS);
+      }
+    }
+
+    return { endpoint, openapi, price };
   } catch (error) {
     console.warn(`[agent-discovery] Error fetching agent.json from ${baseUrl}:`, error);
     return null;
   }
 }
 
-/**
- * オンチェーンAgentCardをパースしてDiscoveredAgentに変換
- */
-function parseOnChainAgent(onChainData: AgentCard): Omit<DiscoveredAgent, 'endpoint' | 'openapi'> {
-  const totalRatings = Number(onChainData.totalRatings || 0);
-  const ratingCount = Number(onChainData.ratingCount || 0);
-  const averageRating = ratingCount > 0 ? totalRatings / ratingCount : 0;
+// ============================================================================
+// IPFS Metadata Cache
+// ============================================================================
 
-  // 価格をUSDC単位に変換 (6 decimals)
-  const pricePerCall = Number(onChainData.payment?.pricePerCall || 0);
-  const priceUsdc = pricePerCall / Math.pow(10, USDC_DECIMALS);
+const ipfsCache = new Map<string, { data: ERC8004RegistrationFile; timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-  return {
-    agentId: onChainData.agentId,
-    name: onChainData.name,
-    description: onChainData.description,
-    url: onChainData.url,
-    version: onChainData.version,
-    skills: (onChainData.skills || []).map((skill: A2ASkill) => ({
-      id: skill.id,
-      name: skill.name,
-      description: skill.description,
-    })),
-    price: priceUsdc,
-    rating: Math.round(averageRating * 100) / 100,
-    ratingCount,
-    category: onChainData.category,
-    owner: onChainData.owner,
-    isActive: onChainData.isActive,
-    imageUrl: onChainData.imageUrl,
-  };
+async function fetchCachedMetadata(ipfsUri: string): Promise<ERC8004RegistrationFile> {
+  const cached = ipfsCache.get(ipfsUri);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const data = await fetchAgentMetadata(ipfsUri);
+  ipfsCache.set(ipfsUri, { data, timestamp: Date.now() });
+  return data;
 }
 
 // ============================================================================
-// Main Function
+// Discovery
 // ============================================================================
 
+async function resolveAgent(
+  contract: ethers.Contract,
+  agentId: bigint
+): Promise<DiscoveredAgent | null> {
+  try {
+    const [tokenURI, agentOwner] = await Promise.all([
+      contract.tokenURI(agentId) as Promise<string>,
+      contract.ownerOf(agentId) as Promise<string>,
+    ]);
+
+    const metadata = await fetchCachedMetadata(tokenURI);
+
+    if (metadata.active === false) return null;
+
+    const a2aService = metadata.services?.find((s) => s.name === 'A2A');
+    const a2aEndpoint = a2aService?.endpoint;
+
+    let endpoint: string | undefined;
+    let openapi: string | undefined;
+    let price = 0;
+
+    if (a2aEndpoint) {
+      const agentJsonInfo = await fetchAgentJson(a2aEndpoint);
+      endpoint = agentJsonInfo?.endpoint || a2aEndpoint;
+      openapi = agentJsonInfo?.openapi;
+      price = agentJsonInfo?.price || 0;
+    }
+
+    const skills: A2ASkill[] =
+      a2aService?.skills?.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+      })) || [];
+
+    return {
+      agentId: agentId.toString(),
+      name: metadata.name,
+      description: metadata.description,
+      url: a2aEndpoint || '',
+      endpoint,
+      version: a2aService?.version || '1.0.0',
+      skills,
+      price,
+      rating: 0,
+      ratingCount: 0,
+      category: metadata.category || a2aService?.domains?.[0] || '',
+      owner: agentOwner,
+      isActive: true,
+      openapi,
+      imageUrl: metadata.image,
+    };
+  } catch (error) {
+    console.warn(`[agent-discovery] Error fetching agent ${agentId}:`, error);
+    return null;
+  }
+}
+
 /**
- * エージェント検索
- *
- * オンチェーンのAgentRegistryからエージェントを検索し、
- * .well-known/agent.jsonからエンドポイント情報を取得して返す
+ * エージェント検索（ERC-8004 Identity Registry）
  */
 export async function discoverAgents(input: DiscoverAgentsInput): Promise<DiscoverAgentsOutput> {
+  const { category, skillName, maxPrice, minRating } = input;
+
+  console.log('[agent-discovery] Input:', JSON.stringify(input));
+
   try {
-    const { category, skillName, maxPrice, minRating } = input;
-
-    console.log('[agent-discovery] Input:', JSON.stringify(input));
-
-    // Providerとコントラクト初期化
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.AGENT_REGISTRY,
-      AGENT_REGISTRY_ABI,
+      CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY,
+      AGENT_IDENTITY_REGISTRY_ABI,
       provider
     );
 
-    // オンチェーンからAgentCard取得
-    let agentIds: string[];
+    const allAgentIds: bigint[] = await contract.getAllAgentIds();
 
-    if (category) {
-      agentIds = await contract.getActiveAgentsByCategory(category);
-    } else {
-      agentIds = await contract.getAllAgentIds();
-    }
-
-    if (agentIds.length === 0) {
+    if (allAgentIds.length === 0) {
       return { agents: [], total: 0, source: 'on-chain' };
     }
 
-    // 各AgentCardを取得
-    const agentCardsPromises = agentIds.map((id) => contract.getAgentCard(id));
-    const onChainAgents = await Promise.all(agentCardsPromises);
+    const agentPromises = allAgentIds.map((id) => resolveAgent(contract, id));
+    let agents = (await Promise.all(agentPromises)).filter(
+      (a): a is DiscoveredAgent => a !== null
+    );
 
-    // パースとフィルタリング
-    let parsedAgents = onChainAgents.map(parseOnChainAgent).filter((agent) => agent.isActive);
+    // Apply filters
+    if (category) {
+      const lower = category.toLowerCase();
+      agents = agents.filter((a) => a.category.toLowerCase().includes(lower));
+    }
 
-    // スキル名フィルタ
     if (skillName) {
-      const lowerSkillName = skillName.toLowerCase();
-      parsedAgents = parsedAgents.filter((agent) =>
-        agent.skills.some(
-          (skill) =>
-            skill.name.toLowerCase().includes(lowerSkillName) ||
-            skill.description.toLowerCase().includes(lowerSkillName)
+      const lower = skillName.toLowerCase();
+      agents = agents.filter((a) =>
+        a.skills.some(
+          (s) => s.name.toLowerCase().includes(lower) || s.description.toLowerCase().includes(lower)
         )
       );
     }
 
-    // 価格フィルタ
     if (typeof maxPrice === 'number') {
-      parsedAgents = parsedAgents.filter((agent) => agent.price <= maxPrice);
+      agents = agents.filter((a) => a.price <= maxPrice);
     }
 
-    // 評価フィルタ
     if (typeof minRating === 'number') {
-      parsedAgents = parsedAgents.filter((agent) => agent.rating >= minRating);
+      agents = agents.filter((a) => a.rating >= minRating);
     }
 
-    // .well-known/agent.jsonから追加情報を取得（並列処理）
-    const enrichedAgentsPromises = parsedAgents.map(async (agent): Promise<DiscoveredAgent> => {
-      const agentJsonInfo = await fetchAgentJson(agent.url);
+    agents.sort((a, b) => b.rating - a.rating);
 
-      return {
-        ...agent,
-        endpoint: agentJsonInfo?.endpoint || `${agent.url}/api/v1/agent`,
-        openapi: agentJsonInfo?.openapi,
-      };
-    });
+    console.log(`[agent-discovery] Found ${agents.length} agents`);
 
-    const enrichedAgents = await Promise.all(enrichedAgentsPromises);
-
-    // 評価順でソート
-    enrichedAgents.sort((a, b) => b.rating - a.rating);
-
-    console.log(`[agent-discovery] Found ${enrichedAgents.length} agents`);
-
-    return {
-      agents: enrichedAgents,
-      total: enrichedAgents.length,
-      source: 'on-chain',
-    };
+    return { agents, total: agents.length, source: 'on-chain' };
   } catch (error) {
     console.error('[agent-discovery] Error:', error);
     throw new Error(

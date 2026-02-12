@@ -19,9 +19,9 @@ export const mcpServer = new FastMCP({
 // discover_agents ツール
 mcpServer.addTool({
   name: 'discover_agents',
-  description: `ブロックチェーン上のAgentRegistryからエージェントを検索します。
+  description: `ブロックチェーン上のAgent Identity Registry (ERC-8004) からエージェントを検索します。
 カテゴリやスキル名で検索可能で、価格・評価でのフィルタリングもサポートしています。
-結果にはオンチェーンのAgentCard情報と、各エージェントの.well-known/agent.jsonから取得したA2Aエンドポイント情報が含まれます。`,
+結果にはオンチェーンのエージェント情報と、各エージェントの.well-known/agent.jsonから取得したA2Aエンドポイント・価格情報が含まれます。`,
   parameters: z.object({
     category: z
       .string()
