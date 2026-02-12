@@ -44,6 +44,12 @@ cd contracts
 npm run compile
 npm run test
 npm run deploy:base-sepolia
+
+# ERC-8004 AgentIdentityRegistry 関連スクリプト
+# （すべて contracts ディレクトリ内から実行）
+npx hardhat run scripts/deploy-identity-registry.ts --network base-sepolia
+npx hardhat run scripts/register-agents-erc8004.ts --network base-sepolia
+npx hardhat run scripts/inspect-identity-registry.ts --network base-sepolia
 ```
 
 ## 主要スクリプト
@@ -51,3 +57,6 @@ npm run deploy:base-sepolia
 - `scripts/deploy.ts`: コントラクトデプロイ
 - `scripts/register-sample-agents.ts`: サンプルエージェント登録
 - `scripts/verify-deployment.ts`: デプロイ検証
+- `scripts/deploy-identity-registry.ts`: ERC-8004 AgentIdentityRegistry のデプロイ
+- `scripts/register-agents-erc8004.ts`: ERC-8004 準拠サンプルエージェントの登録
+- `scripts/inspect-identity-registry.ts`: AgentIdentityRegistry のオンチェーン状態確認

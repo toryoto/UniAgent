@@ -9,3 +9,5 @@ export {
   type DiscoverAgentsInput,
   type DiscoverAgentsOutput,
 } from './agent-discovery.js';
+
+export { uploadAgentMetadata, fetchAgentMetadata } from './pinata.js';

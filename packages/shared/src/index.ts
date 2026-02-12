@@ -9,16 +9,20 @@ export {
   RPC_URL,
   USDC_DECIMALS,
   USDC_UNIT,
+  DEFAULT_PINATA_GATEWAY,
+  PINATA_GATEWAY_URL,
   parseUSDC,
   formatUSDCAmount,
 } from './config.js';
 
-export { AGENT_REGISTRY_ABI, getProvider, getAgentRegistryContract } from './contract.js';
+export {
+  AGENT_IDENTITY_REGISTRY_ABI,
+  getProvider,
+  getAgentIdentityRegistryContract,
+} from './contract.js';
 
 export type {
   A2ASkill,
-  A2APaymentInfo,
-  AgentCard,
   AgentJson,
   AgentJsonEndpoint,
   DiscoveredAgent,
@@ -29,6 +33,9 @@ export type {
   X402PaymentInfo,
   JsonRpcRequest,
   JsonRpcResponse,
+  ERC8004RegistrationFile,
+  ERC8004Service,
+  ERC8004RegistrationEntry,
 } from './types.js';
 
 // Services
@@ -37,3 +44,5 @@ export {
   type DiscoverAgentsInput,
   type DiscoverAgentsOutput,
 } from './services/index.js';
+
+export { uploadAgentMetadata, fetchAgentMetadata } from './services/pinata.js';

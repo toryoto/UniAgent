@@ -1,207 +1,78 @@
 /**
  * Agent Discovery Service
  *
- * オンチェーンからAgentCardを取得し、.well-known/agent.jsonの情報を併せて返す
+ * 共有パッケージのdiscoverAgentsをラップし、agentId指定検索を追加
  */
 
 import { ethers } from 'ethers';
 import {
   CONTRACT_ADDRESSES,
   RPC_URL,
-  formatUSDCAmount,
-  AGENT_REGISTRY_ABI,
-  type AgentCard,
-  type AgentJson,
+  AGENT_IDENTITY_REGISTRY_ABI,
   type A2ASkill,
   type DiscoveredAgent,
+  discoverAgents as sharedDiscoverAgents,
+  type DiscoverAgentsInput as SharedDiscoverAgentsInput,
+  type DiscoverAgentsOutput,
+  fetchAgentMetadata,
 } from '@agent-marketplace/shared';
 
-export interface DiscoverAgentsInput {
+export type { DiscoverAgentsOutput };
+
+export interface DiscoverAgentsInput extends SharedDiscoverAgentsInput {
   agentId?: string;
-  category?: string;
-  skillName?: string;
-  maxPrice?: number;
-  minRating?: number;
-}
-
-export interface DiscoverAgentsOutput {
-  agents: DiscoveredAgent[];
-  total: number;
-  source: 'on-chain';
-}
-
-/**
- * .well-known/agent.jsonを取得
- */
-async function fetchAgentJson(baseUrl: string): Promise<{
-  endpoint?: string;
-  openapi?: string;
-} | null> {
-  try {
-    // URLの正規化
-    const normalizedUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-    const agentJsonUrl = `${normalizedUrl}`;
-
-    const response = await fetch(agentJsonUrl, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!response.ok) {
-      console.warn(
-        `[agent-discovery] Failed to fetch agent.json from ${agentJsonUrl}: ${response.status}`
-      );
-      return null;
-    }
-
-    const agentJson = (await response.json()) as
-      | AgentJson
-      | { endpoint?: string; openapi?: string };
-
-    // agent.json構造に応じてエンドポイント情報を抽出
-    if (
-      'endpoints' in agentJson &&
-      Array.isArray(agentJson.endpoints) &&
-      agentJson.endpoints.length > 0
-    ) {
-      return {
-        endpoint: agentJson.endpoints[0].url,
-        openapi: agentJson.endpoints[0].spec,
-      };
-    }
-
-    return {
-      endpoint: 'endpoint' in agentJson ? agentJson.endpoint : undefined,
-      openapi: 'openapi' in agentJson ? agentJson.openapi : undefined,
-    };
-  } catch (error) {
-    console.warn(`[agent-discovery] Error fetching agent.json from ${baseUrl}:`, error);
-    return null;
-  }
-}
-
-/**
- * オンチェーンAgentCardをパースしてDiscoveredAgentに変換
- */
-function parseOnChainAgent(onChainData: AgentCard): Omit<DiscoveredAgent, 'endpoint' | 'openapi'> {
-  const totalRatings = Number(onChainData.totalRatings || 0);
-  const ratingCount = Number(onChainData.ratingCount || 0);
-  const averageRating = ratingCount > 0 ? totalRatings / ratingCount : 0;
-
-  // 価格をUSDC単位に変換 (6 decimals)
-  const pricePerCall = onChainData.payment?.pricePerCall || BigInt(0);
-  const priceUsdc = formatUSDCAmount(pricePerCall);
-
-  return {
-    agentId: onChainData.agentId,
-    name: onChainData.name,
-    description: onChainData.description,
-    url: onChainData.url,
-    version: onChainData.version,
-    skills: (onChainData.skills || []).map((skill: A2ASkill) => ({
-      id: skill.id,
-      name: skill.name,
-      description: skill.description,
-    })),
-    price: priceUsdc,
-    rating: Math.round(averageRating * 100) / 100,
-    ratingCount,
-    category: onChainData.category,
-    owner: onChainData.owner,
-    isActive: onChainData.isActive,
-    imageUrl: onChainData.imageUrl,
-  };
 }
 
 /**
  * エージェント検索
  *
- * オンチェーンのAgentRegistryからエージェントを検索し、
- * .well-known/agent.jsonからエンドポイント情報を取得して返す
+ * agentIdが指定されている場合は直接取得、
+ * それ以外は共有サービスのdiscoverAgentsに委譲
  */
 export async function discoverAgents(input: DiscoverAgentsInput): Promise<DiscoverAgentsOutput> {
+  if (!input.agentId) {
+    return sharedDiscoverAgents(input);
+  }
+
   try {
-    const { agentId, category, skillName, maxPrice, minRating } = input;
-
-    console.log('[agent-discovery] Input:', JSON.stringify(input));
-
-    // Providerとコントラクト初期化
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const contract = new ethers.Contract(
-      CONTRACT_ADDRESSES.AGENT_REGISTRY,
-      AGENT_REGISTRY_ABI,
+      CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY,
+      AGENT_IDENTITY_REGISTRY_ABI,
       provider
     );
 
-    // オンチェーンからAgentCard取得
-    let agentIds: string[];
+    const [tokenURI, agentOwner] = await Promise.all([
+      contract.tokenURI(input.agentId) as Promise<string>,
+      contract.ownerOf(input.agentId) as Promise<string>,
+    ]);
 
-    // 特定のagentIdが指定されている場合
-    if (agentId) {
-      agentIds = [agentId];
-    } else if (category) {
-      agentIds = await contract.getActiveAgentsByCategory(category);
-    } else {
-      agentIds = await contract.getAllAgentIds();
-    }
+    const metadata = await fetchAgentMetadata(tokenURI);
+    const a2aService = metadata.services?.find((s) => s.name === 'A2A');
 
-    if (agentIds.length === 0) {
-      return { agents: [], total: 0, source: 'on-chain' };
-    }
-
-    // 各AgentCardを取得
-    const agentCardsPromises = agentIds.map((id) => contract.getAgentCard(id));
-    const onChainAgents = await Promise.all(agentCardsPromises);
-
-    // パースとフィルタリング
-    let parsedAgents = onChainAgents.map(parseOnChainAgent).filter((agent) => agent.isActive);
-
-    // スキル名フィルタ
-    if (skillName) {
-      const lowerSkillName = skillName.toLowerCase();
-      parsedAgents = parsedAgents.filter((agent) =>
-        agent.skills.some(
-          (skill) =>
-            skill.name.toLowerCase().includes(lowerSkillName) ||
-            skill.description.toLowerCase().includes(lowerSkillName)
-        )
-      );
-    }
-
-    // 価格フィルタ
-    if (typeof maxPrice === 'number') {
-      parsedAgents = parsedAgents.filter((agent) => agent.price <= maxPrice);
-    }
-
-    // 評価フィルタ
-    if (typeof minRating === 'number') {
-      parsedAgents = parsedAgents.filter((agent) => agent.rating >= minRating);
-    }
-
-    // .well-known/agent.jsonから追加情報を取得（並列処理）
-    const enrichedAgentsPromises = parsedAgents.map(async (agent): Promise<DiscoveredAgent> => {
-      const agentJsonInfo = await fetchAgentJson(agent.url);
-
-      return {
-        ...agent,
-        endpoint: agentJsonInfo?.endpoint || `${agent.url}/api/v1/agent`,
-        openapi: agentJsonInfo?.openapi,
-      };
-    });
-
-    const enrichedAgents = await Promise.all(enrichedAgentsPromises);
-
-    // 評価順でソート
-    enrichedAgents.sort((a, b) => b.rating - a.rating);
-
-    console.log(`[agent-discovery] Found ${enrichedAgents.length} agents`);
-
-    return {
-      agents: enrichedAgents,
-      total: enrichedAgents.length,
-      source: 'on-chain',
+    const agent: DiscoveredAgent = {
+      agentId: input.agentId,
+      name: metadata.name,
+      description: metadata.description,
+      url: a2aService?.endpoint || '',
+      endpoint: a2aService?.endpoint,
+      version: a2aService?.version || '1.0.0',
+      skills:
+        a2aService?.skills?.map((s: A2ASkill) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+        })) || [],
+      price: 0,
+      rating: 0,
+      ratingCount: 0,
+      category: metadata.category || a2aService?.domains?.[0] || '',
+      owner: agentOwner,
+      isActive: metadata.active !== false,
+      imageUrl: metadata.image,
     };
+
+    return { agents: [agent], total: 1, source: 'on-chain' };
   } catch (error) {
     console.error('[agent-discovery] Error:', error);
     throw new Error(

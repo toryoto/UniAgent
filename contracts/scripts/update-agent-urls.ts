@@ -1,150 +1,101 @@
 import { ethers } from 'hardhat';
 
 /**
- * Update agent URLs for already deployed agents
+ * AgentIdentityRegistry (ERC-8004) の全エージェントに対して
+ * setAgentURI を同じ metadataUrl で呼び出し、URIUpdated イベントを発火させる
  *
- * Run this to update the URL of existing agents to the production Vercel URL
+ * 用途: Alchemy Webhook のテスト / DB 再同期トリガー
  *
  * Usage:
- * AGENT_REGISTRY_ADDRESS=0xe2B64700330af9e408ACb3A04a827045673311C1 BASE_URL=https://uni-agent-web.vercel.app npx hardhat run scripts/update-agent-urls.ts --network base-sepolia
+ *   npx hardhat run scripts/update-agent-urls.ts --network base-sepolia
+ *
+ * Env (optional):
+ *   AGENT_IDENTITY_REGISTRY_ADDRESS  — デフォルト:     '0x28E0346B623C80Fc425E85339310fe09B79012Cd';
+ *   AGENT_IDS                        — カンマ区切りで特定の tokenId だけ対象にする (例: "1,2,3")
  */
 
 async function main() {
-  // AgentRegistry contract address (Base Sepolia)
-  const AGENT_REGISTRY_ADDRESS =
-    process.env.AGENT_REGISTRY_ADDRESS || '0xe2B64700330af9e408ACb3A04a827045673311C1';
+  const REGISTRY_ADDRESS =
+    process.env.AGENT_IDENTITY_REGISTRY_ADDRESS ||
+    '0x28E0346B623C80Fc425E85339310fe09B79012Cd';
 
-  // Base URL for agent.json endpoints
-  const BASE_URL = process.env.BASE_URL;
+  const [signer] = await ethers.getSigners();
 
-  console.log('Updating agent URLs...');
-  console.log('AgentRegistry address:', AGENT_REGISTRY_ADDRESS);
-  console.log('Base URL:', BASE_URL);
+  console.log('='.repeat(60));
+  console.log('Re-emit URIUpdated events (AgentIdentityRegistry)');
+  console.log('='.repeat(60));
+  console.log('Registry :', REGISTRY_ADDRESS);
+  console.log('Signer   :', signer.address);
+  console.log();
 
-  const [deployer] = await ethers.getSigners();
-  console.log('Using account:', deployer.address);
+  const registry = await ethers.getContractAt(
+    'AgentIdentityRegistry',
+    REGISTRY_ADDRESS,
+    signer,
+  );
 
-  // Get AgentRegistry contract
-  const AgentRegistry = await ethers.getContractFactory('AgentRegistry');
-  const agentRegistry = AgentRegistry.attach(AGENT_REGISTRY_ADDRESS);
+  // 対象 tokenId の決定
+  let agentIds: bigint[];
 
-  // Payment info with zero address to keep current payment settings
-  const keepPayment = {
-    tokenAddress: ethers.ZeroAddress,
-    receiverAddress: ethers.ZeroAddress,
-    pricePerCall: 0,
-    chain: '',
-  };
+  if (process.env.AGENT_IDS) {
+    agentIds = process.env.AGENT_IDS.split(',').map((id) => BigInt(id.trim()));
+    console.log(`Targeting ${agentIds.length} agent(s) from AGENT_IDS env`);
+  } else {
+    agentIds = (await registry.getAllAgentIds()) as bigint[];
+    console.log(`Found ${agentIds.length} agent(s) on-chain`);
+  }
 
-  // Agent IDs (actual deployed IDs)
-  const agent1Id = '0x0bddd164b1ba44c2b7bd2960cce576de2de93bd1da0b5621d6b8ffcffa91b75e'; // FlightFinderPro
-  const agent2Id = '0x70fc477d5b587eed5078b44c890bae89e6497d5b1b9e115074eddbb3eb46dd0e'; // HotelBookerPro
-  const agent3Id = '0xc1de1b2fcec91001afacbf4acc007ff0b96e84c2f9c7ca785cba05102234b0fc'; // TourismGuide
+  if (agentIds.length === 0) {
+    console.log('No agents to process. Exiting.');
+    return;
+  }
 
-  // Update Agent 1: FlightFinderPro
-  console.log('\n1️⃣ Updating FlightFinderPro URL...');
-  try {
-    const tx1 = await agentRegistry.updateAgent(
-      agent1Id,
-      '', // name: keep current
-      '', // description: keep current
-      `${BASE_URL}/api/agents/flight/.well-known/agent.json`, // url: update
-      '', // version: keep current
-      keepPayment, // payment: keep current
-      '' // imageUrl: keep current
-    );
-    await tx1.wait();
-    console.log('✅ FlightFinderPro URL updated');
-  } catch (error: any) {
-    if (error.message.includes('not owner')) {
-      console.log('⚠️  FlightFinderPro: Not the owner. Skipping...');
-    } else if (error.message.includes('does not exist')) {
-      console.log('⚠️  FlightFinderPro: Agent does not exist. Skipping...');
-    } else {
-      throw error;
+  console.log();
+
+  let successCount = 0;
+  const errors: Array<{ agentId: string; error: string }> = [];
+
+  for (const agentId of agentIds) {
+    const id = agentId.toString();
+    try {
+      // 現在の tokenURI を取得
+      const currentURI: string = await registry.tokenURI(agentId);
+      console.log(`[${id}] Current URI: ${currentURI}`);
+
+      // 同じ URI で setAgentURI を呼び出し → URIUpdated イベント発火
+      const tx = await registry.setAgentURI(agentId, currentURI);
+      console.log(`[${id}] Tx sent: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      console.log(`[${id}] Confirmed in block ${receipt?.blockNumber} (gas: ${receipt?.gasUsed})`);
+      successCount++;
+    } catch (e: any) {
+      const msg = e?.message ?? String(e);
+      if (msg.includes('not owner')) {
+        console.log(`[${id}] Skipped: not owner`);
+      } else if (msg.includes('does not exist') || msg.includes('ERC721NonexistentToken')) {
+        console.log(`[${id}] Skipped: token does not exist`);
+      } else {
+        console.error(`[${id}] Error:`, msg);
+      }
+      errors.push({ agentId: id, error: msg });
+    }
+    console.log();
+  }
+
+  // サマリー
+  console.log('='.repeat(60));
+  console.log('Summary');
+  console.log('='.repeat(60));
+  console.log(`Total agents : ${agentIds.length}`);
+  console.log(`Success      : ${successCount}`);
+  console.log(`Errors/Skips : ${errors.length}`);
+  if (errors.length > 0) {
+    for (const { agentId, error } of errors) {
+      console.log(`  [${agentId}] ${error.slice(0, 120)}`);
     }
   }
-
-  // Update Agent 2: HotelBookerPro
-  console.log('\n2️⃣ Updating HotelBookerPro URL...');
-  try {
-    const tx2 = await agentRegistry.updateAgent(
-      agent2Id,
-      '', // name: keep current
-      '', // description: keep current
-      `${BASE_URL}/api/agents/hotel/.well-known/agent.json`, // url: update
-      '', // version: keep current
-      keepPayment, // payment: keep current
-      '' // imageUrl: keep current
-    );
-    await tx2.wait();
-    console.log('✅ HotelBookerPro URL updated');
-  } catch (error: any) {
-    if (error.message.includes('not owner')) {
-      console.log('⚠️  HotelBookerPro: Not the owner. Skipping...');
-    } else if (error.message.includes('does not exist')) {
-      console.log('⚠️  HotelBookerPro: Agent does not exist. Skipping...');
-    } else {
-      throw error;
-    }
-  }
-
-  // Update Agent 3: TourismGuide
-  console.log('\n3️⃣ Updating TourismGuide URL...');
-  try {
-    const tx3 = await agentRegistry.updateAgent(
-      agent3Id,
-      '', // name: keep current
-      '', // description: keep current
-      `${BASE_URL}/api/agents/tourism/.well-known/agent.json`, // url: update
-      '', // version: keep current
-      keepPayment, // payment: keep current
-      '' // imageUrl: keep current
-    );
-    await tx3.wait();
-    console.log('✅ TourismGuide URL updated');
-  } catch (error: any) {
-    if (error.message.includes('not owner')) {
-      console.log('⚠️  TourismGuide: Not the owner. Skipping...');
-    } else if (error.message.includes('does not exist')) {
-      console.log('⚠️  TourismGuide: Agent does not exist. Skipping...');
-    } else {
-      throw error;
-    }
-  }
-
-  // Display summary
-  console.log('\n==================================================');
-  console.log('📝 Update Summary');
-  console.log('==================================================');
-  console.log('Updated URLs:');
-  console.log('1. FlightFinderPro:', `${BASE_URL}/api/agents/flight/.well-known/agent.json`);
-  console.log('2. HotelBookerPro:', `${BASE_URL}/api/agents/hotel/.well-known/agent.json`);
-  console.log('3. TourismGuide:', `${BASE_URL}/api/agents/tourism/.well-known/agent.json`);
-  console.log('==================================================');
-
-  // Verify updates
-  console.log('\n🔍 Verifying updates...');
-  try {
-    const agent1 = await agentRegistry.getAgentCard(agent1Id);
-    console.log('FlightFinderPro URL:', agent1.url);
-  } catch (error) {
-    console.log('⚠️  Could not verify FlightFinderPro');
-  }
-
-  try {
-    const agent2 = await agentRegistry.getAgentCard(agent2Id);
-    console.log('HotelBookerPro URL:', agent2.url);
-  } catch (error) {
-    console.log('⚠️  Could not verify HotelBookerPro');
-  }
-
-  try {
-    const agent3 = await agentRegistry.getAgentCard(agent3Id);
-    console.log('TourismGuide URL:', agent3.url);
-  } catch (error) {
-    console.log('⚠️  Could not verify TourismGuide');
-  }
+  console.log('='.repeat(60));
 }
 
 main()
