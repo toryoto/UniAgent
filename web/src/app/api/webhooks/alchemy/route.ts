@@ -1,10 +1,13 @@
 /**
  * Alchemy Webhook エンドポイント（ERC-8004 コントラクトイベント）
  *
- * - AgentIdentityRegistry の Transfer (mint) イベントを受信
- * - event log から agentId (tokenId) を抽出
- * - tokenURI → IPFS メタデータを取得
- * - Prisma に JSON で upsert
+ * 対象イベント:
+ *   - Transfer(address,address,uint256)    … ERC-721 mint/transfer
+ *   - Registered(uint256,string,address)   … ERC-8004 新規登録
+ *   - URIUpdated(uint256,string,address)   … ERC-8004 URI 更新
+ *
+ * いずれのイベントからも agentId (tokenId) を抽出し、
+ * tokenURI → IPFS メタデータ取得 → Prisma upsert を行う
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -104,10 +107,22 @@ export async function POST(request: NextRequest) {
       }
       if (!parsed) continue;
 
-      // ERC-721 Transfer event: Transfer(address from, address to, uint256 tokenId)
+      // ERC-721 Transfer: Transfer(address from, address to, uint256 tokenId)
       if (parsed.name === 'Transfer') {
         const tokenId = parsed.args?.tokenId?.toString();
         if (tokenId) agentIds.add(tokenId);
+      }
+
+      // ERC-8004 Registered: Registered(uint256 agentId, string agentURI, address owner)
+      if (parsed.name === 'Registered') {
+        const agentId = parsed.args?.agentId?.toString();
+        if (agentId) agentIds.add(agentId);
+      }
+
+      // ERC-8004 URIUpdated: URIUpdated(uint256 agentId, string newURI, address updatedBy)
+      if (parsed.name === 'URIUpdated') {
+        const agentId = parsed.args?.agentId?.toString();
+        if (agentId) agentIds.add(agentId);
       }
     }
 
