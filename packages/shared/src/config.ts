@@ -1,19 +1,25 @@
 /**
  * Blockchain Configuration (Shared)
+ *
+ * Base Sepolia (Chain ID: 84532) のデプロイ済みアドレス
  */
 
 export const CONTRACT_ADDRESSES = {
-  AGENT_IDENTITY_REGISTRY:
-    process.env.AGENT_IDENTITY_REGISTRY_ADDRESS ||
-    process.env.NEXT_PUBLIC_AGENT_IDENTITY_REGISTRY_ADDRESS ||
-    '',
+  /** AgentIdentityRegistry (ERC-8004) - Base Sepolia */
+  AGENT_IDENTITY_REGISTRY: '0xAe64fa939601018930f99260613FC492Cb929FB3',
+  /** USDC (Base Sepolia) */
   USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
 } as const;
 
 export const RPC_URL = process.env.RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || '';
 
+/** Pinata Dedicated Gateway (web, agent, mcp共通). contractsは.envで独自管理 */
+export const DEFAULT_PINATA_GATEWAY = 'chocolate-secret-cat-833.mypinata.cloud';
+
 export const PINATA_GATEWAY_URL =
-  process.env.PINATA_GATEWAY_URL || process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL || '';
+  process.env.PINATA_GATEWAY_URL ||
+  process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL ||
+  DEFAULT_PINATA_GATEWAY;
 
 // USDC設定（6 decimals）
 export const USDC_DECIMALS = 6;

@@ -9,6 +9,7 @@ export {
   RPC_URL,
   USDC_DECIMALS,
   USDC_UNIT,
+  DEFAULT_PINATA_GATEWAY,
   PINATA_GATEWAY_URL,
   parseUSDC,
   formatUSDCAmount,

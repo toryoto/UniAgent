@@ -1,13 +1,9 @@
 import { ethers } from 'hardhat';
 import { PinataSDK } from 'pinata';
 
-/**
- * Register sample agents using ERC-8004 Identity Registry + Pinata IPFS
- *
- * Usage:
- * AGENT_IDENTITY_REGISTRY_ADDRESS=0x... PINATA_JWT=... PINATA_GATEWAY_URL=... \
- *   npx hardhat run scripts/register-agents-erc8004.ts --network base-sepolia
- */
+/** packages/shared CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY と同期すること */
+const AGENT_IDENTITY_REGISTRY_ADDRESS =
+  '0x28E0346B623C80Fc425E85339310fe09B79012Cd';
 
 interface ERC8004RegistrationFile {
   type: string;
@@ -36,12 +32,7 @@ async function uploadToIPFS(
 }
 
 async function main() {
-  const REGISTRY_ADDRESS =
-    process.env.AGENT_IDENTITY_REGISTRY_ADDRESS;
-
-  if (!REGISTRY_ADDRESS) {
-    throw new Error('AGENT_IDENTITY_REGISTRY_ADDRESS is required');
-  }
+  const REGISTRY_ADDRESS = AGENT_IDENTITY_REGISTRY_ADDRESS;
 
   const PINATA_JWT = process.env.PINATA_JWT;
   if (!PINATA_JWT) {
@@ -153,6 +144,9 @@ async function main() {
 
   const registeredAgents: Array<{ name: string; agentId: string; ipfsUri: string }> = [];
 
+  let nonce = await deployer.getNonce();
+  console.log(`Starting nonce: ${nonce}`);
+
   for (let i = 0; i < agents.length; i++) {
     const agent = agents[i];
     console.log(`\n${i + 1}. Registering ${agent.name}...`);
@@ -165,7 +159,9 @@ async function main() {
 
       // Register on-chain
       console.log('   Registering on-chain...');
-      const tx = await registry.getFunction('register(string)')(ipfsUri);
+      const registerFn = registry.getFunction('register(string)');
+      const tx = await registerFn(ipfsUri, { gasLimit: 500_000, nonce });
+      nonce++;
       const receipt = await tx.wait();
 
       // Get agentId from Registered event
@@ -184,13 +180,30 @@ async function main() {
 
       // Set agent wallet
       console.log('   Setting agent wallet...');
-      const walletTx = await registry.getFunction('setAgentWallet')(agentId, agent.walletAddress);
+      const walletTx = await registry.getFunction('setAgentWallet')(agentId, agent.walletAddress, {
+        gasLimit: 150_000,
+        nonce,
+      });
+      nonce++;
       await walletTx.wait();
 
       registeredAgents.push({ name: agent.name, agentId, ipfsUri });
       console.log(`   ${agent.name} registered successfully`);
-    } catch (error: any) {
-      console.error(`   Error registering ${agent.name}:`, error.message);
+    } catch (error: unknown) {
+      const err = error as { message?: string; data?: string; code?: string; info?: { error?: { args?: unknown[] }; reason?: string } };
+      console.error(`   Error registering ${agent.name}:`, err.message);
+      if (err.info?.reason) console.error(`   Revert reason:`, err.info.reason);
+      if (err.data) {
+        try {
+          const parsed = registry.interface.parseError(err.data as `0x${string}`);
+          if (parsed) console.error(`   Parsed revert:`, parsed.name, parsed.args);
+        } catch {
+          console.error(`   Revert data:`, err.data);
+        }
+      }
+      // Re-sync nonce from network on failure to recover gracefully
+      nonce = await deployer.getNonce();
+      console.log(`   Nonce re-synced to: ${nonce}`);
     }
   }
 

@@ -2,13 +2,12 @@
  * Pinata IPFS Service
  *
  * ERC-8004 Registration FileをIPFSにアップロード/フェッチするサービス
+ * PINATA_GATEWAY_URLはpackages/shared/config.tsで共通管理
  */
 
 import { uploadJson, type PinataConfig } from 'pinata';
+import { PINATA_GATEWAY_URL } from '../config.js';
 import type { ERC8004RegistrationFile } from '../types.js';
-
-const PINATA_GATEWAY_URL =
-  process.env.PINATA_GATEWAY_URL || process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL || '';
 
 function getPinataConfig(): PinataConfig {
   const jwt = process.env.PINATA_JWT;
