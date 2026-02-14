@@ -2,7 +2,15 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { MessageSquare, LayoutDashboard, History, Wallet, Droplet, X } from 'lucide-react';
+import {
+  MessageSquare,
+  LayoutDashboard,
+  History,
+  Wallet,
+  Droplet,
+  PlusCircle,
+  X,
+} from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import { cn } from '@/lib/utils/cn';
 
@@ -11,6 +19,7 @@ const navigation = [
   { name: 'Marketplace', href: '/marketplace', icon: LayoutDashboard },
   { name: 'History', href: '/history', icon: History },
   { name: 'Wallet', href: '/wallet', icon: Wallet },
+  { name: 'Register Agent', href: '/agents/register', icon: PlusCircle },
   { name: 'Faucet', href: '/faucet', icon: Droplet },
 ];
 

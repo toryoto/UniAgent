@@ -4,7 +4,7 @@ UniAgentのスマートコントラクト（Hardhat）。
 
 ## デプロイ済みコントラクト
 
-### AgentRegistry (Base Sepolia)
+### deprecated: AgentRegistry (Base Sepolia)
 
 - **Address**: `0xe2B64700330af9e408ACb3A04a827045673311C1`
 - **Network**: Base Sepolia (Chain ID: 84532)
