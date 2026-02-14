@@ -36,11 +36,23 @@ export function RegistrationForm({ reg, disabled }: RegistrationFormProps) {
     address,
   } = reg;
 
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return url.startsWith('https://') || url.startsWith('http://');
+    } catch {
+      return false;
+    }
+  };
+
   const isStep1Valid =
     formData.name.trim() !== '' &&
     formData.description.trim() !== '' &&
     formData.image.trim() !== '' &&
-    formData.services.some((s) => s.name.trim() && s.endpoint.trim());
+    isValidUrl(formData.image) &&
+    formData.services.some((s) =>
+      s.name.trim() && s.endpoint.trim() && isValidUrl(s.endpoint)
+    );
 
   if (currentStep === 1) {
     return (

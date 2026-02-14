@@ -11,6 +11,15 @@ interface UploadMetadataRequest {
   category?: string;
 }
 
+function validateUrl(url: string, allowedProtocols = ['https:', 'http:']): boolean {
+  try {
+    const parsed = new URL(url);
+    return allowedProtocols.includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as UploadMetadataRequest;
@@ -27,6 +36,22 @@ export async function POST(req: NextRequest) {
         { error: 'At least one service is required' },
         { status: 400 }
       );
+    }
+
+    if (!validateUrl(body.image, ['https:'])) {
+      return NextResponse.json(
+        { error: 'Image URL must use HTTPS protocol' },
+        { status: 400 }
+      );
+    }
+
+    for (const service of body.services) {
+      if (!validateUrl(service.endpoint, ['https:', 'http:'])) {
+        return NextResponse.json(
+          { error: `Invalid service endpoint: ${service.name}` },
+          { status: 400 }
+        );
+      }
     }
 
     const metadata: ERC8004RegistrationFile = {
