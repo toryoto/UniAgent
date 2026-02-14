@@ -13,9 +13,6 @@ import { USDC_BASE_SEPOLIA_ADDRESS, BASE_SEPOLIA_NETWORK_ID } from '@/lib/x402/c
  * 継承して各エージェント（Flight, Hotel, Tourism）を実装
  */
 export abstract class BaseAgent {
-  /** エージェントID (bytes32 hex) */
-  abstract readonly agentId: string;
-
   /** エージェント名 */
   abstract readonly name: string;
 
@@ -49,7 +46,6 @@ export abstract class BaseAgent {
   getAgentJson(baseUrl: string): Record<string, unknown> {
     const agentPath = this.getAgentPath();
     return {
-      agent_id: this.agentId,
       name: this.name,
       description: this.description,
       version: '1.0.0',

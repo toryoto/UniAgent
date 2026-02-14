@@ -5,7 +5,7 @@
  */
 
 import { BaseAgent } from '../base-agent';
-import { AGENT_PRICES, AGENT_IDS, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
+import { AGENT_PRICES, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
 import { selectFlights, type FlightInfo } from './mock-data';
 
 export interface FlightSearchParams {
@@ -23,7 +23,6 @@ export interface FlightSearchResult {
 }
 
 export class FlightAgent extends BaseAgent {
-  readonly agentId = AGENT_IDS.flight;
   readonly name = 'FlightFinderPro';
   readonly description =
     'AI-powered flight search agent that finds the best flights based on your preferences. Supports major airlines and destinations worldwide.';

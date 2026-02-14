@@ -5,7 +5,7 @@
  */
 
 import { BaseAgent } from '../base-agent';
-import { AGENT_PRICES, AGENT_IDS, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
+import { AGENT_PRICES, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
 import { selectTourismSpots, generateTourPlan, type TourismSpot, type TourPlan } from './mock-data';
 
 export interface TourismSearchParams {
@@ -23,7 +23,6 @@ export interface TourismSearchResult {
 }
 
 export class TourismAgent extends BaseAgent {
-  readonly agentId = AGENT_IDS.tourism;
   readonly name = 'TourismGuide';
   readonly description =
     'AI-powered tourism guide that creates personalized travel itineraries and recommends attractions, restaurants, and activities based on your interests.';

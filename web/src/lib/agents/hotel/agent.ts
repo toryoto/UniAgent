@@ -5,7 +5,7 @@
  */
 
 import { BaseAgent } from '../base-agent';
-import { AGENT_PRICES, AGENT_IDS, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
+import { AGENT_PRICES, AGENT_RECEIVER_ADDRESS } from '@/lib/x402/constants';
 import { selectHotels, type HotelInfo } from './mock-data';
 
 export interface HotelSearchParams {
@@ -25,7 +25,6 @@ export interface HotelSearchResult {
 }
 
 export class HotelAgent extends BaseAgent {
-  readonly agentId = AGENT_IDS.hotel;
   readonly name = 'HotelBookerPro';
   readonly description =
     'AI-powered hotel booking agent that finds the best accommodations based on your preferences. Supports hotels worldwide with real-time availability.';
