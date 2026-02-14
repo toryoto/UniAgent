@@ -54,8 +54,8 @@ UniAgent は、これらの課題を解決するために、以下の技術を�
                                │                         v
                                │                  ┌──────────────┐
                                │                  │  Blockchain  │
-                               │                  │ (AgentRegistry│
-                               │                  │   から検索)   │
+                               │                  │ (ERC-8004    │
+                               │                  │  から検索)   │
                                │                  └──────────────┘
                                │                         │
                                │                         │ エージェント実行
@@ -141,19 +141,19 @@ graph TB
     ExtAgent -->|結果| Execute
 
     BC -->|AgentCard| Discover
-    Execute -->|record_transaction| BC
-    Discover -->|discover_agents| BC
+     Execute -->|record_transaction| BC
+     Discover -->|discover_agents| BC
     LLM -->|結果| UI
     UI -->|表示| User
 ```
 
 ### Marketplace Agent一覧表示アーキテクチャ
 
-AgentRegistryをSingle Source of Truthとして、ブロックチェーン上でエージェント情報を一元管理します。これによりエコシステム全体でAI エージェント情報の相互運用性を実現します。
+AgentIdentityRegistry（ERC-8004）を Single Source of Truth として、ブロックチェーン上でエージェント情報を一元管理します。これによりエコシステム全体で AI エージェント情報の相互運用性を実現します。
 
 ```mermaid
 graph TB
-    Developer[Agent開発者] -->|登録| BC[Blockchain<br/>AgentRegistry]
+    Developer[Agent開発者] -->|登録| BC[Blockchain<br/>AgentIdentityRegistry]
 
     BC -->|イベント| Alchemy[Alchemy Webhook]
     Alchemy -->|通知| Webhook[Webhook API]
@@ -170,7 +170,7 @@ graph TB
 
 - **Web UI (Next.js)**: ユーザーインターフェース、認証、ウォレット管理
 - **Paygent X**: [A2A プロトコル](https://a2aprotocol.ai/)（discover_agents、execute_agent）と [x402](https://x402.org/) 決済を統合したエージェント実行エンジン
-- **Smart Contracts**: エージェントレジストリ、評価システム、トランザクション記録
+- **Smart Contracts**: AgentIdentityRegistry（ERC-8004）、EAS による評価 attestation
 - **External Agents**: マーケットプレイスで提供されるエージェント（[A2A](https://a2aprotocol.ai/) + [x402](https://x402.org/) 対応）
 
 ## 🛠️ 技術スタック
@@ -360,16 +360,25 @@ npm start
 
 ## 🌐 デプロイ情報
 
-### AgentRegistry Contract ([Base Sepolia](https://docs.base.org/))
+### AgentIdentityRegistry ([Base Sepolia](https://docs.base.org/)) - [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004)対応
+
+エージェント identity のオンチェーン管理（ERC-721 ベース）。
 
 - **Network**: [Base Sepolia](https://docs.base.org/docs/tools/network-faucets) Testnet (Chain ID: 84532)
-- **Address**: [`0xe2B64700330af9e408ACb3A04a827045673311C1`](https://sepolia.basescan.org/address/0xe2B64700330af9e408ACb3A04a827045673311C1)
-- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
+- **Address**: [`0x28E0346B623C80Fc425E85339310fe09B79012Cd`](https://sepolia.basescan.org/address/0x28E0346B623C80Fc425E85339310fe09B79012Cd)
 
 ### USDC ([Base Sepolia](https://docs.base.org/)) - [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)対応
 
 - **Address**: [`0x036CbD53842c5426634e7929541eC2318f3dCF7e`](https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e)
 - **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
+
+### EAS Agent Evaluation Schema ([Base Sepolia](https://docs.base.org/))
+
+エージェント評価用 [EAS](https://easscan.org/)（Ethereum Attestation Service）スキーマ（オフチェーン attestation 用）。
+
+- **Schema UID**: `0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748`
+- **View**: [base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748](https://base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748)
+- **Schema**: `uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags`
 
 ### 登録済みDummy AI Agent
 
