@@ -28,6 +28,48 @@ export interface DiscoverAgentsOutput {
 // Utilities
 // ============================================================================
 
+/** agent.json の payment オブジェクトの型 */
+export interface AgentJsonPayment {
+  tokenAddress?: string;
+  receiverAddress?: string;
+  pricePerCall?: string;
+  price?: string;
+  network?: string;
+  chain?: string;
+}
+
+/**
+ * A2A エンドポイント (.well-known/agent.json) から payment を取得
+ * x402 対応エージェントの価格を取得するために使用
+ */
+export async function fetchPaymentFromAgentEndpoint(
+  endpointUrl: string
+): Promise<AgentJsonPayment | null> {
+  try {
+    const normalizedUrl = endpointUrl.endsWith('/') ? endpointUrl.slice(0, -1) : endpointUrl;
+    const response = await fetch(normalizedUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    const json = (await response.json()) as Record<string, unknown>;
+    const payment = json?.payment;
+    if (!payment || typeof payment !== 'object') return null;
+    const p = payment as Record<string, unknown>;
+    return {
+      tokenAddress: typeof p.tokenAddress === 'string' ? p.tokenAddress : undefined,
+      receiverAddress: typeof p.receiverAddress === 'string' ? p.receiverAddress : undefined,
+      pricePerCall: typeof p.pricePerCall === 'string' ? p.pricePerCall : undefined,
+      price: typeof p.price === 'string' ? p.price : undefined,
+      network: typeof p.network === 'string' ? p.network : undefined,
+      chain: typeof p.chain === 'string' ? p.chain : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * .well-known/agent.jsonを取得
  */

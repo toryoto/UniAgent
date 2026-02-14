@@ -13,9 +13,6 @@ function buildDiscoveryAgentsQuery(filters: MarketplaceFilters): string {
   if (typeof filters.maxPrice === 'number' && Number.isFinite(filters.maxPrice)) {
     sp.set('maxPrice', String(filters.maxPrice));
   }
-  if (typeof filters.minRating === 'number' && Number.isFinite(filters.minRating)) {
-    sp.set('minRating', String(filters.minRating));
-  }
 
   if (filters.sortBy) sp.set('sortBy', filters.sortBy);
   if (filters.sortOrder) sp.set('sortOrder', filters.sortOrder);

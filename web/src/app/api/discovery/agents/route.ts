@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
-import type { AgentCardDto, ApiResponse, DiscoveryApiResponse } from '@/lib/types';
-import { averageFromTotals, parseBigIntLike, usdcBaseUnitsToNumber } from '@/lib/utils/units';
+import { USDC_DECIMALS } from '@agent-marketplace/shared';
+import type { ERC8004AgentCard, ApiResponse, DiscoveryApiResponse } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,16 +16,6 @@ const querySchema = z.object({
       z.coerce.number()
     )
     .refine((v) => v === undefined || (Number.isFinite(v) && v >= 0), 'maxPrice must be >= 0')
-    .optional(),
-  minRating: z
-    .preprocess(
-      (v) => (v === undefined || v === null || v === '' ? undefined : v),
-      z.coerce.number()
-    )
-    .refine(
-      (v) => v === undefined || (Number.isFinite(v) && v >= 0 && v <= 5),
-      'minRating must be between 0 and 5'
-    )
     .optional(),
   limit: z
     .preprocess(
@@ -46,91 +36,29 @@ const querySchema = z.object({
     .refine((v) => v === undefined || (Number.isInteger(v) && v >= 0), 'offset must be >= 0')
     .optional()
     .default(0),
-  sortBy: z.enum(['rating', 'price', 'newest']).optional().default('newest'),
+  sortBy: z.enum(['price', 'newest']).optional().default('newest'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
-function toLowerSafe(v: unknown): string {
-  return typeof v === 'string' ? v.toLowerCase() : '';
-}
-
-function computeAverageRating(totalRatings: unknown, ratingCount: unknown): number {
-  // PoCなので Number へ落とす（評価は小さい値を想定）
-  return averageFromTotals(totalRatings, ratingCount);
-}
-
-function computePriceUsdc(pricePerCall: unknown): number {
-  // USDC 6 decimals を想定（on-chain value は最小単位の整数）
-  return usdcBaseUnitsToNumber(pricePerCall);
-}
-
-function normalizeAgentCardDto(agentCardJson: any): AgentCardDto | null {
-  if (!agentCardJson || typeof agentCardJson !== 'object') return null;
-
-  const avg = computeAverageRating(agentCardJson.totalRatings, agentCardJson.ratingCount);
-  const priceUsdc = computePriceUsdc(agentCardJson?.payment?.pricePerCall);
-  const ratingCountBig = parseBigIntLike(agentCardJson.ratingCount) ?? BigInt(0);
-
-  const dto: AgentCardDto = {
-    agentId: String(agentCardJson.agentId ?? ''),
-    name: String(agentCardJson.name ?? ''),
-    description: String(agentCardJson.description ?? ''),
-    url: String(agentCardJson.url ?? ''),
-    version: typeof agentCardJson.version === 'string' ? agentCardJson.version : undefined,
-    defaultInputModes: Array.isArray(agentCardJson.defaultInputModes)
-      ? agentCardJson.defaultInputModes.filter((v: any) => typeof v === 'string')
-      : undefined,
-    defaultOutputModes: Array.isArray(agentCardJson.defaultOutputModes)
-      ? agentCardJson.defaultOutputModes.filter((v: any) => typeof v === 'string')
-      : undefined,
-    skills: Array.isArray(agentCardJson.skills)
-      ? agentCardJson.skills
-          .filter((s: any) => s && typeof s === 'object')
-          .map((s: any) => ({
-            id: String(s.id ?? ''),
-            name: String(s.name ?? ''),
-            description: String(s.description ?? ''),
-          }))
-      : undefined,
-    owner: typeof agentCardJson.owner === 'string' ? agentCardJson.owner : undefined,
-    isActive: typeof agentCardJson.isActive === 'boolean' ? agentCardJson.isActive : undefined,
-    createdAt: typeof agentCardJson.createdAt === 'string' ? agentCardJson.createdAt : undefined,
-    totalRatings:
-      typeof agentCardJson.totalRatings === 'string' ? agentCardJson.totalRatings : undefined,
-    ratingCount:
-      typeof agentCardJson.ratingCount === 'string' ? agentCardJson.ratingCount : undefined,
-    averageRating: Number.isFinite(avg) ? avg : 0,
-    payment: agentCardJson.payment
-      ? {
-          tokenAddress:
-            typeof agentCardJson.payment.tokenAddress === 'string'
-              ? agentCardJson.payment.tokenAddress
-              : undefined,
-          receiverAddress:
-            typeof agentCardJson.payment.receiverAddress === 'string'
-              ? agentCardJson.payment.receiverAddress
-              : undefined,
-          pricePerCall:
-            typeof agentCardJson.payment.pricePerCall === 'string'
-              ? agentCardJson.payment.pricePerCall
-              : undefined,
-          pricePerCallUsdc: Number.isFinite(priceUsdc) ? priceUsdc : 0,
-          chain:
-            typeof agentCardJson.payment.chain === 'string'
-              ? agentCardJson.payment.chain
-              : undefined,
-        }
-      : {
-          pricePerCallUsdc: 0,
-        },
-    category: typeof agentCardJson.category === 'string' ? agentCardJson.category : undefined,
-    imageUrl: typeof agentCardJson.imageUrl === 'string' ? agentCardJson.imageUrl : undefined,
-    ratingCountDisplay: Number(ratingCountBig),
+/** agentCard JSON + DB 行から ERC8004AgentCard を組み立てる */
+function toAgentCard(
+  json: unknown,
+  row: { agentId: string; owner: string | null }
+): ERC8004AgentCard | null {
+  if (!json || typeof json !== 'object') return null;
+  const card = json as Record<string, unknown>;
+  if (!card.name) return null;
+  return {
+    ...(card as unknown as ERC8004AgentCard),
+    agentId: row.agentId,
+    owner: row.owner ?? undefined,
   };
+}
 
-  // 必須の最低限（表示崩れ防止）
-  if (!dto.agentId || !dto.name) return null;
-  return dto;
+function priceUsdc(card: ERC8004AgentCard): number {
+  const raw = card.payment?.pricePerCall ?? card.payment?.price;
+  if (!raw) return 0;
+  return Number(raw) / Math.pow(10, USDC_DECIMALS);
 }
 
 export async function GET(request: NextRequest) {
@@ -140,7 +68,6 @@ export async function GET(request: NextRequest) {
       q: sp.get('q') ?? undefined,
       category: sp.get('category') ?? undefined,
       maxPrice: sp.get('maxPrice') ?? undefined,
-      minRating: sp.get('minRating') ?? undefined,
       limit: sp.get('limit') ?? undefined,
       offset: sp.get('offset') ?? undefined,
       sortBy: sp.get('sortBy') ?? undefined,
@@ -155,7 +82,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(res, { status: 400 });
     }
 
-    const { q, category, maxPrice, minRating, limit, offset, sortBy, sortOrder } = parsed.data;
+    const { q, category, maxPrice, limit, offset, sortBy, sortOrder } = parsed.data;
 
     const rows = await prisma.agentCache.findMany({
       where: {
@@ -163,61 +90,43 @@ export async function GET(request: NextRequest) {
         ...(category ? { category } : {}),
       },
       orderBy: { updatedAt: 'desc' },
-      take: 500, // PoC: まずはDBから多めに取り、詳細フィルタはメモリで実施
+      take: 500,
     });
 
-    const normalized = rows
-      .map((r) => normalizeAgentCardDto(r.agentCard))
-      .filter((v): v is AgentCardDto => Boolean(v));
+    const agents = rows
+      .map((r) => toAgentCard(r.agentCard, { agentId: r.agentId, owner: r.owner }))
+      .filter((v): v is ERC8004AgentCard => v !== null);
 
-    const qLower = q ? q.toLowerCase() : '';
+    const qLower = q?.toLowerCase() ?? '';
 
-    const filtered = normalized.filter((a) => {
+    const filtered = agents.filter((a) => {
       if (qLower) {
+        const a2a = a.services?.find((s) => s.name === 'A2A');
         const hay = [
           a.name,
           a.description,
           a.category ?? '',
-          ...(a.skills?.map((s) => s.name) ?? []),
-          ...(a.skills?.map((s) => s.description) ?? []),
+          ...(a2a?.skills?.map((s) => s.name) ?? []),
+          ...(a2a?.skills?.map((s) => s.description) ?? []),
         ]
-          .map((s) => toLowerSafe(s))
+          .map((s) => (typeof s === 'string' ? s.toLowerCase() : ''))
           .join(' ');
         if (!hay.includes(qLower)) return false;
       }
-
-      if (typeof maxPrice === 'number') {
-        const price = a.payment?.pricePerCallUsdc ?? 0;
-        if (price > maxPrice) return false;
-      }
-
-      if (typeof minRating === 'number') {
-        if ((a.averageRating ?? 0) < minRating) return false;
-      }
-
+      if (typeof maxPrice === 'number' && priceUsdc(a) > maxPrice) return false;
       return true;
     });
 
+    const dir = sortOrder === 'asc' ? 1 : -1;
     const sorted = [...filtered].sort((a, b) => {
-      const dir = sortOrder === 'asc' ? 1 : -1;
-      if (sortBy === 'rating') return dir * ((a.averageRating ?? 0) - (b.averageRating ?? 0));
-      if (sortBy === 'price')
-        return (
-          dir *
-          (((a.payment?.pricePerCallUsdc ?? 0) as number) -
-            ((b.payment?.pricePerCallUsdc ?? 0) as number))
-        );
-
-      // newest
-      const aTs = Number(parseBigIntLike(a.createdAt) ?? BigInt(0));
-      const bTs = Number(parseBigIntLike(b.createdAt) ?? BigInt(0));
-      return dir * (aTs - bTs);
+      if (sortBy === 'price') return dir * (priceUsdc(a) - priceUsdc(b));
+      return 0; // newest: DB の updatedAt 順を維持
     });
 
     const total = sorted.length;
-    const agents = sorted.slice(offset, offset + limit);
+    const page = sorted.slice(offset, offset + limit);
 
-    const data: DiscoveryApiResponse = { agents, total };
+    const data: DiscoveryApiResponse = { agents: page, total };
     const res: ApiResponse<DiscoveryApiResponse> = { success: true, data };
     return NextResponse.json(res);
   } catch (e) {

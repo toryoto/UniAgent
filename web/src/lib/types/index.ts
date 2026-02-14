@@ -9,50 +9,20 @@
 // ============================================================================
 
 import type {
-  A2ASkill,
   ExecutionLogEntry,
+  ERC8004RegistrationFile,
+  AgentJsonPayment,
 } from '@agent-marketplace/shared';
 
 // ============================================================================
-// API DTO Types (JSON-safe)
+// API DTO Types (ERC-8004 ベース)
 // ============================================================================
 
-/**
- * DB（AgentCache.agentCard）やAPIレスポンスで扱う、JSON安全なAgentCard DTO。
- * - BigInt は string で表現
- * - UI向けに averageRating / pricePerCallUsdc を付与
- */
-export interface AgentCardDto {
+/** DB の AgentCache から返す ERC-8004 ベースのカード */
+export interface ERC8004AgentCard extends ERC8004RegistrationFile {
   agentId: string;
-  name: string;
-  description: string;
-  url: string;
-  version?: string;
-  defaultInputModes?: string[];
-  defaultOutputModes?: string[];
-  skills?: A2ASkill[];
-
   owner?: string;
-  isActive?: boolean;
-  createdAt?: string; // unix seconds (stringified)
-
-  totalRatings?: string;
-  ratingCount?: string;
-  averageRating: number;
-
-  payment?: {
-    tokenAddress?: string;
-    receiverAddress?: string;
-    pricePerCall?: string; // USDC 6 decimals integer as string
-    pricePerCallUsdc: number;
-    chain?: string;
-  };
-
-  category?: string;
-  imageUrl?: string;
-
-  // UI用（将来: on-chain tx count を集計して埋める）
-  ratingCountDisplay: number;
+  payment?: AgentJsonPayment;
 }
 
 // ============================================================================
@@ -110,7 +80,7 @@ export interface MCPToolDiscoverAgentsInput {
 }
 
 export interface MCPToolDiscoverAgentsOutput {
-  agents: AgentCardDto[];
+  agents: ERC8004AgentCard[];
 }
 
 export interface MCPToolExecuteAgentInput {
@@ -230,7 +200,7 @@ export interface ApiResponse<T> {
 }
 
 export interface DiscoveryApiResponse {
-  agents: AgentCardDto[];
+  agents: ERC8004AgentCard[];
   total: number;
 }
 
@@ -287,9 +257,8 @@ export interface AgentStreamMessage {
 
 export interface MarketplaceFilters {
   category?: string;
-  minRating?: number;
   maxPrice?: number;
   searchQuery?: string;
-  sortBy?: 'rating' | 'price' | 'usage' | 'newest';
+  sortBy?: 'price' | 'newest';
   sortOrder?: 'asc' | 'desc';
 }

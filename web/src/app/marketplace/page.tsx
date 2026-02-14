@@ -2,23 +2,28 @@
 
 import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
-import { Copy, Search, Star } from 'lucide-react';
+import { Copy, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useDiscoverAgents } from '@/lib/hooks/useDiscoverAgents';
-import type { AgentCardDto } from '@/lib/types';
-import { formatCategory, formatRating } from '@/lib/utils/format';
+import { USDC_DECIMALS } from '@agent-marketplace/shared';
+import type { ERC8004AgentCard } from '@/lib/types';
+import { formatCategory } from '@/lib/utils/format';
+
+function priceUsdc(card: ERC8004AgentCard): number {
+  const raw = card.payment?.pricePerCall ?? card.payment?.price;
+  if (!raw) return 0;
+  return Number(raw) / Math.pow(10, USDC_DECIMALS);
+}
 
 export default function MarketplacePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [minRating, setMinRating] = useState('');
 
   const { agents, total, isLoading, error, refetch } = useDiscoverAgents({
     searchQuery,
     category: category || undefined,
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
-    minRating: minRating ? Number(minRating) : undefined,
     sortBy: 'newest',
     sortOrder: 'desc',
   });
@@ -53,7 +58,7 @@ export default function MarketplacePage() {
                 </button>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
                     Category
@@ -81,21 +86,6 @@ export default function MarketplacePage() {
                     placeholder="10"
                     className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:px-4 md:text-base"
                   />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
-                    Min Rating
-                  </label>
-                  <select
-                    value={minRating}
-                    onChange={(e) => setMinRating(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:px-4 md:text-base"
-                  >
-                    <option value="">Any Rating</option>
-                    <option value="4">4+ Stars</option>
-                    <option value="3">3+ Stars</option>
-                  </select>
                 </div>
               </div>
 
@@ -134,10 +124,11 @@ export default function MarketplacePage() {
   );
 }
 
-function AgentCard({ agent }: { agent: AgentCardDto }) {
+function AgentCard({ agent }: { agent: ERC8004AgentCard }) {
   const [copied, setCopied] = useState(false);
-  const price = agent.payment?.pricePerCallUsdc ?? 0;
+  const price = priceUsdc(agent);
   const category = agent.category ? formatCategory(agent.category) : 'unknown';
+  const a2a = agent.services?.find((s) => s.name === 'A2A');
 
   const handleCopyAgentId = async () => {
     try {
@@ -163,6 +154,19 @@ function AgentCard({ agent }: { agent: AgentCardDto }) {
       <h3 className="mb-2 text-base font-bold text-white md:text-lg">{agent.name}</h3>
       <p className="mb-3 text-xs text-slate-400 md:mb-4 md:text-sm">{agent.description}</p>
 
+      {a2a?.skills && a2a.skills.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5 md:mb-4">
+          {a2a.skills.map((skill) => (
+            <span
+              key={skill.id}
+              className="rounded-full border border-slate-700 bg-slate-800/50 px-2 py-0.5 text-xs text-slate-300"
+            >
+              {skill.name}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="mb-3 flex min-w-0 items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/50 px-2 py-1.5 md:mb-4">
         <span className="min-w-0 flex-1 truncate text-xs font-mono text-slate-400 md:text-sm">
           {agent.agentId}
@@ -176,26 +180,16 @@ function AgentCard({ agent }: { agent: AgentCardDto }) {
         </button>
       </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-3 text-xs md:mb-4 md:gap-4 md:text-sm">
-        <div className="flex items-center gap-1 text-yellow-400">
-          <Star className="h-3 w-3 fill-current md:h-4 md:w-4" />
-          <span className="font-medium">{formatRating(agent.averageRating)}</span>
-        </div>
-        <div className="text-slate-400">{agent.ratingCountDisplay} ratings</div>
-      </div>
-
       <div className="flex items-center justify-between border-t border-slate-800 pt-3 md:pt-4">
         <div>
           <div className="text-xs text-slate-400">Price</div>
           <div className="text-lg font-bold text-white md:text-xl">{price.toFixed(2)} USDC</div>
         </div>
-        <button
-          disabled
-          className="cursor-not-allowed rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white/70 md:px-4 md:py-2 md:text-sm"
-          title="Details page not implemented in PoC"
-        >
-          Details
-        </button>
+        {agent.x402Support && (
+          <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-300">
+            x402
+          </span>
+        )}
       </div>
     </div>
   );

@@ -41,8 +41,10 @@ export type {
 // Services
 export {
   discoverAgents,
+  fetchPaymentFromAgentEndpoint,
   type DiscoverAgentsInput,
   type DiscoverAgentsOutput,
+  type AgentJsonPayment,
 } from './services/index.js';
 
 export { uploadAgentMetadata, fetchAgentMetadata } from './services/pinata.js';

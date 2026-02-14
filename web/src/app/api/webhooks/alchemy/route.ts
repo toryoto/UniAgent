@@ -19,6 +19,7 @@ import { AGENT_IDENTITY_REGISTRY_ABI } from '@/lib/blockchain/contract';
 import {
   getProvider,
   fetchAgentMetadata,
+  fetchPaymentFromAgentEndpoint,
 } from '@agent-marketplace/shared';
 
 export const runtime = 'nodejs';
@@ -141,36 +142,37 @@ export async function POST(request: NextRequest) {
 
         const metadata = await fetchAgentMetadata(tokenURI);
         const a2aService = metadata.services?.find((s) => s.name === 'A2A');
+        const category = metadata.category ?? a2aService?.domains?.[0] ?? '';
+        const isActive = metadata.active !== false;
 
-        const agentCard = toJsonSafe({
-          agentId,
-          name: metadata.name,
-          description: metadata.description,
-          url: a2aService?.endpoint || '',
-          version: a2aService?.version || '1.0.0',
-          skills: a2aService?.skills || [],
-          owner,
-          isActive: metadata.active !== false,
-          category: metadata.category || a2aService?.domains?.[0] || '',
-          imageUrl: metadata.image,
-        });
+        // A2A エンドポイントから payment（価格）を取得してマージ
+        let agentCardObj: Record<string, unknown> = { ...metadata };
+        if (a2aService?.endpoint) {
+          const payment = await fetchPaymentFromAgentEndpoint(a2aService.endpoint);
+          if (payment?.pricePerCall) {
+            agentCardObj = { ...metadata, payment };
+          }
+        }
+
+        // ERC-8004 形式のまま agent_card に保存
+        const agentCard = toJsonSafe(agentCardObj);
 
         await prisma.agentCache.upsert({
           where: { agentId },
           create: {
             agentId,
             owner,
-            category: metadata.category || a2aService?.domains?.[0] || '',
-            isActive: metadata.active !== false,
-            agentCard: agentCard as any,
+            category,
+            isActive,
+            agentCard: agentCard as object,
             lastSyncedBlock: 0,
             lastSyncedLogIdx: 0,
           },
           update: {
             owner,
-            category: metadata.category || a2aService?.domains?.[0] || '',
-            isActive: metadata.active !== false,
-            agentCard: agentCard as any,
+            category,
+            isActive,
+            agentCard: agentCard as object,
             lastSyncedBlock: 0,
             lastSyncedLogIdx: 0,
           },
