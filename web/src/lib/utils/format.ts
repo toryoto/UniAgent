@@ -65,12 +65,7 @@ export function formatDate(timestamp: Date | bigint): string {
 export function formatCategory(category: string): string {
   const categoryMap: Record<string, string> = {
     travel: '旅行',
-    finance: '金融',
-    health: '健康',
-    education: '教育',
-    entertainment: 'エンターテイメント',
-    productivity: '生産性',
-    other: 'その他',
+    research: 'リサーチ'
   };
   return categoryMap[category.toLowerCase()] || category;
 }

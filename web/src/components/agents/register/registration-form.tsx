@@ -83,11 +83,7 @@ export function RegistrationForm({ reg, disabled }: RegistrationFormProps) {
             >
               <option value="">Select category</option>
               <option value="travel">Travel</option>
-              <option value="finance">Finance</option>
-              <option value="productivity">Productivity</option>
-              <option value="development">Development</option>
-              <option value="data">Data</option>
-              <option value="other">Other</option>
+              <option value="research">Research</option>
             </select>
           </div>
         </div>
