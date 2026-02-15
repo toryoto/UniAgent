@@ -17,6 +17,7 @@ import {
   type AgentCategory,
 } from '../prompts/evaluation-prompt.js';
 import { signAndStoreAttestation } from '../services/eas-attestation.js';
+import { verifyX402TransactionHash } from '../utils/verify-x402-tx.js';
 
 /**
  * LLM Judge の構造化出力スキーマ
@@ -74,10 +75,30 @@ async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
     };
   }
 
+  // ── シビル攻撃対策: x402 txHash のオンチェーン検証 + リプレイ検出 ──
+  const txHash = executeResult.transactionHash;
+  const isPaymentVerified =
+    txHash !== undefined &&
+    txHash !== '' &&
+    (await verifyX402TransactionHash({
+      txHash,
+      agentId,
+      amount: executeResult.paymentAmount ?? 0,
+      walletId,
+    }));
+
+  if (!isPaymentVerified) {
+    logger.eval.warn('Skipping evaluation: x402 txHash invalid or missing (Sybil protection)', {
+      hasTxHash: !!txHash,
+      txHash: txHash ?? '(none)',
+    });
+  }
+
   // ── 2. Evaluate & Attestation ──────────
   let evaluation = null;
   let attestation = null;
 
+  if (isPaymentVerified) {
   try {
     const responseText =
       typeof executeResult.result === 'string'
@@ -149,6 +170,7 @@ ${responseText}
     // 評価または署名に失敗した場合でも、実行結果はユーザーに返すためエラーを握り潰す
     const message = evalError instanceof Error ? evalError.message : 'Unknown evaluation error';
     logger.eval.error('Evaluation failed but execution succeeded', { error: message });
+  }
   }
 
   return {

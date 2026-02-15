@@ -115,6 +115,8 @@ export const logger = {
       log('eval', 'info', msg, details),
     success: (msg: string, details?: Record<string, unknown>) =>
       log('eval', 'success', msg, details),
+    warn: (msg: string, details?: Record<string, unknown>) =>
+      log('eval', 'warn', msg, details),
     error: (msg: string, details?: Record<string, unknown>) =>
       log('eval', 'error', msg, details),
   },
