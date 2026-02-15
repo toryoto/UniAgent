@@ -119,3 +119,25 @@ model AccessLimit {
   @@index([feature])
   @@map("access_limits")
 }
+
+/// EAS オフチェーンアテステーション（エージェント評価結果）
+model EasAttestation {
+  id          String   @id @default(uuid()) @db.Uuid
+  agentId     String   @map("agent_id") @db.VarChar(66)
+  schemaUid   String   @map("schema_uid") @db.VarChar(66)
+  attestation Json     @map("attestation")
+  attester    String   @map("attester") @db.VarChar(42)
+  paymentTx   String?  @map("payment_tx") @db.VarChar(66)
+  chainId     Int      @map("chain_id")
+  quality     Int      @db.SmallInt
+  reliability Int      @db.SmallInt
+  latency     Int      @map("latency")
+  tags        String[] @map("tags")
+  reasoning   String?  @map("reasoning")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([agentId])
+  @@index([attester])
+  @@index([createdAt])
+  @@map("eas_attestations")
+}
