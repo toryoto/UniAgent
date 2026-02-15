@@ -40,10 +40,12 @@ export type {
 
 // Services
 export {
-  discoverAgents,
+  discoverAgentsFromCache,
+  agentCardRowToDiscoveredAgent,
   fetchPaymentFromAgentEndpoint,
   type DiscoverAgentsInput,
   type DiscoverAgentsOutput,
+  type AgentCacheRow,
   type AgentJsonPayment,
 } from './services/index.js';
 

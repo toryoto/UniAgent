@@ -1,17 +1,14 @@
 /**
  * discover_agents ツール実装
  *
- * 共有サービスを使用してエージェントを検索
+ * DB(AgentCache) 経由でエージェントを検索
  */
 
-import {
-  discoverAgents,
-  type DiscoverAgentsInput,
-  type DiscoverAgentsOutput,
-} from '@agent-marketplace/shared';
+import { discoverAgents } from '@agent-marketplace/database';
+import type { DiscoverAgentsInput, DiscoverAgentsOutput } from '@agent-marketplace/shared';
 
 // 型を再エクスポート（互換性のため）
 export type { DiscoverAgentsInput, DiscoverAgentsOutput };
 
-// 共有サービスを再エクスポート
+// DB ベースの検索を再エクスポート
 export { discoverAgents };

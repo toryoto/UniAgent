@@ -12,6 +12,7 @@
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
+    "@agent-marketplace/database": "*",
     "@agent-marketplace/shared": "*",
     "dotenv": "^16.4.7",
     "ethers": "^6.16.0",

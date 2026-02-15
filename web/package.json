@@ -3,18 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "type-check": "tsc --noEmit",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:studio": "prisma studio"
+    "db:generate": "prisma generate --schema=../packages/database/prisma/schema.prisma",
+    "db:push": "prisma db push --schema=../packages/database/prisma/schema.prisma",
+    "db:studio": "prisma studio --schema=../packages/database/prisma/schema.prisma"
   },
   "dependencies": {
+    "@agent-marketplace/database": "*",
     "@agent-marketplace/shared": "*",
     "@coinbase/x402": "0.7.0",
     "@prisma/client": "^6.2.0",

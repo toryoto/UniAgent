@@ -1,8 +1,7 @@
 /**
  * Discover Agents Tool
  *
- * 共有サービスを使用してエージェントを検索するLangChainツール
- * MCPサーバー経由ではなく、直接オンチェーンから検索
+ * DB(AgentCache)からエージェントを検索する LangChain ツール
  */
 
 import { tool } from 'langchain';
@@ -28,7 +27,7 @@ const discoverAgentsSchema = z.object({
 export const discoverAgentsTool = tool(
   async (input: z.infer<typeof discoverAgentsSchema>) => {
     try {
-      logger.logic.info('Searching agents on-chain', {
+      logger.logic.info('Searching agents in DB', {
         agentId: input.agentId,
         category: input.category,
         skillName: input.skillName,
@@ -75,7 +74,7 @@ export const discoverAgentsTool = tool(
   },
   {
     name: 'discover_agents',
-    description: `ブロックチェーン上のAgentRegistryからエージェントを検索します。
+    description: `AgentCache(DB)からエージェントを検索します。
 特定のagentIdを指定するか、カテゴリやスキル名で検索可能です。
 価格・評価でのフィルタリングもサポートしています。
 結果にはエージェントのID、名前、説明、URL、価格（USDC）、評価が含まれます。`,
