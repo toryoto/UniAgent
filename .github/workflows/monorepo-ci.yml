@@ -7,6 +7,7 @@ on:
       - 'mcp/**'
       - 'agent/**'
       - 'packages/shared/**'
+      - 'packages/database/**'
       - '.github/workflows/web-ci.yml'
   pull_request:
     paths:
@@ -14,6 +15,7 @@ on:
       - 'mcp/**'
       - 'agent/**'
       - 'packages/shared/**'
+      - 'packages/database/**'
       - '.github/workflows/web-ci.yml'
 
 jobs:
@@ -31,6 +33,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=packages/shared
+      - run: npm run build --workspace=packages/database
       - run: npm run db:generate --workspace=web
         if: matrix.workspace == 'web'
       - run: npm run lint --workspace=${{ matrix.workspace }}
@@ -49,6 +52,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npm run build --workspace=packages/shared
+      - run: npm run build --workspace=packages/database
       - run: npm run db:generate --workspace=web
         if: matrix.workspace == 'web'
       - run: npm run type-check --workspace=${{ matrix.workspace }}
@@ -68,6 +72,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build --workspace=packages/shared
+      - run: npm run build --workspace=packages/database
       - run: npm run db:generate --workspace=web
         if: matrix.workspace == 'web'
       - run: npm run build --workspace=${{ matrix.workspace }}
