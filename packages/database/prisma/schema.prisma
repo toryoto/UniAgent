@@ -15,10 +15,7 @@ model User {
   isDelegated    Boolean         @default(false)
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  agentRatings   AgentRating[]
   budgetSettings BudgetSettings?
-  mcpSessions    McpSession[]
-  transactions   Transaction[]
 
   @@map("users")
 }
@@ -35,54 +32,22 @@ model BudgetSettings {
 }
 
 model Transaction {
-  id        String       @id @default(uuid()) @db.Uuid
-  userId    String       @map("user_id") @db.Uuid
-  agentId   String       @map("agent_id") @db.VarChar(66)
-  amount    Decimal      @map("amount") @db.Decimal(18, 6)
-  txHash    String       @unique @map("tx_hash") @db.VarChar(66)
-  status    String       @default("pending") @db.VarChar(20)
-  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  rating    AgentRating?
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String            @id @default(uuid()) @db.Uuid
+  walletId     String?           @map("wallet_id") @db.VarChar(255)
+  agentId      String            @map("agent_id") @db.VarChar(66)
+  amount       Decimal           @map("amount") @db.Decimal(18, 6)
+  txHash       String            @unique @map("tx_hash") @db.VarChar(66)
+  status       TransactionStatus  @default(PENDING)
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  @@index([userId])
-  @@index([agentId])
-  @@index([createdAt])
+  @@index([walletId])
   @@map("transactions")
 }
 
-model AgentRating {
-  id            String      @id @default(uuid()) @db.Uuid
-  userId        String      @map("user_id") @db.Uuid
-  agentId       String      @map("agent_id") @db.VarChar(66)
-  rating        Int         @db.SmallInt
-  transactionId String      @unique @map("transaction_id") @db.Uuid
-  txHash        String      @map("tx_hash") @db.VarChar(66)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([agentId])
-  @@index([rating])
-  @@map("agent_ratings")
-}
-
-model McpSession {
-  id              String    @id @default(uuid()) @db.Uuid
-  userId          String    @map("user_id") @db.Uuid
-  userInstruction String    @map("user_instruction")
-  toolCalls       Json      @map("tool_calls")
-  totalCost       Decimal   @default(0) @map("total_cost") @db.Decimal(18, 6)
-  status          String    @default("running") @db.VarChar(20)
-  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
-  completedAt     DateTime? @map("completed_at") @db.Timestamptz(6)
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([startedAt])
-  @@map("mcp_sessions")
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
 }
 
 /// On-chain AgentCard のキャッシュ（Alchemy Webhookで同期）
@@ -118,4 +83,26 @@ model AccessLimit {
   @@index([identifierType])
   @@index([feature])
   @@map("access_limits")
+}
+
+/// EAS オフチェーンアテステーション（エージェント評価結果）
+model EasAttestation {
+  id          String   @id @default(uuid()) @db.Uuid
+  agentId     String   @map("agent_id") @db.VarChar(66)
+  schemaUid   String   @map("schema_uid") @db.VarChar(66)
+  attestation Json     @map("attestation")
+  attester    String   @map("attester") @db.VarChar(42)
+  paymentTx   String?  @map("payment_tx") @db.VarChar(66)
+  chainId     Int      @map("chain_id")
+  quality     Int      @db.SmallInt
+  reliability Int      @db.SmallInt
+  latency     Int      @map("latency")
+  tags        String[] @map("tags")
+  reasoning   String?  @map("reasoning")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([agentId])
+  @@index([attester])
+  @@index([createdAt])
+  @@map("eas_attestations")
 }

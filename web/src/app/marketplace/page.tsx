@@ -7,11 +7,13 @@ import { useState } from 'react';
 import { useDiscoverAgents } from '@/lib/hooks/useDiscoverAgents';
 import type { DiscoveredAgent } from '@agent-marketplace/shared';
 import { formatCategory } from '@/lib/utils/format';
+import { AgentDetailModal } from '@/components/marketplace/agent-detail-modal';
 
 export default function MarketplacePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState<DiscoveredAgent | null>(null);
 
   const { agents, total, isLoading, error, refetch } = useDiscoverAgents({
     searchQuery,
@@ -90,7 +92,11 @@ export default function MarketplacePage() {
             {/* Agent List */}
             <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
               {agents.map((agent) => (
-                <AgentCard key={agent.agentId} agent={agent} />
+                <AgentCard
+                  key={agent.agentId}
+                  agent={agent}
+                  onClick={() => setSelectedAgent(agent)}
+                />
               ))}
             </div>
 
@@ -112,16 +118,30 @@ export default function MarketplacePage() {
             )}
           </div>
         </div>
+
+        {selectedAgent && (
+          <AgentDetailModal
+            agent={selectedAgent}
+            onClose={() => setSelectedAgent(null)}
+          />
+        )}
       </div>
     </AppLayout>
   );
 }
 
-function AgentCard({ agent }: { agent: DiscoveredAgent }) {
+function AgentCard({
+  agent,
+  onClick,
+}: {
+  agent: DiscoveredAgent;
+  onClick: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const category = agent.category ? formatCategory(agent.category) : 'unknown';
 
-  const handleCopyAgentId = async () => {
+  const handleCopyAgentId = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await navigator.clipboard.writeText(agent.agentId);
       setCopied(true);
@@ -132,7 +152,10 @@ function AgentCard({ agent }: { agent: DiscoveredAgent }) {
   };
 
   return (
-    <div className="group w-full min-w-0 rounded-2xl border border-slate-800 bg-slate-900/50 p-4 transition-all hover:border-slate-700 hover:shadow-xl hover:shadow-purple-500/10 md:p-6">
+    <div
+      onClick={onClick}
+      className="group w-full min-w-0 cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/50 p-4 transition-all hover:border-slate-700 hover:shadow-xl hover:shadow-purple-500/10 md:p-6"
+    >
       <div className="mb-3 flex items-start justify-between md:mb-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-purple-600 to-blue-600 text-xl md:h-12 md:w-12 md:text-2xl">
           🤖

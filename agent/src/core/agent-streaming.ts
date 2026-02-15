@@ -4,7 +4,7 @@ import type {
   ExecutionLogEntry,
   StreamEvent,
 } from '@agent-marketplace/shared';
-import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
+import { discoverAgentsTool, executeAndEvaluateAgentTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
@@ -35,7 +35,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 
     const agent = createAgent({
       model,
-      tools: [discoverAgentsTool, executeAgentTool],
+      tools: [discoverAgentsTool, executeAndEvaluateAgentTool],
       systemPrompt: SYSTEM_PROMPT,
     });
 
@@ -140,7 +140,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
               executionLog.push({
                 step: stepCounter,
                 type:
-                  tc.name === 'execute_agent' ? 'payment' : 'logic',
+                  tc.name === 'execute_and_evaluate_agent' ? 'payment' : 'logic',
                 action: `Tool call: ${tc.name}`,
                 details: tc.args,
                 timestamp: new Date(),
@@ -194,8 +194,8 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
               `[tools] ${toolName} => ${resultContent.slice(0, 120)}`,
             );
 
-            // execute_agent の結果から支払い情報を抽出
-            if (toolName === 'execute_agent') {
+            // execute_and_evaluate_agent の結果から支払い情報を抽出
+            if (toolName === 'execute_and_evaluate_agent') {
               try {
                 const parsed = JSON.parse(resultContent);
                 if (parsed?.paymentAmount) {

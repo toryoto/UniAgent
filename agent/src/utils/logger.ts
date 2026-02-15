@@ -7,7 +7,7 @@
 import chalk from 'chalk';
 
 export type LogLevel = 'info' | 'success' | 'warn' | 'error' | 'debug';
-export type LogCategory = 'agent' | 'llm' | 'mcp' | 'logic' | 'payment' | 'http';
+export type LogCategory = 'agent' | 'llm' | 'mcp' | 'logic' | 'payment' | 'http' | 'eval';
 
 const categoryColors: Record<LogCategory, (text: string) => string> = {
   agent: chalk.blue,
@@ -16,6 +16,7 @@ const categoryColors: Record<LogCategory, (text: string) => string> = {
   logic: chalk.yellow,
   payment: chalk.green,
   http: chalk.gray,
+  eval: chalk.blueBright,
 };
 
 const levelIcons: Record<LogLevel, string> = {
@@ -108,6 +109,16 @@ export const logger = {
   http: {
     info: (msg: string, details?: Record<string, unknown>) =>
       log('http', 'info', msg, details),
+  },
+  eval: {
+    info: (msg: string, details?: Record<string, unknown>) =>
+      log('eval', 'info', msg, details),
+    success: (msg: string, details?: Record<string, unknown>) =>
+      log('eval', 'success', msg, details),
+    warn: (msg: string, details?: Record<string, unknown>) =>
+      log('eval', 'warn', msg, details),
+    error: (msg: string, details?: Record<string, unknown>) =>
+      log('eval', 'error', msg, details),
   },
 };
 
