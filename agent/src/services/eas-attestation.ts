@@ -4,7 +4,12 @@
  * エージェント評価結果を EAS オフチェーンアテステーションとして署名し DB に保存する
  */
 
-import { EAS, SchemaEncoder } from '@ethereum-attestation-service/eas-sdk';
+
+import { createRequire } from 'node:module';
+
+type EASModule = typeof import('@ethereum-attestation-service/eas-sdk');
+const require = createRequire(import.meta.url);
+const { EAS, SchemaEncoder } = require('@ethereum-attestation-service/eas-sdk') as EASModule;
 import { ethers } from 'ethers';
 import type { Prisma } from '@agent-marketplace/database';
 import { createAttestation } from './attestation-db.js';
@@ -14,7 +19,7 @@ import { logger } from '../utils/logger.js';
 const EAS_CONTRACT_ADDRESS = '0x4200000000000000000000000000000000000021';
 const CHAIN_ID = 84532;
 
-/** デプロイ済みスキーマ（timestamp あり） */
+/** デプロイ済みスキーマ */
 const SCHEMA =
   'uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags';
 
