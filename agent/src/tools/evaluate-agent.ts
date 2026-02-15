@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { logger } from '../utils/logger.js';
 import {
   getEvaluationPrompt,
+  RAW_SCORE_TO_100,
   scaleToUint8,
   type AgentCategory,
 } from '../prompts/evaluation-prompt.js';
@@ -34,8 +35,8 @@ const evaluateAgentSchema = z.object({
  * プロンプトで「JSONで出力して」と頼む代わりに、このスキーマをモデルに渡します。
  */
 const evaluationResponseSchema = z.object({
-  quality: z.number().min(0).max(100).describe('応答の正確性と有用性 (0-100)'),
-  reliability: z.number().min(0).max(100).describe('指示への忠実度と一貫性 (0-100)'),
+  qualityRaw: z.number().int().min(1).max(5).describe('品質スコア (1-5)'),
+  reliabilityRaw: z.number().int().min(1).max(5).describe('信頼性スコア (1-5)'),
   tags: z.array(z.string()).describe('評価を特徴づけるタグ (例: "accurate", "fast", "creative")'),
   reasoning: z.string().describe('なぜそのスコアになったかの論理的な推論過程 (Chain of Thought)'),
 });
@@ -72,9 +73,9 @@ ${response}
     { role: 'user', content: userPrompt },
   ]);
 
-  // parsed は既に JSON オブジェクトであり、型も付いている
-  const quality100 = Math.min(100, Math.max(0, parsed.quality));
-  const reliability100 = Math.min(100, Math.max(0, parsed.reliability));
+  // 1-5 離散値をアプリ側で 0-100 に変換（LLM による変換誤差を回避）
+  const quality100 = parsed.qualityRaw * RAW_SCORE_TO_100;
+  const reliability100 = parsed.reliabilityRaw * RAW_SCORE_TO_100;
   const qualityUint8 = scaleToUint8(quality100);
   const reliabilityUint8 = scaleToUint8(reliability100);
 

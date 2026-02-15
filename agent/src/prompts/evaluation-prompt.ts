@@ -8,12 +8,15 @@ export type AgentCategory = 'research' | 'travel' | 'general';
 
 export interface EvaluationResult {
   reasoning: string;
-  quality_raw: number;
-  reliability_raw: number;
-  quality: number;
-  reliability: number;
+  qualityRaw: number; // 1-5 (LLM出力)
+  reliabilityRaw: number; // 1-5 (LLM出力)
+  quality: number; // 0-100 (qualityRaw * 20、アプリ側で算出)
+  reliability: number; // 0-100 (reliabilityRaw * 20、アプリ側で算出)
   tags: string[];
 }
+
+/** 1-5 スコアを 0-100 に変換 */
+export const RAW_SCORE_TO_100 = 20;
 
 /** 0-100 → uint8 (0-255) 変換 */
 export function scaleToUint8(score: number): number {
@@ -69,7 +72,6 @@ export function getEvaluationPrompt(category: AgentCategory): string {
   const rubric = CATEGORY_RUBRICS[category] ?? CATEGORY_RUBRICS.general;
 
   return `あなたはAIエージェントの応答品質を評価する専門家ジャッジです。
-以下のルブリックに基づき、エージェントの応答を厳密に評価してください。
 
 ## 評価対象
 - ユーザーのリクエスト（タスク）
@@ -77,7 +79,6 @@ export function getEvaluationPrompt(category: AgentCategory): string {
 - エージェントのカテゴリ: ${category}
 
 ## 評価ルブリック
-
 ### Quality（品質）スコア: 1-5
 ${rubric.quality}
 
@@ -85,7 +86,6 @@ ${rubric.quality}
 ${rubric.reliability}
 
 ## 評価手順（Chain of Thought）
-
 必ず以下のステップを順番に実行してください。スコアを先に決めてから理由を後付けすることは禁止です。
 
 ステップ1: タスクの要件を整理する
@@ -94,24 +94,12 @@ ${rubric.reliability}
 ステップ4: Reliability ルブリックの各アンカーと比較し、最も近いスコアを選択する
 ステップ5: 特筆すべき特徴をタグとして付与する
 
-## 出力形式（JSON）
+## タグの候補
+"accurate", "comprehensive", "hallucinated", "incomplete", "well-structured", "budget-aware", "creative", "outdated", "practical", "verified-sources"
 
-以下のJSON形式で出力してください。reasoning フィールドには上記ステップ1-5の推論を必ず含めてください。
-
-\`\`\`json
-{
-  "reasoning": "ステップ1: ... ステップ2: ... ステップ3: Quality=X ... ステップ4: Reliability=Y ... ステップ5: ...",
-  "quality_raw": <1-5の整数>,
-  "reliability_raw": <1-5の整数>,
-  "quality": <0-100の整数 (quality_raw * 20)>,
-  "reliability": <0-100の整数 (reliability_raw * 20)>,
-  "tags": ["tag1", "tag2"]
-}
-\`\`\`
-
-注意:
-- quality と reliability は quality_raw * 20, reliability_raw * 20 で算出（1→20, 2→40, 3→60, 4→80, 5→100）
-- tags の候補: "accurate", "comprehensive", "hallucinated", "incomplete", "well-structured", "budget-aware", "creative", "outdated", "practical", "verified-sources"
+## 出力形式
+- qualityRaw: Quality ルブリックに基づく 1-5 の整数
+- reliabilityRaw: Reliability ルブリックに基づく 1-5 の整数
 - 必ず reasoning を先に記述し、その後にスコアを決定すること
-`;
+- 0-100 への変換はアプリ側で行うため、1-5 の離散値のみを出力すること`;
 }
