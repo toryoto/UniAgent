@@ -75,7 +75,6 @@ export async function GET(request: NextRequest) {
 
     let agents: DiscoveredAgent[] = result.agents;
 
-    // Sorting
     const dir = sortOrder === 'asc' ? 1 : -1;
     agents = [...agents].sort((a, b) => {
       if (sortBy === 'price') return dir * (a.price - b.price);

@@ -6,7 +6,7 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { discoverAgents } from '../services/agent-discovery.js';
+import { discoverAgents } from '@agent-marketplace/database';
 import type { A2ASkill } from '@agent-marketplace/shared';
 import { logger } from '../utils/logger.js';
 
