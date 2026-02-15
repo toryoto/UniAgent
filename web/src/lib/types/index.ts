@@ -10,20 +10,8 @@
 
 import type {
   ExecutionLogEntry,
-  ERC8004RegistrationFile,
-  AgentJsonPayment,
+  DiscoveredAgent,
 } from '@agent-marketplace/shared';
-
-// ============================================================================
-// API DTO Types (ERC-8004 ベース)
-// ============================================================================
-
-/** DB の AgentCache から返す ERC-8004 ベースのカード */
-export interface ERC8004AgentCard extends ERC8004RegistrationFile {
-  agentId: string;
-  owner?: string;
-  payment?: AgentJsonPayment;
-}
 
 // ============================================================================
 // Transaction Types
@@ -80,7 +68,7 @@ export interface MCPToolDiscoverAgentsInput {
 }
 
 export interface MCPToolDiscoverAgentsOutput {
-  agents: ERC8004AgentCard[];
+  agents: DiscoveredAgent[];
 }
 
 export interface MCPToolExecuteAgentInput {
@@ -200,7 +188,7 @@ export interface ApiResponse<T> {
 }
 
 export interface DiscoveryApiResponse {
-  agents: ERC8004AgentCard[];
+  agents: DiscoveredAgent[];
   total: number;
 }
 

@@ -5,15 +5,8 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Copy, Search } from 'lucide-react';
 import { useState } from 'react';
 import { useDiscoverAgents } from '@/lib/hooks/useDiscoverAgents';
-import { USDC_DECIMALS } from '@agent-marketplace/shared';
-import type { ERC8004AgentCard } from '@/lib/types';
+import type { DiscoveredAgent } from '@agent-marketplace/shared';
 import { formatCategory } from '@/lib/utils/format';
-
-function priceUsdc(card: ERC8004AgentCard): number {
-  const raw = card.payment?.pricePerCall ?? card.payment?.price;
-  if (!raw) return 0;
-  return Number(raw) / Math.pow(10, USDC_DECIMALS);
-}
 
 export default function MarketplacePage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,11 +117,9 @@ export default function MarketplacePage() {
   );
 }
 
-function AgentCard({ agent }: { agent: ERC8004AgentCard }) {
+function AgentCard({ agent }: { agent: DiscoveredAgent }) {
   const [copied, setCopied] = useState(false);
-  const price = priceUsdc(agent);
   const category = agent.category ? formatCategory(agent.category) : 'unknown';
-  const a2a = agent.services?.find((s) => s.name === 'A2A');
 
   const handleCopyAgentId = async () => {
     try {
@@ -154,9 +145,9 @@ function AgentCard({ agent }: { agent: ERC8004AgentCard }) {
       <h3 className="mb-2 text-base font-bold text-white md:text-lg">{agent.name}</h3>
       <p className="mb-3 text-xs text-slate-400 md:mb-4 md:text-sm">{agent.description}</p>
 
-      {a2a?.skills && a2a.skills.length > 0 && (
+      {agent.skills && agent.skills.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5 md:mb-4">
-          {a2a.skills.map((skill) => (
+          {agent.skills.map((skill) => (
             <span
               key={skill.id}
               className="rounded-full border border-slate-700 bg-slate-800/50 px-2 py-0.5 text-xs text-slate-300"
@@ -183,7 +174,7 @@ function AgentCard({ agent }: { agent: ERC8004AgentCard }) {
       <div className="flex items-center justify-between border-t border-slate-800 pt-3 md:pt-4">
         <div>
           <div className="text-xs text-slate-400">Price</div>
-          <div className="text-lg font-bold text-white md:text-xl">{price.toFixed(2)} USDC</div>
+          <div className="text-lg font-bold text-white md:text-xl">{agent.price.toFixed(2)} USDC</div>
         </div>
         {agent.x402Support && (
           <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-300">

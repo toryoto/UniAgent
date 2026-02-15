@@ -1,8 +1,15 @@
+/**
+ * Discovery Agents API
+ *
+ * DB(AgentCache) からエージェントを検索して返す。
+ * フィルタ・マッピングロジックは packages/shared, packages/database に集約。
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db/prisma';
-import { USDC_DECIMALS } from '@agent-marketplace/shared';
-import type { ERC8004AgentCard, ApiResponse, DiscoveryApiResponse } from '@/lib/types';
+import { discoverAgents } from '@agent-marketplace/database';
+import type { DiscoveredAgent } from '@agent-marketplace/shared';
+import type { ApiResponse, DiscoveryApiResponse } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,27 +47,6 @@ const querySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 
-/** agentCard JSON + DB 行から ERC8004AgentCard を組み立てる */
-function toAgentCard(
-  json: unknown,
-  row: { agentId: string; owner: string | null }
-): ERC8004AgentCard | null {
-  if (!json || typeof json !== 'object') return null;
-  const card = json as Record<string, unknown>;
-  if (!card.name) return null;
-  return {
-    ...(card as unknown as ERC8004AgentCard),
-    agentId: row.agentId,
-    owner: row.owner ?? undefined,
-  };
-}
-
-function priceUsdc(card: ERC8004AgentCard): number {
-  const raw = card.payment?.pricePerCall ?? card.payment?.price;
-  if (!raw) return 0;
-  return Number(raw) / Math.pow(10, USDC_DECIMALS);
-}
-
 export async function GET(request: NextRequest) {
   try {
     const sp = request.nextUrl.searchParams;
@@ -84,47 +70,20 @@ export async function GET(request: NextRequest) {
 
     const { q, category, maxPrice, limit, offset, sortBy, sortOrder } = parsed.data;
 
-    const rows = await prisma.agentCache.findMany({
-      where: {
-        isActive: true,
-        ...(category ? { category } : {}),
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 500,
-    });
+    // DB + shared ロジックでフィルタ済みの DiscoveredAgent[] を取得
+    const result = await discoverAgents({ q, category, maxPrice });
 
-    const agents = rows
-      .map((r) => toAgentCard(r.agentCard, { agentId: r.agentId, owner: r.owner }))
-      .filter((v): v is ERC8004AgentCard => v !== null);
-
-    const qLower = q?.toLowerCase() ?? '';
-
-    const filtered = agents.filter((a) => {
-      if (qLower) {
-        const a2a = a.services?.find((s) => s.name === 'A2A');
-        const hay = [
-          a.name,
-          a.description,
-          a.category ?? '',
-          ...(a2a?.skills?.map((s) => s.name) ?? []),
-          ...(a2a?.skills?.map((s) => s.description) ?? []),
-        ]
-          .map((s) => (typeof s === 'string' ? s.toLowerCase() : ''))
-          .join(' ');
-        if (!hay.includes(qLower)) return false;
-      }
-      if (typeof maxPrice === 'number' && priceUsdc(a) > maxPrice) return false;
-      return true;
-    });
+    let agents: DiscoveredAgent[] = result.agents;
 
     const dir = sortOrder === 'asc' ? 1 : -1;
-    const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === 'price') return dir * (priceUsdc(a) - priceUsdc(b));
+    agents = [...agents].sort((a, b) => {
+      if (sortBy === 'price') return dir * (a.price - b.price);
       return 0; // newest: DB の updatedAt 順を維持
     });
 
-    const total = sorted.length;
-    const page = sorted.slice(offset, offset + limit);
+    // Pagination
+    const total = agents.length;
+    const page = agents.slice(offset, offset + limit);
 
     const data: DiscoveryApiResponse = { agents: page, total };
     const res: ApiResponse<DiscoveryApiResponse> = { success: true, data };

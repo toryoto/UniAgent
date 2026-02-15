@@ -1,19 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+/**
+ * Prisma Client re-export
+ *
+ * packages/database のシングルトンクライアントを re-export する。
+ * 既存の import { prisma } from '@/lib/db/prisma' を維持。
+ */
 
-const prismaClientSingleton = () => {
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-};
-
-declare global {
-   
-  var prismaGlobal: undefined | ReturnType<typeof prismaClientSingleton>;
-}
-
-export const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
-
-if (process.env.NODE_ENV !== 'production') globalThis.prismaGlobal = prisma;
-
-// 型エクスポート
-export * from '@prisma/client';
+export { prisma, PrismaClient, Prisma } from '@agent-marketplace/database';
+export type * from '@agent-marketplace/database';

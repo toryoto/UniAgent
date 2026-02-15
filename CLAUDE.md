@@ -18,7 +18,18 @@ UniAgent is a decentralized AI agent marketplace integrating A2A (Agent-to-Agent
 | `agent/` | LangChain ReAct agent service | 3002 |
 | `mcp/` | A2A discovery MCP server | 3001 |
 | `contracts/` | Hardhat smart contracts | - |
-| `packages/shared/` | Shared types & utilities | - |
+| `packages/shared/` | Pure functions, types, business logic（DB 非依存） | - |
+| `packages/database/` | Prisma Client & DB アクセス層 | - |
+
+### packages の依存関係
+
+```
+shared (最下層・依存なし)
+  ↑
+database (shared に依存)
+  ↑
+web / mcp / agent (shared, database を使用)
+```
 
 ## Build & Development Commands
 
@@ -46,7 +57,7 @@ npm run format:check                 # Check formatting
 npm run test                         # all workspaces
 npm run test --workspace=contracts   # contracts only
 
-# Database (Prisma in web/)
+# Database (Prisma in packages/database)
 npm run db:push --workspace=web      # Sync schema
 npm run db:generate --workspace=web  # Generate client
 npm run db:studio --workspace=web    # Prisma Studio GUI
@@ -87,9 +98,10 @@ Events: `start`, `log`, `content`, `tool_call`, `payment`, `end`, `error`
 
 ### Shared Package Imports
 ```typescript
-import { AgentCard, DiscoveredAgent } from '@agent-marketplace/shared';
-import { CONTRACT_ADDRESS } from '@agent-marketplace/shared/config';
-import { AgentRegistryABI } from '@agent-marketplace/shared/contract';
+import { DiscoveredAgent } from '@agent-marketplace/shared';
+import { CONTRACT_ADDRESSES } from '@agent-marketplace/shared/config';
+import { AGENT_IDENTITY_REGISTRY_ABI } from '@agent-marketplace/shared/contract';
+import { discoverAgents } from '@agent-marketplace/database';
 ```
 
 ### A2A Endpoints (hosted in web/)
@@ -112,6 +124,6 @@ Each workspace has `.env.example`:
 
 ## CI/CD
 
-- GitHub Actions runs lint, type-check, build on push to web/, mcp/, agent/, packages/shared/
+- GitHub Actions runs lint, type-check, build on push to web/, mcp/, agent/, packages/shared/, packages/database/
 - Web: Vercel (vercel.json)
 - Agent/MCP: Railway (railway.json)

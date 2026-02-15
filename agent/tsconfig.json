@@ -31,7 +31,8 @@
     "../packages/shared/node_modules"
   ],
   "references": [
-    { "path": "../packages/shared" }
+    { "path": "../packages/shared" },
+    { "path": "../packages/database" }
   ],
   
 }

@@ -53,6 +53,7 @@ export interface DiscoveredAgent {
   isActive: boolean;
   openapi?: string;
   imageUrl?: string;
+  x402Support?: boolean;
 }
 
 // ============================================================================
