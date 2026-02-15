@@ -90,6 +90,12 @@ export async function signAndStoreAttestation(input: AttestationInput) {
     signer
   );
 
+  // EAS Scan で読み込める形式（sig + signer）に整形
+  const easScanFormat = {
+    sig: attestation,
+    signer: signer.address,
+  };
+
   logger.logic.success('EAS offchain attestation signed', {
     agentId: input.agentId,
     quality: input.quality,
@@ -99,7 +105,7 @@ export async function signAndStoreAttestation(input: AttestationInput) {
 
   // 5. BigInt を string に変換して JSON シリアライズ可能にする
   const serializable = JSON.parse(
-    JSON.stringify(attestation, (_key, value) =>
+    JSON.stringify(easScanFormat, (_key, value) =>
       typeof value === 'bigint' ? value.toString() : value
     )
   ) as Prisma.InputJsonValue;
