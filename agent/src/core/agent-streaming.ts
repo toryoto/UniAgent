@@ -4,7 +4,7 @@ import type {
   ExecutionLogEntry,
   StreamEvent,
 } from '@agent-marketplace/shared';
-import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
+import { discoverAgentsTool, executeAgentTool, evaluateAgentTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
@@ -35,7 +35,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 
     const agent = createAgent({
       model,
-      tools: [discoverAgentsTool, executeAgentTool],
+      tools: [discoverAgentsTool, executeAgentTool, evaluateAgentTool],
       systemPrompt: SYSTEM_PROMPT,
     });
 
