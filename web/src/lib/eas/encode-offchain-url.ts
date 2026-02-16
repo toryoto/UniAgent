@@ -1,110 +1,66 @@
 /**
- * EAS Offchain Attestation URL Encoder
+ * EAS Offchain Attestation (v2) URL Encoder
  *
  * DBに保存された { sig, signer } をEAS ScanのURLに変換する。
- * EAS SDK の offchain-utils.ts と同じアルゴリズムを再実装。
+ * attestation-sample.json と同形式の v2 固定。
  */
 
 import pako from 'pako';
 import { fromUint8Array } from 'js-base64';
 
 const EAS_SCAN_BASE = 'https://base-sepolia.easscan.org';
-
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 const ZERO_HASH =
   '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-interface AttestationSignature {
-  r: string;
-  s: string;
-  v: number;
-}
-
-interface AttestationMessage {
-  version?: number;
-  schema: string;
-  recipient: string;
-  time: string | number | bigint;
-  expirationTime: string | number | bigint;
-  refUID: string;
-  revocable: boolean;
-  data: string;
-  salt?: string;
-}
-
-interface AttestationDomain {
-  version: string;
-  chainId: string | number | bigint;
-  verifyingContract: string;
-}
-
-interface SignedAttestationV2 {
-  domain: AttestationDomain;
-  signature: AttestationSignature;
-  uid: string;
-  message: AttestationMessage;
-  version?: number;
-}
-
-/** V1 format has r, s, v at the top level instead of in a signature object */
-interface SignedAttestationV1 extends Omit<SignedAttestationV2, 'signature'> {
-  r: string;
-  s: string;
-  v: number;
-}
-
-interface AttestationPackage {
-  sig: SignedAttestationV2 | SignedAttestationV1;
+interface AttestationV2 {
+  sig: {
+    domain: { version: string; chainId: string | number; verifyingContract: string };
+    signature: { r: string; s: string; v: number };
+    uid: string;
+    message: {
+      schema: string;
+      recipient: string;
+      time: string | number;
+      expirationTime: string | number;
+      refUID: string;
+      revocable: boolean;
+      data: string;
+      version?: number;
+      salt?: string;
+    };
+  };
   signer: string;
 }
 
-function isV1(
-  sig: SignedAttestationV2 | SignedAttestationV1
-): sig is SignedAttestationV1 {
-  return 'v' in sig && 'r' in sig && 's' in sig;
-}
-
-function normalizeToV2(
-  sig: SignedAttestationV2 | SignedAttestationV1
-): SignedAttestationV2 {
-  if (!isV1(sig)) return sig;
-  const { v, r, s, ...rest } = sig;
-  return { ...rest, signature: { v, r, s } };
-}
-
-function compactPackage(pkg: AttestationPackage): unknown[] {
-  const { signer } = pkg;
-  const sig = normalizeToV2(pkg.sig);
-
+function compactAttestationV2(a: AttestationV2): unknown[] {
+  const { sig, signer } = a;
+  const { domain, signature, uid, message } = sig;
   return [
-    sig.domain.version,
-    sig.domain.chainId,
-    sig.domain.verifyingContract,
-    sig.signature.r,
-    sig.signature.s,
-    sig.signature.v,
+    domain.version,
+    domain.chainId,
+    domain.verifyingContract,
+    signature.r,
+    signature.s,
+    signature.v, // signature.v は回復識別子であり、署名から公開鍵を復旧するために使われる。
     signer,
-    sig.uid,
-    sig.message.schema,
-    sig.message.recipient === ZERO_ADDRESS ? '0' : sig.message.recipient,
-    Number(sig.message.time),
-    Number(sig.message.expirationTime),
-    sig.message.refUID === ZERO_HASH ? '0' : sig.message.refUID,
-    sig.message.revocable,
-    sig.message.data,
+    uid,
+    message.schema,
+    message.recipient === ZERO_ADDRESS ? '0' : message.recipient,
+    Number(message.time),
+    Number(message.expirationTime),
+    message.refUID === ZERO_HASH ? '0' : message.refUID,
+    message.revocable,
+    message.data,
     0,
-    sig.message.version,
-    sig.message.salt,
+    message.version,
+    message.salt,
   ];
 }
 
 export function buildEasScanUrl(attestation: unknown): string {
-  const pkg = attestation as AttestationPackage;
-  const compacted = compactPackage(pkg);
-  const json = JSON.stringify(compacted, (_, v) =>
-    typeof v === 'bigint' ? v.toString() : v
-  );
-  const gzipped = pako.deflate(json, { level: 9 });
-  const base64 = fromUint8Array(gzipped);
+  const compacted = compactAttestationV2(attestation as AttestationV2);
+  const json = JSON.stringify(compacted);
+  const base64 = fromUint8Array(pako.deflate(json, { level: 9 }));
   return `${EAS_SCAN_BASE}/offchain/url/#attestation=${encodeURIComponent(base64)}`;
 }
