@@ -40,7 +40,17 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
     });
 
     const userMessage = agentId
-      ? `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, maxBudget=${maxBudget} USDC, agentId=${agentId}]`
+      ? `${message}
+## コンテキスト
+- wallet_id: ${walletId}
+- wallet_address: ${walletAddress}
+- max_budget: $${maxBudget} USDC
+- 指定エージェントID: ${agentId}
+
+## 重要な指示（指定エージェントの場合）
+※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
+※そのエージェントがタスクに適している場合のみ execute_and_evaluate_agent で実行してください
+※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
       : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, maxBudget=${maxBudget} USDC]`;
 
     // messages: トークン単位の LLM テキスト / updates: 完全なツール呼び出し・結果

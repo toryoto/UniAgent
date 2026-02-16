@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/agent/stream
  *
- * Body: { message: string, walletId: string, walletAddress: string, maxBudget: number }
+ * Body: { message: string, walletId: string, walletAddress: string, maxBudget: number, agentId?: string }
+ * - agentId: /use-agent コマンドで指定された場合はエージェントID（discover_agents で検索）
  * Response: Server-Sent Events
  */
 export async function POST(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { message, walletId, walletAddress, maxBudget } = body;
+    const { message, walletId, walletAddress, maxBudget, agentId } = body;
 
     if (!message || !walletId || !walletAddress || typeof maxBudget !== 'number') {
       return new Response(
@@ -32,16 +33,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Agent Stream API] Forwarding to Agent Service (stream)');
+    console.log('[Agent Stream API] Forwarding to Agent Service (stream)', agentId ? { agentId } : {});
 
-    // Forward to Agent Service
+    // Forward to Agent Service（agentId は /use-agent コマンドで指定された場合に含まれる）
+    const requestBody: Record<string, unknown> = {
+      message,
+      walletId,
+      walletAddress,
+      maxBudget,
+    };
+    if (agentId && typeof agentId === 'string') {
+      requestBody.agentId = agentId;
+    }
+
     const response = await fetch(`${AGENT_SERVICE_URL}/api/agent/stream`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
       },
-      body: JSON.stringify({ message, walletId, walletAddress, maxBudget }),
+      body: JSON.stringify(requestBody),
       // @ts-expect-error -- Node.js undici option to disable response buffering
       duplex: 'half',
     });
