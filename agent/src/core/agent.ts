@@ -17,7 +17,7 @@ import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
  * エージェントを実行（非ストリーミング）
  */
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
-  const { message, walletId, walletAddress, maxBudget, agentId } = request;
+  const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = request;
   const executionLog: ExecutionLogEntry[] = [];
   let totalCost = 0;
   let stepCounter = 0;
@@ -76,10 +76,13 @@ ${message}
 
     logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
 
+    const messages = [
+      ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
+      { role: 'user' as const, content: userMessage },
+    ];
+
     const result = await agent.invoke(
-      {
-        messages: [{ role: 'user', content: userMessage }],
-      },
+      { messages },
       {
         context: { agentId },
       }
@@ -184,7 +187,7 @@ ${message}
 export async function* runAgentStream(
   request: AgentRequest
 ): AsyncGenerator<{ type: string; data: unknown }, void, unknown> {
-  const { message, walletId, walletAddress, maxBudget, agentId } = request;
+  const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = request;
   let totalCost = 0;
   let stepCounter = 0;
 
@@ -238,8 +241,13 @@ ${message}
       },
     };
 
+    const streamMessages = [
+      ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
+      { role: 'user' as const, content: userMessage },
+    ];
+
     const stream = await agent.stream({
-      messages: [{ role: 'user', content: userMessage }],
+      messages: streamMessages,
       ...(agentId ? { agentId } : {}),
     });
 

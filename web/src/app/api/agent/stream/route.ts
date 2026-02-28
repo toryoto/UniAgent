@@ -3,9 +3,12 @@
  *
  * Agent ServiceへのSSEプロキシエンドポイント
  * リアルタイムでエージェントの実行状況を取得してフロントに流す
+ * + 会話履歴のロード・保存
  */
 
 import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db/prisma';
+import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -15,16 +18,21 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/agent/stream
  *
- * Body: { message: string, walletId: string, walletAddress: string, maxBudget: number, agentId?: string }
- * - agentId: /use-agent コマンドで指定された場合はエージェントID（discover_agents で検索）
- * Response: Server-Sent Events
+ * Headers: Authorization: Bearer <privy-auth-token>
+ * Body: {
+ *   message: string, walletId: string, walletAddress: string, maxBudget: number,
+ *   agentId?: string, conversationId?: string
+ * }
+ * Response: Server-Sent Events (with conversationId injected in start event)
  */
 export async function POST(request: NextRequest) {
   console.log('[Agent Stream API] Request received');
 
   try {
+    const auth = await verifyPrivyToken(request);
+
     const body = await request.json();
-    const { message, walletId, walletAddress, maxBudget, agentId } = body;
+    const { message, walletId, walletAddress, maxBudget, agentId, conversationId } = body;
 
     if (!message || !walletId || !walletAddress || typeof maxBudget !== 'number') {
       return new Response(
@@ -33,9 +41,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('[Agent Stream API] Forwarding to Agent Service (stream)', agentId ? { agentId } : {});
+    // 会話の解決: 既存 or 新規作成
+    let resolvedConversationId: string | null = conversationId || null;
+    let messageHistory: Array<{ role: string; content: string }> = [];
 
-    // Forward to Agent Service（agentId は /use-agent コマンドで指定された場合に含まれる）
+    if (auth) {
+      const user = await prisma.user.findUnique({
+        where: { privyUserId: auth.privyUserId },
+        select: { id: true },
+      });
+
+      if (user) {
+        if (resolvedConversationId) {
+          // 既存会話: メッセージ履歴をロード
+          const conversation = await prisma.conversation.findUnique({
+            where: { id: resolvedConversationId, userId: user.id },
+            include: {
+              messages: {
+                orderBy: { createdAt: 'asc' },
+                select: { role: true, content: true },
+              },
+            },
+          });
+          if (conversation) {
+            messageHistory = conversation.messages.map(m => ({
+              role: m.role,
+              content: m.content,
+            }));
+          }
+        } else {
+          // 新規会話を作成
+          const title = message.length > 50 ? message.slice(0, 50) + '...' : message;
+          const conversation = await prisma.conversation.create({
+            data: { userId: user.id, title },
+          });
+          resolvedConversationId = conversation.id;
+        }
+
+        // ユーザーメッセージをDBに保存
+        if (resolvedConversationId) {
+          await prisma.message.create({
+            data: {
+              conversationId: resolvedConversationId,
+              role: 'user',
+              content: message,
+            },
+          });
+        }
+      }
+    }
+
+    console.log('[Agent Stream API] Forwarding to Agent Service (stream)', {
+      ...(agentId ? { agentId } : {}),
+      conversationId: resolvedConversationId,
+      historyLength: messageHistory.length,
+    });
+
+    // Forward to Agent Service
     const requestBody: Record<string, unknown> = {
       message,
       walletId,
@@ -44,6 +106,9 @@ export async function POST(request: NextRequest) {
     };
     if (agentId && typeof agentId === 'string') {
       requestBody.agentId = agentId;
+    }
+    if (messageHistory.length > 0) {
+      requestBody.messageHistory = messageHistory;
     }
 
     const response = await fetch(`${AGENT_SERVICE_URL}/api/agent/stream`, {
@@ -66,7 +131,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return new Response(response.body, {
+    // SSEストリームをインターセプトして conversationId を注入 & アシスタントメッセージを保存
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    let assistantContent = '';
+    let totalCost = 0;
+
+    const transformStream = new TransformStream({
+      start(controller) {
+        // 最初に conversationId を含む meta イベントを送信
+        if (resolvedConversationId) {
+          const metaEvent = JSON.stringify({
+            type: 'meta',
+            data: { conversationId: resolvedConversationId },
+          });
+          controller.enqueue(encoder.encode(`data: ${metaEvent}\n\n`));
+        }
+      },
+      transform(chunk, controller) {
+        // チャンクをそのまま転送
+        controller.enqueue(chunk);
+
+        // アシスタントの最終レスポンスを収集
+        const text = decoder.decode(chunk, { stream: true });
+        const lines = text.split('\n\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const event = JSON.parse(line.slice(6));
+            if (event.type === 'final' && event.data?.message) {
+              assistantContent = event.data.message;
+              totalCost = event.data.totalCost || 0;
+            }
+          } catch {
+            // パース失敗は無視
+          }
+        }
+      },
+      async flush() {
+        // ストリーム完了後にアシスタントメッセージをDBに保存
+        if (resolvedConversationId && assistantContent) {
+          try {
+            await prisma.message.create({
+              data: {
+                conversationId: resolvedConversationId,
+                role: 'assistant',
+                content: assistantContent,
+                totalCost: totalCost > 0 ? totalCost : null,
+              },
+            });
+            // 会話のupdatedAtを更新
+            await prisma.conversation.update({
+              where: { id: resolvedConversationId },
+              data: { updatedAt: new Date() },
+            });
+          } catch (err) {
+            console.error('[Agent Stream API] Failed to save assistant message:', err);
+          }
+        }
+      },
+    });
+
+    response.body.pipeThrough(transformStream);
+
+    return new Response(transformStream.readable, {
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',

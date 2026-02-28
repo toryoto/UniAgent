@@ -9,12 +9,19 @@ import type {
   AgentToolCall,
   StreamEvent,
 } from '@/lib/types';
+import { authFetch } from '@/lib/auth/authFetch';
+
+type MetaEvent = { type: 'meta'; data: { conversationId: string } };
+type ParsedEvent = StreamEvent | MetaEvent;
 
 export interface UseAgentStreamOptions {
   walletId: string;
   walletAddress: string;
   maxBudget: number;
   agentId?: string;
+  conversationId?: string;
+  getAccessToken: () => Promise<string | null>;
+  initialMessages?: AgentStreamMessage[];
 }
 
 export interface UseAgentStreamReturn {
@@ -27,6 +34,7 @@ export interface UseAgentStreamReturn {
   error: string | null;
   clearError: () => void;
   reset: () => void;
+  conversationId: string | null;
 }
 
 function generateId(): string {
@@ -34,12 +42,13 @@ function generateId(): string {
 }
 
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
-  const { walletId, walletAddress, maxBudget } = options;
+  const { walletId, walletAddress, maxBudget, getAccessToken, initialMessages } = options;
 
-  const [messages, setMessages] = useState<AgentStreamMessage[]>([]);
+  const [messages, setMessages] = useState<AgentStreamMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(options.conversationId || null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -93,13 +102,20 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         if (targetAgentId) {
           requestBody.agentId = targetAgentId;
         }
+        if (conversationId) {
+          requestBody.conversationId = conversationId;
+        }
 
-        const response = await fetch('/api/agent/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        const response = await authFetch(
+          '/api/agent/stream',
+          getAccessToken,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          },
+        );
 
         if (!response.ok) {
           const errorJson = await response.json().catch(() => ({}));
@@ -130,8 +146,15 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             if (!data) continue;
 
             try {
-              const event = JSON.parse(data) as StreamEvent;
-              applyEvent(assistantId, event);
+              const event = JSON.parse(data) as ParsedEvent;
+              if (event.type === 'meta') {
+                // サーバーから返された conversationId を保存
+                if (event.data.conversationId) {
+                  setConversationId(event.data.conversationId);
+                }
+              } else {
+                applyEvent(assistantId, event);
+              }
             } catch (parseError) {
               if (parseError instanceof SyntaxError) continue;
               throw parseError;
@@ -144,8 +167,14 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           const data = buffer.slice(6).trim();
           if (data) {
             try {
-              const event = JSON.parse(data) as StreamEvent;
-              applyEvent(assistantId, event);
+              const event = JSON.parse(data) as ParsedEvent;
+              if (event.type === 'meta') {
+                if (event.data.conversationId) {
+                  setConversationId(event.data.conversationId);
+                }
+              } else {
+                applyEvent(assistantId, event);
+              }
             } catch {}
           }
         }
@@ -170,7 +199,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         abortControllerRef.current = null;
       }
     },
-    [input, walletId, walletAddress, maxBudget, abort],
+    [input, walletId, walletAddress, maxBudget, conversationId, getAccessToken, abort],
   );
 
   /**
@@ -251,6 +280,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
     setMessages([]);
     setInput('');
     setError(null);
+    setConversationId(null);
   }, [abort]);
 
   return useMemo(
@@ -264,7 +294,8 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       error,
       clearError,
       reset,
+      conversationId,
     }),
-    [messages, input, sendMessage, abort, isStreaming, error, clearError, reset],
+    [messages, input, sendMessage, abort, isStreaming, error, clearError, reset, conversationId],
   );
 }

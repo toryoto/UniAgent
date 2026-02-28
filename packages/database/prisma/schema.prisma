@@ -16,6 +16,7 @@ model User {
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   budgetSettings BudgetSettings?
+  conversations  Conversation[]
 
   @@map("users")
 }
@@ -83,6 +84,38 @@ model AccessLimit {
   @@index([identifierType])
   @@index([feature])
   @@map("access_limits")
+}
+
+model Conversation {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  title     String?   @db.VarChar(200)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([userId])
+  @@index([updatedAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  role           MessageRole
+  content        String       @db.Text
+  totalCost      Decimal?     @map("total_cost") @db.Decimal(18, 6)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+enum MessageRole {
+  user
+  assistant
 }
 
 /// EAS オフチェーンアテステーション（エージェント評価結果）

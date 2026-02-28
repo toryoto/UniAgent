@@ -40,7 +40,7 @@ app.get('/health', (_req, res) => {
  */
 app.post('/api/agent', async (req, res) => {
   try {
-    const { message, walletId, walletAddress, maxBudget, agentId } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -82,6 +82,7 @@ app.post('/api/agent', async (req, res) => {
       walletAddress,
       maxBudget,
       agentId,
+      messageHistory,
     });
 
     res.json(result);
@@ -114,7 +115,7 @@ app.post('/api/agent/stream', async (req, res) => {
   res.flushHeaders();
 
   try {
-    const { message, walletId, walletAddress, maxBudget, agentId } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -146,7 +147,7 @@ app.post('/api/agent/stream', async (req, res) => {
     }
 
     // ストリーミング実行
-    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget, agentId });
+    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget, agentId, messageHistory });
 
     for await (const event of stream) {
       const data = JSON.stringify(event);

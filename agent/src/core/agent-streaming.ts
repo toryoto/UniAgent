@@ -11,7 +11,7 @@ import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 export type { StreamEvent };
 
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
-  const { message, walletId, walletAddress, maxBudget, agentId } = request;
+  const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = request;
   const executionLog: ExecutionLogEntry[] = [];
   let totalCost = 0;
   let stepCounter = 0;
@@ -53,9 +53,14 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 ※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
       : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, maxBudget=${maxBudget} USDC]`;
 
+    const messages = [
+      ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
+      { role: 'user' as const, content: userMessage },
+    ];
+
     // messages: トークン単位の LLM テキスト / updates: 完全なツール呼び出し・結果
     const stream = await agent.stream(
-      { messages: [{ role: 'user', content: userMessage }] },
+      { messages },
       { streamMode: ['messages', 'updates'] },
     );
 

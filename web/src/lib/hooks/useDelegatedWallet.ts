@@ -10,6 +10,7 @@ import { useCallback, useMemo } from 'react';
 import { usePrivy, useSigners } from '@privy-io/react-auth';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { WalletWithMetadata } from '@privy-io/react-auth';
+import { authFetch } from '@/lib/auth/authFetch';
 
 export interface DelegatedWalletInfo {
   walletId: string;
@@ -49,30 +50,25 @@ function getEmbeddedWallet(linkedAccounts: unknown[]): WalletWithMetadata | null
 }
 
 export function useDelegatedWallet(): UseDelegatedWalletReturn {
-  const { user, ready } = usePrivy();
+  const { user, ready, getAccessToken } = usePrivy();
   const { addSigners, removeSigners } = useSigners();
   const queryClient = useQueryClient();
 
-  // Embedded walletを取得
   const embeddedWallet = useMemo(() => {
     if (!user?.linkedAccounts) return null;
     return getEmbeddedWallet(user.linkedAccounts);
   }, [user?.linkedAccounts]);
 
-  const privyUserId = user?.id || null;
+  const isAuthenticated = !!user;
 
   const {
     data: delegationData,
     isLoading: isLoadingDelegation,
     error: delegationError,
   } = useQuery({
-    queryKey: ['wallet-delegation', privyUserId],
+    queryKey: ['wallet-delegation'],
     queryFn: async () => {
-      if (!privyUserId) return null;
-
-      const response = await fetch(
-        `/api/wallet/delegation?privyUserId=${encodeURIComponent(privyUserId)}`
-      );
+      const response = await authFetch('/api/wallet/delegation', getAccessToken);
       if (!response.ok) {
         if (response.status === 404) {
           return { isDelegated: false, walletAddress: null };
@@ -81,19 +77,16 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
       }
       return response.json() as Promise<{ isDelegated: boolean; walletAddress: string | null }>;
     },
-    enabled: !!privyUserId && ready,
+    enabled: isAuthenticated && ready,
     staleTime: 30 * 1000,
   });
 
-  // 委託状態を更新するMutation
   const updateDelegationMutation = useMutation({
     mutationFn: async (isDelegated: boolean) => {
-      if (!privyUserId) throw new Error('User not authenticated');
-
-      const response = await fetch('/api/wallet/delegation', {
+      const response = await authFetch('/api/wallet/delegation', getAccessToken, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ privyUserId, isDelegated }),
+        body: JSON.stringify({ isDelegated }),
       });
 
       if (!response.ok) {
@@ -104,8 +97,7 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
       return response.json() as Promise<{ isDelegated: boolean; walletAddress: string | null }>;
     },
     onSuccess: () => {
-      // キャッシュを無効化して再取得
-      queryClient.invalidateQueries({ queryKey: ['wallet-delegation', privyUserId] });
+      queryClient.invalidateQueries({ queryKey: ['wallet-delegation'] });
     },
   });
 
