@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         if (resolvedConversationId) {
           // 既存会話: メッセージ履歴をロード
           const conversation = await prisma.conversation.findUnique({
-            where: { id: resolvedConversationId },
+            where: { id: resolvedConversationId, userId: user.id },
             include: {
               messages: {
                 orderBy: { createdAt: 'asc' },

@@ -16,6 +16,8 @@ export interface AuthResult {
  *
  * 検証に失敗した場合は null を返す。
  */
+
+// TODO: privyでHttpOnly Cookieを有効化してサーバーコンポーネントにおいて、Cookieからprivy-tokenを取得する
 export async function verifyPrivyToken(
   request: NextRequest,
 ): Promise<AuthResult | null> {
