@@ -8,6 +8,7 @@
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
+import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -17,9 +18,10 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/agent/stream
  *
+ * Headers: Authorization: Bearer <privy-auth-token>
  * Body: {
  *   message: string, walletId: string, walletAddress: string, maxBudget: number,
- *   agentId?: string, conversationId?: string, privyUserId?: string
+ *   agentId?: string, conversationId?: string
  * }
  * Response: Server-Sent Events (with conversationId injected in start event)
  */
@@ -27,8 +29,10 @@ export async function POST(request: NextRequest) {
   console.log('[Agent Stream API] Request received');
 
   try {
+    const auth = await verifyPrivyToken(request);
+
     const body = await request.json();
-    const { message, walletId, walletAddress, maxBudget, agentId, conversationId, privyUserId } = body;
+    const { message, walletId, walletAddress, maxBudget, agentId, conversationId } = body;
 
     if (!message || !walletId || !walletAddress || typeof maxBudget !== 'number') {
       return new Response(
@@ -41,9 +45,9 @@ export async function POST(request: NextRequest) {
     let resolvedConversationId: string | null = conversationId || null;
     let messageHistory: Array<{ role: string; content: string }> = [];
 
-    if (privyUserId) {
+    if (auth) {
       const user = await prisma.user.findUnique({
-        where: { privyUserId },
+        where: { privyUserId: auth.privyUserId },
         select: { id: true },
       });
 

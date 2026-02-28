@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   MessageSquare,
   LayoutDashboard,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { usePrivy } from '@privy-io/react-auth';
 import { cn } from '@/lib/utils/cn';
+import { useConversations } from '@/lib/hooks/useConversations';
 
 const navigation = [
   { name: 'Chat', href: '/chat', icon: MessageSquare },
@@ -28,12 +29,6 @@ const navigation = [
   { name: 'Register Agent', href: '/agents/register', icon: PlusCircle },
   { name: 'Faucet', href: '/faucet', icon: Droplet },
 ];
-
-interface Conversation {
-  id: string;
-  title: string | null;
-  updatedAt: string;
-}
 
 interface SidebarProps {
   onClose?: () => void;
@@ -46,37 +41,9 @@ export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
   const { authenticated, user, logout } = usePrivy();
 
   const [historyOpen, setHistoryOpen] = useState(true);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loadingConversations, setLoadingConversations] = useState(false);
 
-  const privyUserId = user?.id;
-
-  const fetchConversations = useCallback(async () => {
-    if (!privyUserId) return;
-    setLoadingConversations(true);
-    try {
-      const res = await fetch(`/api/conversations?privyUserId=${encodeURIComponent(privyUserId)}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      setConversations(data.conversations);
-    } catch (err) {
-      console.error('Failed to fetch conversations:', err);
-    } finally {
-      setLoadingConversations(false);
-    }
-  }, [privyUserId]);
-
-  useEffect(() => {
-    if (authenticated) {
-      fetchConversations();
-    }
-  }, [authenticated, fetchConversations]);
-
-  useEffect(() => {
-    if (pathname?.startsWith('/chat')) {
-      fetchConversations();
-    }
-  }, [pathname, fetchConversations]);
+  const { conversations, isLoading: loadingConversations, deleteConversation } =
+    useConversations();
 
   const handleLogout = async () => {
     await logout();
@@ -89,16 +56,11 @@ export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
     }
   };
 
-  const handleDeleteConversation = async (e: React.MouseEvent, conversationId: string) => {
+  const handleDeleteConversation = (e: React.MouseEvent, conversationId: string) => {
     e.stopPropagation();
-    try {
-      await fetch(`/api/conversations/${conversationId}`, { method: 'DELETE' });
-      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
-      if (pathname === `/chat/${conversationId}`) {
-        router.push('/chat');
-      }
-    } catch (err) {
-      console.error('Failed to delete conversation:', err);
+    deleteConversation(conversationId);
+    if (pathname === `/chat/${conversationId}`) {
+      router.push('/chat');
     }
   };
 

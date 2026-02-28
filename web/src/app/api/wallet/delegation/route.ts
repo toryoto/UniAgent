@@ -1,9 +1,12 @@
 /**
  * Wallet Delegation API
+ *
+ * Authorization: Bearer <privy-auth-token>
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
+import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
 /**
  * GET /api/wallet/delegation
@@ -11,15 +14,13 @@ import { prisma } from '@/lib/db/prisma';
  */
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const privyUserId = searchParams.get('privyUserId');
-
-    if (!privyUserId) {
-      return NextResponse.json({ error: 'privyUserId is required' }, { status: 400 });
+    const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { privyUserId },
+      where: { privyUserId: auth.privyUserId },
       select: {
         id: true,
         walletAddress: true,
@@ -47,18 +48,23 @@ export async function GET(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { privyUserId, isDelegated } = body;
+    const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!privyUserId || typeof isDelegated !== 'boolean') {
+    const body = await request.json();
+    const { isDelegated } = body;
+
+    if (typeof isDelegated !== 'boolean') {
       return NextResponse.json(
-        { error: 'privyUserId and isDelegated (boolean) are required' },
+        { error: 'isDelegated (boolean) is required' },
         { status: 400 }
       );
     }
 
     const user = await prisma.user.update({
-      where: { privyUserId },
+      where: { privyUserId: auth.privyUserId },
       data: { isDelegated },
       select: {
         id: true,
@@ -74,10 +80,8 @@ export async function PATCH(request: NextRequest) {
   } catch (error) {
     console.error('[Wallet Delegation API] PATCH error:', error);
 
-    // Prismaのエラーを処理
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'P2025') {
-        // Record not found
         return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
     }

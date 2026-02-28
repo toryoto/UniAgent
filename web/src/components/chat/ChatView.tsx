@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
 import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
@@ -49,13 +50,13 @@ interface ChatViewProps {
 }
 
 export function ChatView({ conversationId: initialConversationId, initialMessages }: ChatViewProps) {
-  const { user } = usePrivy();
+  const { getAccessToken } = usePrivy();
   const { wallet } = useDelegatedWallet();
+  const queryClient = useQueryClient();
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
 
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
-  const privyUserId = user?.id || '';
 
   const {
     messages,
@@ -72,16 +73,17 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     walletAddress,
     maxBudget,
     conversationId: initialConversationId,
-    privyUserId,
+    getAccessToken,
     initialMessages,
   });
 
-  // 新規会話作成後にURLを更新（React再マウントを防ぐため History API で直接変更）
+  // 新規会話作成後にURLを更新 & サイドバーのリストを再取得
   useEffect(() => {
     if (conversationId && !initialConversationId) {
       window.history.replaceState(null, '', `/chat/${conversationId}`);
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
     }
-  }, [conversationId, initialConversationId]);
+  }, [conversationId, initialConversationId, queryClient]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

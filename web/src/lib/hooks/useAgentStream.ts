@@ -9,6 +9,7 @@ import type {
   AgentToolCall,
   StreamEvent,
 } from '@/lib/types';
+import { authFetch } from '@/lib/auth/authFetch';
 
 type MetaEvent = { type: 'meta'; data: { conversationId: string } };
 type ParsedEvent = StreamEvent | MetaEvent;
@@ -19,7 +20,7 @@ export interface UseAgentStreamOptions {
   maxBudget: number;
   agentId?: string;
   conversationId?: string;
-  privyUserId?: string;
+  getAccessToken: () => Promise<string | null>;
   initialMessages?: AgentStreamMessage[];
 }
 
@@ -41,7 +42,7 @@ function generateId(): string {
 }
 
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
-  const { walletId, walletAddress, maxBudget, privyUserId, initialMessages } = options;
+  const { walletId, walletAddress, maxBudget, getAccessToken, initialMessages } = options;
 
   const [messages, setMessages] = useState<AgentStreamMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
@@ -104,16 +105,17 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         if (conversationId) {
           requestBody.conversationId = conversationId;
         }
-        if (privyUserId) {
-          requestBody.privyUserId = privyUserId;
-        }
 
-        const response = await fetch('/api/agent/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
+        const response = await authFetch(
+          '/api/agent/stream',
+          getAccessToken,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          },
+        );
 
         if (!response.ok) {
           const errorJson = await response.json().catch(() => ({}));
@@ -197,7 +199,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         abortControllerRef.current = null;
       }
     },
-    [input, walletId, walletAddress, maxBudget, conversationId, privyUserId, abort],
+    [input, walletId, walletAddress, maxBudget, conversationId, getAccessToken, abort],
   );
 
   /**

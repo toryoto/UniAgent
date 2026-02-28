@@ -1,22 +1,25 @@
 /**
  * Conversations API
  *
- * GET  /api/conversations?privyUserId=xxx  → ユーザーの会話一覧
- * POST /api/conversations { privyUserId }  → 新規会話作成
+ * GET  /api/conversations  → 認証ユーザーの会話一覧
+ * POST /api/conversations  → 新規会話作成
+ *
+ * Authorization: Bearer <privy-auth-token>
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
+import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
 export async function GET(request: NextRequest) {
   try {
-    const privyUserId = request.nextUrl.searchParams.get('privyUserId');
-    if (!privyUserId) {
-      return NextResponse.json({ error: 'privyUserId is required' }, { status: 400 });
+    const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { privyUserId },
+      where: { privyUserId: auth.privyUserId },
       select: { id: true },
     });
     if (!user) {
@@ -43,15 +46,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { privyUserId, title } = body;
-
-    if (!privyUserId) {
-      return NextResponse.json({ error: 'privyUserId is required' }, { status: 400 });
+    const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const body = await request.json();
+    const { title } = body;
+
     const user = await prisma.user.findUnique({
-      where: { privyUserId },
+      where: { privyUserId: auth.privyUserId },
       select: { id: true },
     });
     if (!user) {
