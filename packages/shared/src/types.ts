@@ -66,6 +66,7 @@ export interface AgentRequest {
   walletAddress: string;
   maxBudget: number;
   agentId?: string;
+  messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
 
 export interface AgentResponse {

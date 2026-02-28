@@ -1,0 +1,590 @@
+'use client';
+
+import {
+  Send,
+  Loader2,
+  Bot,
+  User,
+  AlertCircle,
+  Wrench,
+  DollarSign,
+  Shield,
+  Square,
+  ChevronDown,
+  ChevronRight,
+  CreditCard,
+} from 'lucide-react';
+import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { usePrivy } from '@privy-io/react-auth';
+import { useAgentStream } from '@/lib/hooks/useAgentStream';
+import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
+import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
+import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
+import { CommandDropdown } from '@/components/chat/CommandDropdown';
+import { CommandBadge } from '@/components/chat/CommandBadge';
+import { parseMessage } from '@/lib/utils/message-parser';
+import type { ExecutionLogEntry } from '@agent-marketplace/shared';
+import Link from 'next/link';
+
+// デフォルトの最大予算 (USDC)
+const DEFAULT_MAX_BUDGET = 5.0;
+
+// Slash command definitions
+const SLASH_COMMANDS: SlashCommandOption[] = [
+  {
+    id: 'use-agent',
+    label: '/use-agent',
+    description: 'Execute a specific agent by ID',
+    value: '/use-agent ',
+    metadata: {
+      usage: '/use-agent <agent-id>',
+      example: '/use-agent 0x1234...',
+    },
+  },
+];
+
+interface ChatViewProps {
+  conversationId?: string;
+}
+
+export function ChatView({ conversationId: initialConversationId }: ChatViewProps) {
+  const router = useRouter();
+  const { user } = usePrivy();
+  const { wallet } = useDelegatedWallet();
+  const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
+  const [initialLoaded, setInitialLoaded] = useState(!initialConversationId);
+
+  const walletId = wallet?.walletId || '';
+  const walletAddress = wallet?.address || '';
+  const privyUserId = user?.id || '';
+
+  const {
+    messages,
+    setMessages,
+    input,
+    setInput,
+    sendMessage,
+    abort,
+    isStreaming,
+    error,
+    clearError,
+    conversationId,
+    setConversationId,
+  } = useAgentStream({
+    walletId,
+    walletAddress,
+    maxBudget,
+    conversationId: initialConversationId,
+    privyUserId,
+  });
+
+  // 既存会話のメッセージをロード
+  useEffect(() => {
+    if (!initialConversationId || initialLoaded) return;
+
+    const loadMessages = async () => {
+      try {
+        const res = await fetch(`/api/conversations/${initialConversationId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const loaded: AgentStreamMessage[] = data.conversation.messages.map(
+          (m: { id: string; role: string; content: string; totalCost: string | null; createdAt: string }) => ({
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: new Date(m.createdAt),
+            totalCost: m.totalCost ? Number(m.totalCost) : undefined,
+          })
+        );
+        setMessages(loaded);
+        setConversationId(initialConversationId);
+      } catch (err) {
+        console.error('Failed to load conversation:', err);
+      } finally {
+        setInitialLoaded(true);
+      }
+    };
+
+    loadMessages();
+  }, [initialConversationId, initialLoaded, setMessages, setConversationId]);
+
+  // 新規会話作成後にURLを更新
+  useEffect(() => {
+    if (conversationId && !initialConversationId) {
+      router.replace(`/chat/${conversationId}`, { scroll: false });
+    }
+  }, [conversationId, initialConversationId, router]);
+
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputContainerRef = useRef<HTMLDivElement>(null);
+
+  // 新しいメッセージが来たら自動スクロール
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // 送信後に入力欄にフォーカス
+  useEffect(() => {
+    if (!isStreaming) {
+      inputRef.current?.focus();
+    }
+  }, [isStreaming]);
+
+  // Slash command handler
+  const slashCommand = useSlashCommand({
+    options: SLASH_COMMANDS,
+    onSelect: (option) => {
+      const textarea = inputRef.current;
+      if (textarea) {
+        const beforeCursor = input.substring(0, textarea.selectionStart);
+        const afterCursor = input.substring(textarea.selectionStart);
+        const lastSlashIndex = beforeCursor.lastIndexOf('/');
+        const newInput = beforeCursor.substring(0, lastSlashIndex) + option.value + afterCursor;
+        setInput(newInput);
+
+        setTimeout(() => {
+          const newCursorPos = lastSlashIndex + option.value.length;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+          textarea.focus();
+        }, 0);
+      }
+    },
+  });
+
+  // Detect slash commands for dropdown
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      slashCommand.detectCommand(input, textarea.selectionStart);
+    }
+  }, [input, slashCommand]);
+
+  // Parse current input to detect active command
+  const activeCommand = useMemo(() => {
+    const parsed = parseMessage(input);
+    if (parsed.command && parsed.agentId) {
+      return {
+        command: parsed.command,
+        agentId: parsed.agentId,
+      };
+    }
+    return null;
+  }, [input]);
+
+  // Remove command from input
+  const handleRemoveCommand = useCallback(() => {
+    setInput('');
+    inputRef.current?.focus();
+  }, [setInput]);
+
+  // textareaの高さを自動調整
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 100)}px`;
+    }
+  }, [input]);
+
+  const handleSubmit = useCallback(() => {
+    if (!input.trim() || isStreaming) return;
+    const parsed = parseMessage(input);
+    sendMessage(parsed.text, parsed.agentId);
+  }, [input, isStreaming, sendMessage]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (slashCommand.isOpen && slashCommand.handleKeyDown(e)) {
+        return;
+      }
+      if (e.nativeEvent.isComposing) {
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSubmit();
+      }
+    },
+    [slashCommand, handleSubmit]
+  );
+
+  // Wallet connection and delegation status warning
+  const walletWarning = !walletAddress ? (
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3 md:gap-3 md:p-4">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400 md:h-5 md:w-5" />
+      <div className="flex-1">
+        <p className="text-xs text-yellow-200 md:text-sm">
+          Wallet is not connected. Please connect your wallet to use payment features.
+        </p>
+      </div>
+    </div>
+  ) : !wallet?.isDelegated ? (
+    <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3 md:gap-3 md:p-4">
+      <Shield className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400 md:h-5 md:w-5" />
+      <div className="flex-1">
+        <p className="text-xs text-yellow-200 md:text-sm">
+          Wallet is not delegated to the server. To use x402 payments, please delegate your wallet
+          on the{' '}
+          <Link href="/wallet" className="font-medium underline hover:text-yellow-100">
+            Wallet page
+          </Link>
+          .
+        </p>
+      </div>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      {/* Chat Area */}
+      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="mx-auto max-w-4xl">
+          {walletWarning}
+
+          {messages.length === 0 && <WelcomeMessage />}
+
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <MessageBubble key={message.id} message={message} />
+            ))}
+
+            {isStreaming && messages.length > 0 && !messages[messages.length - 1]?.isStreaming && (
+              <div className="flex items-center gap-2 text-xs text-slate-400 md:text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Agent is executing...</span>
+              </div>
+            )}
+          </div>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950/30 p-3 md:gap-3 md:p-4">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400 md:h-5 md:w-5" />
+              <div className="flex-1">
+                <p className="text-xs text-red-200 md:text-sm">{error}</p>
+                <button
+                  onClick={clearError}
+                  className="mt-2 text-xs text-red-400 hover:text-red-300"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input Area */}
+      <div className="border-t border-slate-800 bg-slate-900/50 p-4 md:p-6">
+        <div className="mx-auto max-w-4xl">
+          {activeCommand && (
+            <CommandBadge
+              command={activeCommand.command}
+              agentId={activeCommand.agentId}
+              onRemove={handleRemoveCommand}
+            />
+          )}
+
+          <div ref={inputContainerRef} className="relative flex gap-2 md:gap-4">
+            {slashCommand.isOpen && (
+              <CommandDropdown
+                options={slashCommand.filteredOptions}
+                selectedIndex={slashCommand.selectedIndex}
+                onSelect={slashCommand.selectOption}
+                onClose={slashCommand.close}
+              />
+            )}
+
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Enter your task... (Type / for commands)"
+              disabled={isStreaming || !walletAddress || !wallet?.isDelegated}
+              rows={1}
+              className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 md:px-4 md:py-3 md:text-base"
+              style={{ minHeight: '44px', maxHeight: '100px' }}
+            />
+            {isStreaming ? (
+              <button
+                onClick={abort}
+                className="self-start rounded-lg bg-red-600 p-2.5 font-semibold text-white transition-colors hover:bg-red-700 md:px-6 md:py-3"
+                title="Stop streaming"
+              >
+                <Square className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!input.trim() || !walletAddress || !wallet?.isDelegated}
+                className="self-start rounded-lg bg-purple-600 p-2.5 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            Type / for commands • Enter to send • Shift+Enter for new line
+          </p>
+        </div>
+      </div>
+
+      {/* Budget Control */}
+      <div className="flex items-center gap-2 border-t border-slate-800 bg-slate-900/30 px-4 py-2 md:px-6">
+        <div className="mx-auto flex max-w-4xl items-center gap-2">
+          <DollarSign className="h-4 w-4 text-green-400" />
+          <span className="text-xs text-slate-400 md:text-sm">Max Budget:</span>
+          <input
+            type="number"
+            value={maxBudget}
+            onChange={(e) => setMaxBudget(Number(e.target.value))}
+            min={0.01}
+            step={0.01}
+            className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white md:w-20 md:text-sm"
+          />
+          <span className="text-xs text-slate-400 md:text-sm">USDC</span>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function WelcomeMessage() {
+  return (
+    <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 md:p-6">
+      <h2 className="mb-2 text-base font-bold text-purple-300 md:text-lg">Welcome to UniAgent!</h2>
+      <p className="mb-3 text-sm text-purple-200/80 md:text-base">
+        Paygent X will discover and execute external agents from the marketplace:
+      </p>
+      <ul className="space-y-2 text-xs text-purple-200/70 md:text-sm">
+        <li>1. Search for agents using discover_agents</li>
+        <li>2. Select the best agent considering price and ratings</li>
+        <li>3. Execute agents with x402 payment</li>
+        <li>4. Deliver integrated results</li>
+      </ul>
+      <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
+        <p className="mb-2 text-xs font-semibold text-purple-300 md:text-sm">Slash Commands:</p>
+        <ul className="space-y-1 text-xs text-purple-200/70">
+          <li>
+            <code className="rounded bg-purple-500/20 px-1.5 py-0.5 font-mono text-purple-300">
+              /use-agent &lt;agent-id&gt;
+            </code>{' '}
+            - Execute a specific agent by ID
+          </li>
+        </ul>
+      </div>
+      <p className="mt-4 text-xs text-purple-300/60">
+        Examples: &quot;Search for agents in the travel category&quot;, &quot;/use-agent 0x1234...
+        Create a 3-day travel plan for Paris&quot;
+      </p>
+    </div>
+  );
+}
+
+function MessageBubble({ message }: { message: AgentStreamMessage }) {
+  const isUser = message.role === 'user';
+
+  return (
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div
+        className={`w-full max-w-3xl rounded-2xl px-4 py-3 md:px-6 md:py-4 ${
+          isUser ? 'bg-purple-600 text-white' : 'border border-slate-800 bg-slate-900/50'
+        }`}
+      >
+        {/* Role indicator */}
+        <div
+          className={`mb-2 flex items-center gap-2 text-xs font-medium md:text-sm ${
+            isUser ? 'text-purple-200' : 'text-purple-400'
+          }`}
+        >
+          {isUser ? (
+            <>
+              <User className="h-3 w-3 md:h-4 md:w-4" />
+              You
+            </>
+          ) : (
+            <>
+              <Bot className="h-3 w-3 md:h-4 md:w-4" />
+              AI Agent
+              {message.isStreaming && (
+                <Loader2 className="h-3 w-3 animate-spin text-purple-300" />
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Tool Calls (ストリーミング中にリアルタイム表示) */}
+        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="mb-3 space-y-2">
+            {message.toolCalls.map((tc, index) => (
+              <ToolCallCard key={`${tc.name}-${tc.step}-${index}`} toolCall={tc} />
+            ))}
+          </div>
+        )}
+
+        {/* Payment info */}
+        {!isUser && message.payment && (
+          <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-900/50 bg-green-950/30 p-2 text-xs">
+            <CreditCard className="h-3 w-3 text-green-400" />
+            <span className="text-green-300">
+              Payment: ${message.payment.amount.toFixed(4)} USDC
+            </span>
+            <span className="text-slate-500">|</span>
+            <span className="text-slate-400">
+              Total: ${message.payment.totalCost.toFixed(4)} USDC
+            </span>
+            <span className="text-slate-500">|</span>
+            <span className="text-slate-400">
+              Remaining: ${message.payment.remainingBudget.toFixed(4)} USDC
+            </span>
+          </div>
+        )}
+
+        {/* Content */}
+        <div
+          className={`whitespace-pre-wrap text-sm md:text-base ${isUser ? 'text-white' : 'text-slate-300'}`}
+        >
+          {message.content || (
+            message.isStreaming ? (
+              <span className="flex items-center gap-2 text-slate-500 italic">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Thinking...
+              </span>
+            ) : (
+              <span className="text-slate-500 italic">No response</span>
+            )
+          )}
+        </div>
+
+        {/* Execution Log (完了後に表示) */}
+        {!isUser && !message.isStreaming && message.executionLog && message.executionLog.length > 0 && (
+          <div className="mt-3 space-y-2 border-t border-slate-700 pt-3 md:mt-4 md:pt-4">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+              <Wrench className="h-3 w-3" />
+              Execution Log
+            </div>
+            {message.executionLog.map((entry, index) => (
+              <ExecutionLogCard key={index} entry={entry} />
+            ))}
+          </div>
+        )}
+
+        {/* Total Cost */}
+        {!isUser && message.totalCost !== undefined && message.totalCost > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-700 pt-2 text-xs md:mt-3 md:pt-3 md:text-sm">
+            <DollarSign className="h-3 w-3 text-green-400 md:h-4 md:w-4" />
+            <span className="text-slate-400">Total Cost:</span>
+            <span className="font-mono text-green-400">${message.totalCost.toFixed(4)} USDC</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isCalling = toolCall.status === 'calling';
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2"
+      >
+        {isCalling ? (
+          <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
+        ) : (
+          <Wrench className="h-3 w-3 text-green-400" />
+        )}
+        <span className="font-mono font-medium text-slate-200">{toolCall.name}</span>
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] ${
+            isCalling
+              ? 'bg-yellow-500/20 text-yellow-300'
+              : 'bg-green-500/20 text-green-300'
+          }`}
+        >
+          {isCalling ? 'Running...' : 'Done'}
+        </span>
+        <span className="ml-auto text-slate-500">
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="mt-2 space-y-2">
+          <div>
+            <span className="text-[10px] font-medium text-slate-500">ARGS</span>
+            <pre className="mt-0.5 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
+              {JSON.stringify(toolCall.args, null, 2)}
+            </pre>
+          </div>
+          {toolCall.result && (
+            <div>
+              <span className="text-[10px] font-medium text-slate-500">RESULT</span>
+              <pre className="mt-0.5 max-h-40 overflow-auto text-[10px] text-slate-400 md:text-xs">
+                {(() => {
+                  try {
+                    return JSON.stringify(JSON.parse(toolCall.result), null, 2);
+                  } catch {
+                    return toolCall.result;
+                  }
+                })()}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
+  const [collapsed, setCollapsed] = useState(true);
+
+  const typeColors = {
+    llm: 'bg-purple-500',
+    logic: 'bg-blue-500',
+    payment: 'bg-green-500',
+    error: 'bg-red-500',
+  };
+
+  const typeLabels = {
+    llm: 'LLM',
+    logic: 'Logic',
+    payment: 'Payment',
+    error: 'Error',
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex w-full flex-wrap items-center gap-1.5 text-left md:gap-2"
+      >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${typeColors[entry.type]}`} />
+        <span className="font-mono text-slate-500">[Step {entry.step}]</span>
+        <span className="rounded bg-slate-700 px-1.5 py-0.5 text-slate-300">
+          {typeLabels[entry.type]}
+        </span>
+        <span className="text-slate-300">{entry.action}</span>
+      </button>
+      {!collapsed && (
+        <pre className="mt-2 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
+          {JSON.stringify(entry.details, null, 2)}
+        </pre>
+      )}
+    </div>
+  );
+}
