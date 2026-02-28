@@ -20,11 +20,11 @@ export interface UseAgentStreamOptions {
   agentId?: string;
   conversationId?: string;
   privyUserId?: string;
+  initialMessages?: AgentStreamMessage[];
 }
 
 export interface UseAgentStreamReturn {
   messages: AgentStreamMessage[];
-  setMessages: React.Dispatch<React.SetStateAction<AgentStreamMessage[]>>;
   input: string;
   setInput: (value: string) => void;
   sendMessage: (content?: string, agentId?: string) => Promise<void>;
@@ -34,7 +34,6 @@ export interface UseAgentStreamReturn {
   clearError: () => void;
   reset: () => void;
   conversationId: string | null;
-  setConversationId: (id: string | null) => void;
 }
 
 function generateId(): string {
@@ -42,9 +41,9 @@ function generateId(): string {
 }
 
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
-  const { walletId, walletAddress, maxBudget, privyUserId } = options;
+  const { walletId, walletAddress, maxBudget, privyUserId, initialMessages } = options;
 
-  const [messages, setMessages] = useState<AgentStreamMessage[]>([]);
+  const [messages, setMessages] = useState<AgentStreamMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -285,7 +284,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   return useMemo(
     () => ({
       messages,
-      setMessages,
       input,
       setInput,
       sendMessage,
@@ -295,7 +293,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       clearError,
       reset,
       conversationId,
-      setConversationId,
     }),
     [messages, input, sendMessage, abort, isStreaming, error, clearError, reset, conversationId],
   );

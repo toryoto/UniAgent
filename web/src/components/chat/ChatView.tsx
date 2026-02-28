@@ -45,13 +45,13 @@ const SLASH_COMMANDS: SlashCommandOption[] = [
 
 interface ChatViewProps {
   conversationId?: string;
+  initialMessages?: AgentStreamMessage[];
 }
 
-export function ChatView({ conversationId: initialConversationId }: ChatViewProps) {
+export function ChatView({ conversationId: initialConversationId, initialMessages }: ChatViewProps) {
   const { user } = usePrivy();
   const { wallet } = useDelegatedWallet();
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
-  const [initialLoaded, setInitialLoaded] = useState(!initialConversationId);
 
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
@@ -59,7 +59,6 @@ export function ChatView({ conversationId: initialConversationId }: ChatViewProp
 
   const {
     messages,
-    setMessages,
     input,
     setInput,
     sendMessage,
@@ -68,44 +67,14 @@ export function ChatView({ conversationId: initialConversationId }: ChatViewProp
     error,
     clearError,
     conversationId,
-    setConversationId,
   } = useAgentStream({
     walletId,
     walletAddress,
     maxBudget,
     conversationId: initialConversationId,
     privyUserId,
+    initialMessages,
   });
-
-  // 既存会話のメッセージをロード
-  useEffect(() => {
-    if (!initialConversationId || initialLoaded) return;
-
-    const loadMessages = async () => {
-      try {
-        const res = await fetch(`/api/conversations/${initialConversationId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        const loaded: AgentStreamMessage[] = data.conversation.messages.map(
-          (m: { id: string; role: string; content: string; totalCost: string | null; createdAt: string }) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            timestamp: new Date(m.createdAt),
-            totalCost: m.totalCost ? Number(m.totalCost) : undefined,
-          })
-        );
-        setMessages(loaded);
-        setConversationId(initialConversationId);
-      } catch (err) {
-        console.error('Failed to load conversation:', err);
-      } finally {
-        setInitialLoaded(true);
-      }
-    };
-
-    loadMessages();
-  }, [initialConversationId, initialLoaded, setMessages, setConversationId]);
 
   // 新規会話作成後にURLを更新（React再マウントを防ぐため History API で直接変更）
   useEffect(() => {
