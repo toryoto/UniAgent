@@ -3,22 +3,13 @@
 import { AppLayout } from '@/components/layout/app-layout';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { ChatView } from '@/components/chat/ChatView';
-import { ConversationList } from '@/components/chat/ConversationList';
 
 export default function ChatPage() {
   return (
     <AppLayout>
       <AuthGuard>
-        <div className="flex h-screen bg-slate-950">
-          {/* Conversation List Sidebar */}
-          <div className="hidden w-64 shrink-0 md:block">
-            <ConversationList />
-          </div>
-
-          {/* Chat Area */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <ChatView />
-          </div>
+        <div className="flex h-full flex-col">
+          <ChatView />
         </div>
       </AuthGuard>
     </AppLayout>

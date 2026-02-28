@@ -15,7 +15,6 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
 import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
@@ -49,7 +48,6 @@ interface ChatViewProps {
 }
 
 export function ChatView({ conversationId: initialConversationId }: ChatViewProps) {
-  const router = useRouter();
   const { user } = usePrivy();
   const { wallet } = useDelegatedWallet();
   const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
@@ -109,12 +107,12 @@ export function ChatView({ conversationId: initialConversationId }: ChatViewProp
     loadMessages();
   }, [initialConversationId, initialLoaded, setMessages, setConversationId]);
 
-  // 新規会話作成後にURLを更新
+  // 新規会話作成後にURLを更新（React再マウントを防ぐため History API で直接変更）
   useEffect(() => {
     if (conversationId && !initialConversationId) {
-      router.replace(`/chat/${conversationId}`, { scroll: false });
+      window.history.replaceState(null, '', `/chat/${conversationId}`);
     }
-  }, [conversationId, initialConversationId, router]);
+  }, [conversationId, initialConversationId]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);

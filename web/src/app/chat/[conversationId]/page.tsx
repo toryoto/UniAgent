@@ -4,7 +4,6 @@ import { use } from 'react';
 import { AppLayout } from '@/components/layout/app-layout';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { ChatView } from '@/components/chat/ChatView';
-import { ConversationList } from '@/components/chat/ConversationList';
 
 export default function ConversationPage({
   params,
@@ -16,16 +15,8 @@ export default function ConversationPage({
   return (
     <AppLayout>
       <AuthGuard>
-        <div className="flex h-screen bg-slate-950">
-          {/* Conversation List Sidebar */}
-          <div className="hidden w-64 shrink-0 md:block">
-            <ConversationList />
-          </div>
-
-          {/* Chat Area */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <ChatView key={conversationId} conversationId={conversationId} />
-          </div>
+        <div className="flex h-full flex-col">
+          <ChatView key={conversationId} conversationId={conversationId} />
         </div>
       </AuthGuard>
     </AppLayout>
