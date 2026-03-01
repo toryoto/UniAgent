@@ -32,6 +32,7 @@ export const discoverAgentsTool = tool(
         category: input.category,
         skillName: input.skillName,
         maxPrice: input.maxPrice,
+        minRating: input.minRating,
       });
 
       const result = await discoverAgents({
