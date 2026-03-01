@@ -159,14 +159,23 @@ export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
               ) : (
                 <div className="space-y-0.5">
                   {conversations.map((conv) => (
-                    <button
+                    <div
                       key={conv.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         router.push(`/chat/${conv.id}`);
                         handleLinkClick();
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          router.push(`/chat/${conv.id}`);
+                          handleLinkClick();
+                        }
+                      }}
                       className={cn(
-                        'group flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors',
+                        'group flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors cursor-pointer',
                         activeConversationId === conv.id
                           ? 'bg-purple-600/20 text-white'
                           : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'
@@ -183,7 +192,7 @@ export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
-                    </button>
+                    </div>
                   ))}
                 </div>
               )}
