@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
  *
  * Headers: Authorization: Bearer <privy-auth-token>
  * Body: {
- *   message: string, walletId: string, walletAddress: string, maxBudget: number,
+ *   message: string, walletId: string, walletAddress: string, autoApproveThreshold: number,
  *   agentId?: string, conversationId?: string
  * }
  * Response: Server-Sent Events (with conversationId injected in start event)
@@ -32,9 +32,9 @@ export async function POST(request: NextRequest) {
     const auth = await verifyPrivyToken(request);
 
     const body = await request.json();
-    const { message, walletId, walletAddress, maxBudget, agentId, conversationId } = body;
+    const { message, walletId, walletAddress, autoApproveThreshold, agentId, conversationId } = body;
 
-    if (!message || !walletId || !walletAddress || typeof maxBudget !== 'number') {
+    if (!message || !walletId || !walletAddress || typeof autoApproveThreshold !== 'number') {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid request' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       message,
       walletId,
       walletAddress,
-      maxBudget,
+      autoApproveThreshold,
     };
     if (agentId && typeof agentId === 'string') {
       requestBody.agentId = agentId;

@@ -17,7 +17,7 @@ type ParsedEvent = StreamEvent | MetaEvent;
 export interface UseAgentStreamOptions {
   walletId: string;
   walletAddress: string;
-  maxBudget: number;
+  autoApproveThreshold: number;
   agentId?: string;
   conversationId?: string;
   getAccessToken: () => Promise<string | null>;
@@ -42,7 +42,7 @@ function generateId(): string {
 }
 
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
-  const { walletId, walletAddress, maxBudget, getAccessToken, initialMessages } = options;
+  const { walletId, walletAddress, autoApproveThreshold, getAccessToken, initialMessages } = options;
 
   const [messages, setMessages] = useState<AgentStreamMessage[]>(initialMessages ?? []);
   const [input, setInput] = useState('');
@@ -97,7 +97,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           message: text,
           walletId,
           walletAddress,
-          maxBudget,
+          autoApproveThreshold,
         };
         if (targetAgentId) {
           requestBody.agentId = targetAgentId;
@@ -199,7 +199,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         abortControllerRef.current = null;
       }
     },
-    [input, walletId, walletAddress, maxBudget, conversationId, getAccessToken, abort],
+    [input, walletId, walletAddress, autoApproveThreshold, conversationId, getAccessToken, abort],
   );
 
   /**

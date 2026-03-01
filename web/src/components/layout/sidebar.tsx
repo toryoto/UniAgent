@@ -20,6 +20,7 @@ import {
 import { usePrivy } from '@privy-io/react-auth';
 import { cn } from '@/lib/utils/cn';
 import { useConversations } from '@/lib/hooks/useConversations';
+import { useBudgetSettings } from '@/lib/hooks/useBudgetSettings';
 
 const navigation = [
   { name: 'Chat', href: '/chat', icon: MessageSquare },
@@ -44,6 +45,7 @@ export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
 
   const { conversations, isLoading: loadingConversations, deleteConversation } =
     useConversations();
+  const { settings: budgetSettings } = useBudgetSettings();
 
   const handleLogout = async () => {
     await logout();
@@ -210,6 +212,12 @@ export function Sidebar({ onClose, isMobile = false }: SidebarProps) {
               {user.wallet?.address
                 ? `${user.wallet.address.slice(0, 6)}...${user.wallet.address.slice(-4)}`
                 : 'No wallet'}
+            </div>
+            <div className="mt-2 border-t border-slate-700 pt-2">
+              <div className="text-xs text-slate-400">Auto-Approve</div>
+              <div className="mt-0.5 text-sm text-green-400">
+                ${budgetSettings.autoApproveThreshold} USDC
+              </div>
             </div>
           </div>
           <button

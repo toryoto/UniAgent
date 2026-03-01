@@ -20,15 +20,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
 import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
+import { useBudgetSettings } from '@/lib/hooks/useBudgetSettings';
 import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
 import { CommandDropdown } from '@/components/chat/CommandDropdown';
 import { CommandBadge } from '@/components/chat/CommandBadge';
 import { parseMessage } from '@/lib/utils/message-parser';
 import type { ExecutionLogEntry } from '@agent-marketplace/shared';
 import Link from 'next/link';
-
-// デフォルトの最大予算 (USDC)
-const DEFAULT_MAX_BUDGET = 5.0;
+import { PageHeader } from '@/components/layout/page-header';
 
 // Slash command definitions
 const SLASH_COMMANDS: SlashCommandOption[] = [
@@ -52,8 +51,8 @@ interface ChatViewProps {
 export function ChatView({ conversationId: initialConversationId, initialMessages }: ChatViewProps) {
   const { getAccessToken } = usePrivy();
   const { wallet } = useDelegatedWallet();
+  const { settings: budgetSettings } = useBudgetSettings();
   const queryClient = useQueryClient();
-  const [maxBudget, setMaxBudget] = useState(DEFAULT_MAX_BUDGET);
 
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
@@ -71,7 +70,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   } = useAgentStream({
     walletId,
     walletAddress,
-    maxBudget,
+    autoApproveThreshold: budgetSettings.autoApproveThreshold,
     conversationId: initialConversationId,
     getAccessToken,
     initialMessages,
@@ -207,6 +206,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   return (
     <>
+      <PageHeader title="Chat" />
+
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="mx-auto max-w-4xl">
@@ -303,22 +304,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         </div>
       </div>
 
-      {/* Budget Control */}
-      <div className="flex items-center gap-2 border-t border-slate-800 bg-slate-900/30 px-4 py-2 md:px-6">
-        <div className="mx-auto flex max-w-4xl items-center gap-2">
-          <DollarSign className="h-4 w-4 text-green-400" />
-          <span className="text-xs text-slate-400 md:text-sm">Max Budget:</span>
-          <input
-            type="number"
-            value={maxBudget}
-            onChange={(e) => setMaxBudget(Number(e.target.value))}
-            min={0.01}
-            step={0.01}
-            className="w-16 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white md:w-20 md:text-sm"
-          />
-          <span className="text-xs text-slate-400 md:text-sm">USDC</span>
-        </div>
-      </div>
     </>
   );
 }

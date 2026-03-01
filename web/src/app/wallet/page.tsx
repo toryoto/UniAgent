@@ -4,9 +4,10 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { PageHeader } from '@/components/layout/page-header';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { usePrivy } from '@privy-io/react-auth';
-import { Copy, ExternalLink, Shield, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, ExternalLink, Shield, ShieldCheck, Loader2, AlertCircle, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
+import { useBudgetSettings } from '@/lib/hooks/useBudgetSettings';
 import { useBalance, useReadContract } from 'wagmi';
 import { CONTRACT_ADDRESSES, formatUSDCAmount, ERC20_ABI } from '@/lib/blockchain/config';
 import { formatEther } from 'viem';
@@ -21,8 +22,34 @@ export default function WalletPage() {
     undelegateWallet,
     isLoading,
   } = useDelegatedWallet();
+  const {
+    settings: budgetSettings,
+    isLoading: isLoadingBudget,
+    error: budgetError,
+    updateSettings,
+    isUpdating,
+  } = useBudgetSettings();
   const [copied, setCopied] = useState(false);
   const [walletIdCopied, setWalletIdCopied] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState('');
+  const [autoApproveThreshold, setAutoApproveThreshold] = useState('');
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isLoadingBudget) {
+      setDailyLimit(String(budgetSettings.dailyLimit));
+      setAutoApproveThreshold(String(budgetSettings.autoApproveThreshold));
+    }
+  }, [isLoadingBudget, budgetSettings.dailyLimit, budgetSettings.autoApproveThreshold]);
+
+  const handleSaveBudget = async () => {
+    const dl = Number(dailyLimit);
+    const aat = Number(autoApproveThreshold);
+    if (dl <= 0 || aat <= 0 || isNaN(dl) || isNaN(aat)) return;
+    await updateSettings({ dailyLimit: dl, autoApproveThreshold: aat });
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  };
 
   const walletAddress = (wallet?.address || user?.wallet?.address) as `0x${string}` | undefined;
 
@@ -308,6 +335,13 @@ export default function WalletPage() {
                     Budget Settings
                   </h2>
 
+                  {budgetError && (
+                    <div className="mb-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 md:mb-4 md:gap-3 md:p-4">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400 md:h-5 md:w-5" />
+                      <p className="text-xs text-red-200 md:text-sm">{budgetError}</p>
+                    </div>
+                  )}
+
                   <div className="space-y-3 md:space-y-4">
                     <div>
                       <label className="mb-2 block text-xs font-medium text-slate-400 md:text-sm">
@@ -315,7 +349,10 @@ export default function WalletPage() {
                       </label>
                       <input
                         type="number"
-                        placeholder="100"
+                        value={dailyLimit}
+                        onChange={(e) => setDailyLimit(e.target.value)}
+                        min={0.01}
+                        step={0.01}
                         className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:px-4 md:py-3 md:text-base"
                       />
                     </div>
@@ -326,7 +363,10 @@ export default function WalletPage() {
                       </label>
                       <input
                         type="number"
-                        placeholder="10"
+                        value={autoApproveThreshold}
+                        onChange={(e) => setAutoApproveThreshold(e.target.value)}
+                        min={0.01}
+                        step={0.01}
                         className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 md:px-4 md:py-3 md:text-base"
                       />
                       <p className="mt-2 text-xs text-slate-500 md:text-sm">
@@ -335,10 +375,23 @@ export default function WalletPage() {
                     </div>
 
                     <button
-                      disabled
-                      className="w-full cursor-not-allowed rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white opacity-50 md:px-6 md:py-3"
+                      onClick={handleSaveBudget}
+                      disabled={isUpdating || isLoadingBudget}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
                     >
-                      Save Settings (Coming Soon)
+                      {isUpdating ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : saveSuccess ? (
+                        <>
+                          <Check className="h-4 w-4" />
+                          Saved
+                        </>
+                      ) : (
+                        'Save Settings'
+                      )}
                     </button>
                   </div>
                 </div>
