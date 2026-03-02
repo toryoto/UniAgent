@@ -1,6 +1,7 @@
 import { initChatModel, createAgent, humanInTheLoopMiddleware } from 'langchain';
 import type { HITLRequest, HITLResponse, Interrupt } from 'langchain';
 import { MemorySaver, Command } from '@langchain/langgraph';
+import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
 import type {
   AgentRequest,
   ExecutionLogEntry,
@@ -11,6 +12,22 @@ import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
 export type { StreamEvent };
+
+// ── Helper ───────────────────────────────────────────────────────────────
+
+/**
+ * AIMessage.content（string | ContentBlock[]）からテキストを抽出する
+ * .kwargs などの内部構造には依存しない
+ */
+function extractTextContent(
+  content: string | Array<{ type: string; text?: string }>,
+): string {
+  if (typeof content === 'string') return content;
+  return content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text ?? '')
+    .join('');
+}
 
 // ── Module-level singletons (shared between run & resume) ────────────────
 
@@ -29,15 +46,12 @@ const hitlMiddleware = humanInTheLoopMiddleware({
   },
 });
 
-// Lazy-initialized agent singleton
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let _agent: any = null;
 
 async function getAgent() {
   if (_agent) return _agent;
-
   const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
-
   _agent = createAgent({
     model,
     tools: [discoverAgentsTool, executeAndEvaluateAgentTool],
@@ -45,7 +59,6 @@ async function getAgent() {
     checkpointer,
     middleware: [hitlMiddleware],
   });
-
   return _agent;
 }
 
@@ -60,53 +73,44 @@ interface StreamProcessingContext {
 }
 
 async function* processAgentStream(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  stream: AsyncIterable<[string, any]>,
+  stream: AsyncIterable<[string, unknown]>,
   ctx: StreamProcessingContext,
   threadId: string,
 ): AsyncGenerator<StreamEvent> {
   for await (const [mode, chunk] of stream) {
-    if (mode === 'messages') {
-      // ----- トークン単位の LLM テキストストリーミング -----
-      const [msg, metadata] = chunk as [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        any,
-        { langgraph_node?: string },
-      ];
 
-      // ToolMessage は updates モードで処理するためスキップ
+    // ── 1. messages: LLMトークンのリアルタイムストリーミング ────────────
+    if (mode === 'messages') {
+      const [msg, metadata] = chunk as [unknown, { langgraph_node?: string }];
+
+      // tools ノードのメッセージは updates モードで処理するためスキップ
       if (metadata?.langgraph_node === 'tools') continue;
 
-      // テキストトークン
-      if (typeof msg.content === 'string' && msg.content) {
-        ctx.finalResponse += msg.content;
-        yield {
-          type: 'llm_token',
-          data: { token: msg.content, step: ctx.stepCounter + 1 },
-        };
-      } else if (Array.isArray(msg.content)) {
-        for (const part of msg.content) {
-          if (part?.type === 'text' && part.text) {
-            ctx.finalResponse += part.text;
-            yield {
-              type: 'llm_token',
-              data: { token: part.text, step: ctx.stepCounter + 1 },
-            };
-          }
+      if (AIMessageChunk.isInstance(msg)) {
+        const text = extractTextContent(msg.content as string | Array<{ type: string; text?: string }>);
+        if (text) {
+          ctx.finalResponse += text;
+          yield {
+            type: 'llm_token',
+            data: { token: text, step: ctx.stepCounter + 1 },
+          };
         }
       }
-    } else if (mode === 'updates') {
-      // ----- ノード完了時の完全な出力 -----
 
-      // Check for interrupt
-      if (chunk && typeof chunk === 'object' && '__interrupt__' in chunk) {
-        const interrupts = chunk.__interrupt__ as Interrupt<HITLRequest>[];
+    // ── 2. updates: interrupt / ツール呼び出し / ツール結果 ─────────────
+    } else if (mode === 'updates') {
+      const updateChunk = chunk as Record<string, { messages?: unknown[] }>;
+
+      // ---- 2-a. Interrupt 検出 ----
+      if ('__interrupt__' in updateChunk) {
+        const interrupts = (
+          updateChunk as unknown as { __interrupt__: Interrupt<HITLRequest>[] }
+        ).__interrupt__;
         if (interrupts.length > 0) {
           const hitlRequest = interrupts[0].value;
           logger.agent.info('HITL interrupt detected', {
             actions: hitlRequest.actionRequests.map((a: { name: string }) => a.name),
           });
-
           yield {
             type: 'interrupt',
             data: {
@@ -115,124 +119,96 @@ async function* processAgentStream(
               reviewConfigs: hitlRequest.reviewConfigs,
             },
           };
-          // Interrupt means we stop processing the stream
           return;
         }
       }
 
-      const entries = Object.entries(chunk) as [
-        string,
-        { messages?: unknown[] },
-      ][];
+      const entries = Object.entries(updateChunk);
       if (entries.length === 0) continue;
       const [nodeName, state] = entries[0];
-      const msgs = (state?.messages || []) as Array<
-        Record<string, unknown>
-      >;
+      const msgs = (state?.messages ?? []) as unknown[];
 
+      // ---- 2-b. model ノード: LLMテキスト記録 + ツール呼び出し検出 ----
       if (nodeName === 'model' || nodeName === 'model_request') {
         for (const msg of msgs) {
-          const kwargs = (msg.kwargs as Record<string, unknown>) || msg;
+          if (!AIMessage.isInstance(msg)) continue;
 
-          // テキストの execution log 記録
-          const textContent = kwargs.content;
-          let textStr = '';
-          if (typeof textContent === 'string' && textContent) {
-            textStr = textContent;
-          } else if (Array.isArray(textContent)) {
-            textStr = textContent
-              .filter((p) => p?.type === 'text')
-              .map((p) => p.text)
-              .join('');
-          }
-          if (textStr) {
+          // LLMテキストを executionLog に記録
+          const text = extractTextContent(msg.content as string | Array<{ type: string; text?: string }>);
+          if (text) {
             ctx.stepCounter++;
-            ctx.finalResponse = textStr;
             ctx.executionLog.push({
               step: ctx.stepCounter,
               type: 'llm',
               action: 'LLM response',
-              details: { content: textStr },
+              details: { content: text },
               timestamp: new Date(),
             });
-            logger.agent.info(
-              `[model] text: ${textStr.slice(0, 120)}...`,
-            );
+            logger.agent.info(`[model] text: ${text.slice(0, 120)}...`);
           }
 
-          const toolCalls = (
-            Array.isArray(kwargs.tool_calls) ? kwargs.tool_calls : []
-          ) as Array<{ name: string; args: Record<string, unknown> }>;
-
-          for (const tc of toolCalls) {
+          // ツール呼び出し: isAIMessage の tool_calls プロパティを使用（.kwargs 不要）
+          for (const tc of msg.tool_calls ?? []) {
             ctx.stepCounter++;
+
+            const logEntry: ExecutionLogEntry = {
+              step: ctx.stepCounter,
+              type: tc.name === 'execute_and_evaluate_agent' ? 'payment' : 'logic',
+              action: `Tool call: ${tc.name}`,
+              details: tc.args,
+              timestamp: new Date(),
+            };
+            ctx.executionLog.push(logEntry);
 
             yield {
               type: 'tool_call',
               data: { name: tc.name, args: tc.args, step: ctx.stepCounter },
             };
-
-            ctx.executionLog.push({
-              step: ctx.stepCounter,
-              type:
-                tc.name === 'execute_and_evaluate_agent' ? 'payment' : 'logic',
-              action: `Tool call: ${tc.name}`,
-              details: tc.args,
-              timestamp: new Date(),
-            });
-
-            yield {
-              type: 'step',
-              data: ctx.executionLog[ctx.executionLog.length - 1],
-            };
+            yield { type: 'step', data: logEntry };
 
             logger.agent.info(
               `[model] tool_call: ${tc.name}(${JSON.stringify(tc.args)})`,
             );
           }
         }
+
+      // ---- 2-c. tools ノード: ツール結果検出 ----
       } else if (nodeName === 'tools') {
         for (const msg of msgs) {
-          const kwargs = (msg.kwargs as Record<string, unknown>) || msg;
-          const toolName =
-            typeof kwargs.name === 'string' ? kwargs.name : 'unknown';
+          if (!ToolMessage.isInstance(msg)) continue;
+
+          // isToolMessage で型安全にアクセス（.kwargs 不要）
+          const toolName = msg.name ?? 'unknown';
           const resultContent =
-            typeof kwargs.content === 'string'
-              ? kwargs.content
-              : JSON.stringify(kwargs.content);
+            typeof msg.content === 'string'
+              ? msg.content
+              : JSON.stringify(msg.content);
 
           ctx.stepCounter++;
 
-          yield {
-            type: 'tool_result',
-            data: {
-              name: toolName,
-              result: resultContent,
-              step: ctx.stepCounter,
-            },
-          };
-
-          ctx.executionLog.push({
+          const logEntry: ExecutionLogEntry = {
             step: ctx.stepCounter,
             type: 'logic',
             action: `Tool result: ${toolName}`,
             details: { result: resultContent },
             timestamp: new Date(),
-          });
+          };
+          ctx.executionLog.push(logEntry);
 
           yield {
-            type: 'step',
-            data: ctx.executionLog[ctx.executionLog.length - 1],
+            type: 'tool_result',
+            data: { name: toolName, result: resultContent, step: ctx.stepCounter },
           };
+          yield { type: 'step', data: logEntry };
 
           logger.agent.info(
             `[tools] ${toolName} => ${resultContent.slice(0, 120)}`,
           );
 
-          // execute_and_evaluate_agent の結果から支払い情報を抽出
+          // execute_and_evaluate_agent の支払い情報抽出
           if (toolName === 'execute_and_evaluate_agent') {
             try {
-              const parsed = JSON.parse(resultContent);
+              const parsed = JSON.parse(resultContent) as { paymentAmount?: number };
               if (parsed?.paymentAmount) {
                 ctx.totalCost += parsed.paymentAmount;
                 yield {
@@ -244,7 +220,7 @@ async function* processAgentStream(
                   },
                 };
               }
-            } catch {}
+            } catch { /* 非JSON結果は無視 */ }
           }
         }
       }
@@ -292,16 +268,16 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
 
     const messages = [
-      ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
+      ...(messageHistory ?? []).map((m) => ({ role: m.role, content: m.content })),
       { role: 'user' as const, content: userMessage },
     ];
 
-    // Generate unique thread_id for this conversation
     const threadId = crypto.randomUUID();
 
     const stream = await agent.stream(
       { messages },
       {
+        // 'tools' は createAgent 未サポートのため使用しない
         streamMode: ['messages', 'updates'],
         configurable: { thread_id: threadId },
       },
@@ -315,14 +291,15 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       executionLog,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for await (const event of processAgentStream(stream as AsyncIterable<[string, any]>, ctx, threadId)) {
+    for await (const event of processAgentStream(
+      stream as AsyncIterable<[string, unknown]>,
+      ctx,
+      threadId,
+    )) {
       yield event;
-      // If we got an interrupt, stop here
       if (event.type === 'interrupt') return;
     }
 
-    // Update local variables from context
     stepCounter = ctx.stepCounter;
     totalCost = ctx.totalCost;
 
@@ -363,7 +340,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 }
 
 /**
- * Resume an interrupted agent stream with HITL decisions
+ * HITL の判断を受けてエージェントを再開する
  */
 export async function* resumeAgentStream(
   threadId: string,
@@ -396,8 +373,11 @@ export async function* resumeAgentStream(
       executionLog,
     };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for await (const event of processAgentStream(stream as AsyncIterable<[string, any]>, ctx, threadId)) {
+    for await (const event of processAgentStream(
+      stream as AsyncIterable<[string, unknown]>,
+      ctx,
+      threadId,
+    )) {
       yield event;
       if (event.type === 'interrupt') return;
     }
