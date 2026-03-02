@@ -101,7 +101,48 @@ export type StreamEvent =
       type: 'final';
       data: { message: string; totalCost: number; executionLog: ExecutionLogEntry[] };
     }
-  | { type: 'error'; data: { error: string; executionLog: ExecutionLogEntry[] } };
+  | { type: 'error'; data: { error: string; executionLog: ExecutionLogEntry[] } }
+  | {
+      type: 'interrupt';
+      data: {
+        threadId: string;
+        actionRequests: Array<{
+          name: string;
+          args: Record<string, unknown>;
+          description?: string;
+        }>;
+        reviewConfigs: Array<{
+          actionName: string;
+          allowedDecisions: Array<'approve' | 'edit' | 'reject'>;
+        }>;
+      };
+    };
+
+// ============================================================================
+// HITL (Human-in-the-Loop) Types
+// ============================================================================
+
+export interface HITLActionRequest {
+  name: string;
+  args: Record<string, unknown>;
+  description?: string;
+}
+
+export interface HITLReviewConfig {
+  actionName: string;
+  allowedDecisions: Array<'approve' | 'edit' | 'reject'>;
+}
+
+export type HITLDecision =
+  | { type: 'approve' }
+  | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } }
+  | { type: 'reject'; message?: string };
+
+export interface AgentResumeRequest {
+  threadId: string;
+  decisions: HITLDecision[];
+  maxBudget: number;
+}
 
 // ============================================================================
 // x402 Payment Types

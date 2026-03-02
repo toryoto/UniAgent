@@ -7,9 +7,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
+import type { AgentRequest, AgentResponse, AgentResumeRequest } from '@agent-marketplace/shared';
 import { runAgent } from '../core/agent.js';
-import { runAgentStream } from '../core/agent-streaming.js';
+import { runAgentStream, resumeAgentStream } from '../core/agent-streaming.js';
 import { logger, logSeparator } from '../utils/logger.js';
 
 const app = express();
@@ -168,6 +168,60 @@ app.post('/api/agent/stream', async (req, res) => {
   }
 });
 
+/**
+ * SSE Resume endpoint (HITL)
+ *
+ * POST /api/agent/resume
+ * 中断されたエージェント実行を再開（Human-in-the-Loop の承認/編集/拒否後）
+ */
+app.post('/api/agent/resume', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  try {
+    const { threadId, decisions, maxBudget } = req.body as AgentResumeRequest;
+
+    if (!threadId || typeof threadId !== 'string') {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'threadId is required', executionLog: [] } })}\n\n`);
+      res.end();
+      return;
+    }
+
+    if (!Array.isArray(decisions) || decisions.length === 0) {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'decisions array is required', executionLog: [] } })}\n\n`);
+      res.end();
+      return;
+    }
+
+    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'maxBudget must be a positive number', executionLog: [] } })}\n\n`);
+      res.end();
+      return;
+    }
+
+    const stream = resumeAgentStream(threadId, { decisions }, maxBudget);
+
+    for await (const event of stream) {
+      const data = JSON.stringify(event);
+      res.write(`data: ${data}\n\n`);
+
+      if (res.closed) {
+        break;
+      }
+    }
+
+    res.end();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.agent.error('Resume request failed', { error: errorMessage });
+    res.write(`data: ${JSON.stringify({ type: 'error', data: { error: errorMessage, executionLog: [] } })}\n\n`);
+    res.end();
+  }
+});
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   logSeparator('UniAgent Agent Service');
@@ -176,5 +230,6 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('  - GET  /health       Health check');
   console.log('  - POST /api/agent    Execute agent');
   console.log('  - POST /api/agent/stream   Execute agent (SSE)');
+  console.log('  - POST /api/agent/resume   Resume agent (HITL)');
   logSeparator();
 });

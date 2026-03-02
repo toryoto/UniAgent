@@ -9,6 +9,7 @@ import type {
   AgentToolCall,
   StreamEvent,
 } from '@/lib/types';
+import type { HITLDecision } from '@agent-marketplace/shared';
 import { authFetch } from '@/lib/auth/authFetch';
 
 type MetaEvent = { type: 'meta'; data: { conversationId: string } };
@@ -29,8 +30,10 @@ export interface UseAgentStreamReturn {
   input: string;
   setInput: (value: string) => void;
   sendMessage: (content?: string, agentId?: string) => Promise<void>;
+  resumeAgent: (decisions: HITLDecision[]) => Promise<void>;
   abort: () => void;
   isStreaming: boolean;
+  isWaitingApproval: boolean;
   error: string | null;
   clearError: () => void;
   reset: () => void;
@@ -48,159 +51,19 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   const [input, setInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isWaitingApproval, setIsWaitingApproval] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(options.conversationId || null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Track which assistant message is currently being streamed (for resume)
+  const currentAssistantIdRef = useRef<string | null>(null);
 
   const abort = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setIsStreaming(false);
+    setIsWaitingApproval(false);
   }, []);
-
-  const sendMessage = useCallback(
-    async (content?: string, targetAgentId?: string) => {
-      const text = (content ?? input).trim();
-      if (!text) return;
-
-      // 既存のストリームを中断
-      abort();
-
-      setError(null);
-      setInput('');
-
-      const userMessage: AgentStreamMessage = {
-        id: generateId(),
-        role: 'user',
-        content: text,
-        timestamp: new Date(),
-      };
-
-      const assistantId = generateId();
-      const assistantMessage: AgentStreamMessage = {
-        id: assistantId,
-        role: 'assistant',
-        content: '',
-        timestamp: new Date(),
-        isStreaming: true,
-        toolCalls: [],
-      };
-
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-      setIsStreaming(true);
-
-      const controller = new AbortController();
-      abortControllerRef.current = controller;
-
-      try {
-        const requestBody: Record<string, unknown> = {
-          message: text,
-          walletId,
-          walletAddress,
-          autoApproveThreshold,
-        };
-        if (targetAgentId) {
-          requestBody.agentId = targetAgentId;
-        }
-        if (conversationId) {
-          requestBody.conversationId = conversationId;
-        }
-
-        const response = await authFetch(
-          '/api/agent/stream',
-          getAccessToken,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal,
-          },
-        );
-
-        if (!response.ok) {
-          const errorJson = await response.json().catch(() => ({}));
-          throw new Error(
-            (errorJson as { error?: string }).error ?? `HTTP ${response.status}`,
-          );
-        }
-
-        const reader = response.body?.getReader();
-        if (!reader) {
-          throw new Error('No response body');
-        }
-
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n\n');
-          buffer = lines.pop() ?? '';
-
-          for (const chunk of lines) {
-            if (!chunk.startsWith('data: ')) continue;
-            const data = chunk.slice(6).trim();
-            if (!data) continue;
-
-            try {
-              const event = JSON.parse(data) as ParsedEvent;
-              if (event.type === 'meta') {
-                // サーバーから返された conversationId を保存
-                if (event.data.conversationId) {
-                  setConversationId(event.data.conversationId);
-                }
-              } else {
-                applyEvent(assistantId, event);
-              }
-            } catch (parseError) {
-              if (parseError instanceof SyntaxError) continue;
-              throw parseError;
-            }
-          }
-        }
-
-        // 残りのバッファを処理
-        if (buffer.startsWith('data: ')) {
-          const data = buffer.slice(6).trim();
-          if (data) {
-            try {
-              const event = JSON.parse(data) as ParsedEvent;
-              if (event.type === 'meta') {
-                if (event.data.conversationId) {
-                  setConversationId(event.data.conversationId);
-                }
-              } else {
-                applyEvent(assistantId, event);
-              }
-            } catch {}
-          }
-        }
-      } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') {
-          // 中断時はストリーミングフラグだけ解除
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, isStreaming: false } : m,
-            ),
-          );
-          return;
-        }
-
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(errorMessage);
-
-        // エラー時はローディングメッセージを削除
-        setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-      } finally {
-        setIsStreaming(false);
-        abortControllerRef.current = null;
-      }
-    },
-    [input, walletId, walletAddress, autoApproveThreshold, conversationId, getAccessToken, abort],
-  );
 
   /**
    * SSE イベントを受信してアシスタントメッセージを更新
@@ -242,6 +105,17 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           case 'payment':
             return { ...m, payment: event.data };
 
+          case 'interrupt':
+            return {
+              ...m,
+              isStreaming: false,
+              approval: {
+                threadId: event.data.threadId,
+                actionRequests: event.data.actionRequests,
+                reviewConfigs: event.data.reviewConfigs,
+              },
+            };
+
           case 'final':
             return {
               ...m,
@@ -261,7 +135,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
           case 'start':
           case 'step':
-            // step イベントは executionLog と重複するため final で一括取得
             return m;
 
           default:
@@ -270,6 +143,268 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       }),
     );
   }
+
+  /**
+   * SSEストリームを読み取ってapplyEventを適用するヘルパー
+   */
+  async function readStream(
+    response: Response,
+    assistantId: string,
+  ): Promise<boolean> {
+    const reader = response.body?.getReader();
+    if (!reader) throw new Error('No response body');
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let interrupted = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() ?? '';
+
+      for (const chunk of lines) {
+        if (!chunk.startsWith('data: ')) continue;
+        const data = chunk.slice(6).trim();
+        if (!data) continue;
+
+        try {
+          const event = JSON.parse(data) as ParsedEvent;
+          if (event.type === 'meta') {
+            if (event.data.conversationId) {
+              setConversationId(event.data.conversationId);
+            }
+          } else {
+            applyEvent(assistantId, event);
+
+            if (event.type === 'interrupt') {
+              interrupted = true;
+            }
+          }
+        } catch (parseError) {
+          if (parseError instanceof SyntaxError) continue;
+          throw parseError;
+        }
+      }
+    }
+
+    // 残りのバッファを処理
+    if (buffer.startsWith('data: ')) {
+      const data = buffer.slice(6).trim();
+      if (data) {
+        try {
+          const event = JSON.parse(data) as ParsedEvent;
+          if (event.type === 'meta') {
+            if (event.data.conversationId) {
+              setConversationId(event.data.conversationId);
+            }
+          } else {
+            applyEvent(assistantId, event);
+            if (event.type === 'interrupt') {
+              interrupted = true;
+            }
+          }
+        } catch {}
+      }
+    }
+
+    return interrupted;
+  }
+
+  const sendMessage = useCallback(
+    async (content?: string, targetAgentId?: string) => {
+      const text = (content ?? input).trim();
+      if (!text) return;
+
+      abort();
+      setError(null);
+      setInput('');
+
+      const userMessage: AgentStreamMessage = {
+        id: generateId(),
+        role: 'user',
+        content: text,
+        timestamp: new Date(),
+      };
+
+      const assistantId = generateId();
+      const assistantMessage: AgentStreamMessage = {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date(),
+        isStreaming: true,
+        toolCalls: [],
+      };
+
+      currentAssistantIdRef.current = assistantId;
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setIsStreaming(true);
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const requestBody: Record<string, unknown> = {
+          message: text,
+          walletId,
+          walletAddress,
+          autoApproveThreshold,
+        };
+        if (targetAgentId) {
+          requestBody.agentId = targetAgentId;
+        }
+        if (conversationId) {
+          requestBody.conversationId = conversationId;
+        }
+
+        const response = await authFetch(
+          '/api/agent/stream',
+          getAccessToken,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          const errorJson = await response.json().catch(() => ({}));
+          throw new Error(
+            (errorJson as { error?: string }).error ?? `HTTP ${response.status}`,
+          );
+        }
+
+        const interrupted = await readStream(response, assistantId);
+        if (interrupted) {
+          setIsWaitingApproval(true);
+          // Don't clear isStreaming in finally — we're waiting for approval
+          return;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, isStreaming: false } : m,
+            ),
+          );
+          return;
+        }
+
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(errorMessage);
+        setMessages((prev) => prev.filter((m) => m.id !== assistantId));
+      } finally {
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+      }
+    },
+    [input, walletId, walletAddress, autoApproveThreshold, conversationId, getAccessToken, abort],
+  );
+
+  /**
+   * HITL承認/編集/拒否後にエージェント実行を再開
+   */
+  const resumeAgent = useCallback(
+    async (decisions: HITLDecision[]) => {
+      const assistantId = currentAssistantIdRef.current;
+      if (!assistantId) return;
+
+      // approval情報からthreadIdを取得（refを使ってステートの最新値にアクセス）
+      let threadId: string | null = null;
+      // messagesはstateなのでsetMessages内のコールバックで最新値を参照する
+      const currentMessages = await new Promise<AgentStreamMessage[]>((resolve) => {
+        setMessages((prev) => {
+          resolve(prev);
+          return prev;
+        });
+      });
+
+      const msg = currentMessages.find((m) => m.id === assistantId);
+      if (msg?.approval) {
+        threadId = msg.approval.threadId;
+      }
+
+      if (!threadId) {
+        setError('No pending approval to resume');
+        return;
+      }
+
+      setIsWaitingApproval(false);
+      setIsStreaming(true);
+
+      // approval を resolved に更新し、ストリーミング再開
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? {
+                ...m,
+                isStreaming: true,
+                approval: m.approval ? { ...m.approval, resolved: true } : undefined,
+              }
+            : m,
+        ),
+      );
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const requestBody: Record<string, unknown> = {
+          threadId,
+          decisions,
+          maxBudget: autoApproveThreshold,
+        };
+        if (conversationId) {
+          requestBody.conversationId = conversationId;
+        }
+
+        const response = await authFetch(
+          '/api/agent/resume',
+          getAccessToken,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          },
+        );
+
+        if (!response.ok) {
+          const errorJson = await response.json().catch(() => ({}));
+          throw new Error(
+            (errorJson as { error?: string }).error ?? `HTTP ${response.status}`,
+          );
+        }
+
+        const interrupted = await readStream(response, assistantId);
+        if (interrupted) {
+          setIsWaitingApproval(true);
+          return;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId ? { ...m, isStreaming: false } : m,
+            ),
+          );
+          return;
+        }
+
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        setError(errorMessage);
+      } finally {
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+      }
+    },
+    [autoApproveThreshold, conversationId, getAccessToken],
+  );
 
   const clearError = useCallback(() => {
     setError(null);
@@ -281,6 +416,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
     setInput('');
     setError(null);
     setConversationId(null);
+    currentAssistantIdRef.current = null;
   }, [abort]);
 
   return useMemo(
@@ -289,13 +425,15 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       input,
       setInput,
       sendMessage,
+      resumeAgent,
       abort,
       isStreaming,
+      isWaitingApproval,
       error,
       clearError,
       reset,
       conversationId,
     }),
-    [messages, input, sendMessage, abort, isStreaming, error, clearError, reset, conversationId],
+    [messages, input, sendMessage, resumeAgent, abort, isStreaming, isWaitingApproval, error, clearError, reset, conversationId],
   );
 }

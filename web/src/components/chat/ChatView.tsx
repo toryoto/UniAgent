@@ -13,12 +13,16 @@ import {
   ChevronDown,
   ChevronRight,
   CreditCard,
+  CheckCircle2,
+  XCircle,
+  Pencil,
 } from 'lucide-react';
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
-import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
+import type { AgentStreamMessage, AgentToolCall, AgentApproval } from '@/lib/types';
+import type { HITLDecision } from '@agent-marketplace/shared';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
 import { useBudgetSettings } from '@/lib/hooks/useBudgetSettings';
 import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
@@ -62,8 +66,10 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     input,
     setInput,
     sendMessage,
+    resumeAgent,
     abort,
     isStreaming,
+    isWaitingApproval,
     error,
     clearError,
     conversationId,
@@ -217,7 +223,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
           <div className="space-y-4">
             {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble key={message.id} message={message} onResume={resumeAgent} />
             ))}
 
             {isStreaming && messages.length > 0 && !messages[messages.length - 1]?.isStreaming && (
@@ -275,7 +281,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Enter your task... (Type / for commands)"
-              disabled={isStreaming || !walletAddress || !wallet?.isDelegated}
+              disabled={isStreaming || isWaitingApproval || !walletAddress || !wallet?.isDelegated}
               rows={1}
               className="scrollbar-hide flex-1 resize-none overflow-y-auto rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 disabled:opacity-50 md:px-4 md:py-3 md:text-base"
               style={{ minHeight: '44px', maxHeight: '100px' }}
@@ -291,7 +297,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             ) : (
               <button
                 onClick={handleSubmit}
-                disabled={!input.trim() || !walletAddress || !wallet?.isDelegated}
+                disabled={!input.trim() || isWaitingApproval || !walletAddress || !wallet?.isDelegated}
                 className="self-start rounded-lg bg-purple-600 p-2.5 font-semibold text-white transition-colors hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50 md:px-6 md:py-3"
               >
                 <Send className="h-5 w-5" />
@@ -340,7 +346,13 @@ function WelcomeMessage() {
   );
 }
 
-function MessageBubble({ message }: { message: AgentStreamMessage }) {
+function MessageBubble({
+  message,
+  onResume,
+}: {
+  message: AgentStreamMessage;
+  onResume: (decisions: HITLDecision[]) => Promise<void>;
+}) {
   const isUser = message.role === 'user';
 
   return (
@@ -381,6 +393,13 @@ function MessageBubble({ message }: { message: AgentStreamMessage }) {
           </div>
         )}
 
+        {/* HITL Approval Card */}
+        {!isUser && message.approval && !message.approval.resolved && (
+          <div className="mb-3">
+            <ApprovalCard approval={message.approval} onResume={onResume} />
+          </div>
+        )}
+
         {/* Payment info */}
         {!isUser && message.payment && (
           <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-900/50 bg-green-950/30 p-2 text-xs">
@@ -409,9 +428,9 @@ function MessageBubble({ message }: { message: AgentStreamMessage }) {
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Thinking...
               </span>
-            ) : (
+            ) : !message.approval ? (
               <span className="text-slate-500 italic">No response</span>
-            )
+            ) : null
           )}
         </div>
 
@@ -437,6 +456,167 @@ function MessageBubble({ message }: { message: AgentStreamMessage }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ApprovalCard({
+  approval,
+  onResume,
+}: {
+  approval: AgentApproval;
+  onResume: (decisions: HITLDecision[]) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedArgs, setEditedArgs] = useState<Record<string, unknown>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 最初のactionRequestのみを表示（通常1つ）
+  const action = approval.actionRequests[0];
+  if (!action) return null;
+
+  const { agentUrl, task, maxPrice, agentId } = action.args as Record<string, unknown>;
+
+  const handleApprove = async () => {
+    setIsSubmitting(true);
+    await onResume(approval.actionRequests.map(() => ({ type: 'approve' as const })));
+  };
+
+  const handleReject = async () => {
+    setIsSubmitting(true);
+    await onResume(
+      approval.actionRequests.map(() => ({
+        type: 'reject' as const,
+        message: 'User rejected the agent execution',
+      })),
+    );
+  };
+
+  const handleEdit = async () => {
+    if (!isEditing) {
+      setEditedArgs({ ...action.args });
+      setIsEditing(true);
+      return;
+    }
+    setIsSubmitting(true);
+    await onResume(
+      approval.actionRequests.map(() => ({
+        type: 'edit' as const,
+        editedAction: { name: action.name, args: editedArgs },
+      })),
+    );
+  };
+
+  const reviewConfig = approval.reviewConfigs.find((r) => r.actionName === action.name);
+  const allowedDecisions = reviewConfig?.allowedDecisions ?? ['approve', 'reject'];
+
+  return (
+    <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 md:p-4">
+      <div className="mb-3 flex items-center gap-2 text-xs font-medium text-amber-300 md:text-sm">
+        <Shield className="h-4 w-4" />
+        Approval Required
+      </div>
+
+      <div className="mb-3 space-y-1.5 text-xs text-slate-300 md:text-sm">
+        {action.description && (
+          <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>
+        )}
+        {!action.description && (
+          <>
+            <div className="flex gap-2">
+              <span className="text-slate-500">Tool:</span>
+              <span className="font-mono text-slate-200">{action.name}</span>
+            </div>
+            {agentId && (
+              <div className="flex gap-2">
+                <span className="text-slate-500">Agent ID:</span>
+                <span className="font-mono text-slate-200">{String(agentId)}</span>
+              </div>
+            )}
+            {agentUrl && (
+              <div className="flex gap-2">
+                <span className="text-slate-500">Agent URL:</span>
+                <span className="font-mono text-slate-200">{String(agentUrl)}</span>
+              </div>
+            )}
+            {task && (
+              <div className="flex gap-2">
+                <span className="text-slate-500">Task:</span>
+                <span className="text-slate-200">{String(task)}</span>
+              </div>
+            )}
+            {maxPrice !== undefined && (
+              <div className="flex gap-2">
+                <span className="text-slate-500">Max Price:</span>
+                <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Edit mode: editable task field */}
+      {isEditing && (
+        <div className="mb-3 space-y-2">
+          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
+          <textarea
+            value={String(editedArgs.task ?? '')}
+            onChange={(e) => setEditedArgs({ ...editedArgs, task: e.target.value })}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+            rows={3}
+          />
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2">
+        {allowedDecisions.includes('approve') && !isEditing && (
+          <button
+            onClick={handleApprove}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 md:text-sm"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Approve
+          </button>
+        )}
+        {allowedDecisions.includes('edit') && (
+          <button
+            onClick={handleEdit}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 md:text-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            {isEditing ? 'Submit Edit' : 'Edit'}
+          </button>
+        )}
+        {isEditing && (
+          <button
+            onClick={() => setIsEditing(false)}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-600 disabled:opacity-50 md:text-sm"
+          >
+            Cancel
+          </button>
+        )}
+        {allowedDecisions.includes('reject') && !isEditing && (
+          <button
+            onClick={handleReject}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 md:text-sm"
+          >
+            <XCircle className="h-3.5 w-3.5" />
+            Reject
+          </button>
+        )}
+      </div>
+
+      {isSubmitting && (
+        <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Processing decision...
+        </div>
+      )}
     </div>
   );
 }

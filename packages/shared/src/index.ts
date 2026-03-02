@@ -36,6 +36,10 @@ export type {
   ERC8004RegistrationFile,
   ERC8004Service,
   ERC8004RegistrationEntry,
+  HITLActionRequest,
+  HITLReviewConfig,
+  HITLDecision,
+  AgentResumeRequest,
 } from './types.js';
 
 // Services
