@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/agent
  *
- * Body: { message: string, walletId: string, walletAddress: string, maxBudget: number }
+ * Body: { message: string, walletId: string, walletAddress: string, autoApproveThreshold: number, agentId?: string }
  */
 export async function POST(request: NextRequest) {
   console.log('[Agent API] Request received');
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    const { message, walletId, walletAddress, maxBudget, agentId } = body;
+    const { message, walletId, walletAddress, autoApproveThreshold, agentId } = body;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
+    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
       return NextResponse.json(
-        { success: false, error: 'maxBudget must be a positive number' },
+        { success: false, error: 'autoApproveThreshold must be a non-negative number' },
         { status: 400 }
       );
     }
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       message,
       walletId,
       walletAddress,
-      maxBudget,
+      autoApproveThreshold,
       agentId,
     });
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message, walletId, walletAddress, maxBudget, agentId }),
+      body: JSON.stringify({ message, walletId, walletAddress, autoApproveThreshold, agentId }),
     });
 
     if (!response.ok) {

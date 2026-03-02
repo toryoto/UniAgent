@@ -36,11 +36,11 @@ app.get('/health', (_req, res) => {
  * Agent execution endpoint
  *
  * POST /api/agent
- * Body: { message: string, walletId: string, walletAddress: string, maxBudget: number }
+ * Body: { message: string, walletId: string, walletAddress: string, autoApproveThreshold: number }
  */
 app.post('/api/agent', async (req, res) => {
   try {
-    const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -67,10 +67,10 @@ app.post('/api/agent', async (req, res) => {
       return;
     }
 
-    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
+    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
       res.status(400).json({
         success: false,
-        error: 'maxBudget must be a positive number',
+        error: 'autoApproveThreshold must be a non-negative number',
       });
       return;
     }
@@ -80,7 +80,7 @@ app.post('/api/agent', async (req, res) => {
       message,
       walletId,
       walletAddress,
-      maxBudget,
+      autoApproveThreshold,
       agentId,
       messageHistory,
     });
@@ -115,7 +115,7 @@ app.post('/api/agent/stream', async (req, res) => {
   res.flushHeaders();
 
   try {
-    const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -138,16 +138,16 @@ app.post('/api/agent/stream', async (req, res) => {
       return;
     }
 
-    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
+    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
       res.write(
-        `data: ${JSON.stringify({ type: 'error', error: 'maxBudget must be a positive number' })}\n\n`
+        `data: ${JSON.stringify({ type: 'error', error: 'autoApproveThreshold must be a non-negative number' })}\n\n`
       );
       res.end();
       return;
     }
 
     // ストリーミング実行
-    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget, agentId, messageHistory });
+    const stream = runAgentStream({ message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory });
 
     for await (const event of stream) {
       const data = JSON.stringify(event);
@@ -182,7 +182,7 @@ app.post('/api/agent/resume', async (req, res) => {
   res.flushHeaders();
 
   try {
-    const { threadId, decisions, maxBudget } = req.body as AgentResumeRequest;
+    const { threadId, decisions, autoApproveThreshold } = req.body as AgentResumeRequest;
 
     if (!threadId || typeof threadId !== 'string') {
       res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'threadId is required', executionLog: [] } })}\n\n`);
@@ -196,13 +196,13 @@ app.post('/api/agent/resume', async (req, res) => {
       return;
     }
 
-    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'maxBudget must be a positive number', executionLog: [] } })}\n\n`);
+    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'autoApproveThreshold must be a non-negative number', executionLog: [] } })}\n\n`);
       res.end();
       return;
     }
 
-    const stream = resumeAgentStream(threadId, { decisions }, maxBudget);
+    const stream = resumeAgentStream(threadId, { decisions }, autoApproveThreshold);
 
     for await (const event of stream) {
       const data = JSON.stringify(event);

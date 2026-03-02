@@ -21,7 +21,7 @@ export interface AgentChatMessage {
 export interface UseAgentChatOptions {
   walletId: string;
   walletAddress: string;
-  maxBudget: number;
+  autoApproveThreshold: number;
   agentId?: string;
 }
 
@@ -41,7 +41,7 @@ function generateId(): string {
 }
 
 export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
-  const { walletId, walletAddress, maxBudget } = options;
+  const { walletId, walletAddress, autoApproveThreshold } = options;
 
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -83,7 +83,7 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
           message: text,
           walletId,
           walletAddress,
-          maxBudget,
+          autoApproveThreshold,
         };
 
         if (targetAgentId) {
@@ -130,7 +130,7 @@ export function useAgentChat(options: UseAgentChatOptions): UseAgentChatReturn {
         setIsLoading(false);
       }
     },
-    [input, walletId, walletAddress, maxBudget]
+    [input, walletId, walletAddress, autoApproveThreshold]
   );
 
   const clearError = useCallback(() => {

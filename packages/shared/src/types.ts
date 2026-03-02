@@ -64,7 +64,7 @@ export interface AgentRequest {
   message: string;
   walletId: string;
   walletAddress: string;
-  maxBudget: number;
+  autoApproveThreshold: number;
   agentId?: string;
   messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
@@ -90,7 +90,7 @@ export interface ExecutionLogEntry {
 // ============================================================================
 
 export type StreamEvent =
-  | { type: 'start'; data: { message: string; maxBudget: number } }
+  | { type: 'start'; data: { message: string } }
   | { type: 'step'; data: ExecutionLogEntry }
   | { type: 'llm_token'; data: { token: string; step: number } }
   | { type: 'llm_thinking'; data: { content: string; step: number } }
@@ -141,7 +141,7 @@ export type HITLDecision =
 export interface AgentResumeRequest {
   threadId: string;
   decisions: HITLDecision[];
-  maxBudget: number;
+  autoApproveThreshold: number;
 }
 
 // ============================================================================

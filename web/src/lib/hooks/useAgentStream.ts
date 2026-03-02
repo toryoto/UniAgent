@@ -357,7 +357,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         const requestBody: Record<string, unknown> = {
           threadId,
           decisions,
-          maxBudget: autoApproveThreshold,
+          autoApproveThreshold,
         };
         if (conversationId) {
           requestBody.conversationId = conversationId;

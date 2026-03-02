@@ -54,7 +54,7 @@ async function getAgent() {
 interface StreamProcessingContext {
   stepCounter: number;
   totalCost: number;
-  maxBudget: number;
+  autoApproveThreshold: number;
   finalResponse: string;
   executionLog: ExecutionLogEntry[];
 }
@@ -240,7 +240,7 @@ async function* processAgentStream(
                   data: {
                     amount: parsed.paymentAmount,
                     totalCost: ctx.totalCost,
-                    remainingBudget: ctx.maxBudget - ctx.totalCost,
+                    remainingBudget: ctx.autoApproveThreshold - ctx.totalCost,
                   },
                 };
               }
@@ -255,20 +255,20 @@ async function* processAgentStream(
 // ── Public API ────────────────────────────────────────────────────────────
 
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
-  const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = request;
+  const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
   const executionLog: ExecutionLogEntry[] = [];
   let totalCost = 0;
   let stepCounter = 0;
 
   logSeparator('Agent Execution Start (Streaming)');
 
-  yield { type: 'start', data: { message, maxBudget } };
+  yield { type: 'start', data: { message } };
 
   executionLog.push({
     step: ++stepCounter,
     type: 'llm',
     action: 'Request received',
-    details: { message, maxBudget },
+    details: { message, autoApproveThreshold },
     timestamp: new Date(),
   });
 
@@ -282,14 +282,14 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 ## コンテキスト
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
-- max_budget: $${maxBudget} USDC
+- auto_approve_threshold: $${autoApproveThreshold} USDC
 - 指定エージェントID: ${agentId}
 
 ## 重要な指示（指定エージェントの場合）
 ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
 ※そのエージェントがタスクに適している場合のみ execute_and_evaluate_agent で実行してください
 ※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
-      : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, maxBudget=${maxBudget} USDC]`;
+      : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
 
     const messages = [
       ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
@@ -310,7 +310,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
     const ctx: StreamProcessingContext = {
       stepCounter,
       totalCost,
-      maxBudget,
+      autoApproveThreshold,
       finalResponse: '',
       executionLog,
     };
@@ -368,7 +368,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 export async function* resumeAgentStream(
   threadId: string,
   decisions: HITLResponse,
-  maxBudget: number,
+  autoApproveThreshold: number,
 ): AsyncGenerator<StreamEvent> {
   const executionLog: ExecutionLogEntry[] = [];
   let stepCounter = 0;
@@ -391,7 +391,7 @@ export async function* resumeAgentStream(
     const ctx: StreamProcessingContext = {
       stepCounter,
       totalCost,
-      maxBudget,
+      autoApproveThreshold,
       finalResponse: '',
       executionLog,
     };

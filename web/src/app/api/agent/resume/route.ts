@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic';
  * POST /api/agent/resume
  *
  * Headers: Authorization: Bearer <privy-auth-token>
- * Body: { threadId: string, decisions: HITLDecision[], maxBudget: number, conversationId?: string }
+ * Body: { threadId: string, decisions: HITLDecision[], autoApproveThreshold: number, conversationId?: string }
  * Response: Server-Sent Events
  */
 export async function POST(request: NextRequest) {
@@ -28,11 +28,11 @@ export async function POST(request: NextRequest) {
     await verifyPrivyToken(request);
 
     const body = await request.json();
-    const { threadId, decisions, maxBudget, conversationId } = body;
+    const { threadId, decisions, autoApproveThreshold, conversationId } = body;
 
-    if (!threadId || !Array.isArray(decisions) || typeof maxBudget !== 'number') {
+    if (!threadId || !Array.isArray(decisions) || typeof autoApproveThreshold !== 'number') {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid request: threadId, decisions, and maxBudget are required' }),
+        JSON.stringify({ success: false, error: 'Invalid request: threadId, decisions, and autoApproveThreshold are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream',
       },
-      body: JSON.stringify({ threadId, decisions, maxBudget }),
+      body: JSON.stringify({ threadId, decisions, autoApproveThreshold }),
       // @ts-expect-error -- Node.js undici option to disable response buffering
       duplex: 'half',
     });

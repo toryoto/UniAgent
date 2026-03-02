@@ -36,7 +36,7 @@ cd agent && npm run dev
 {
   "message": "パリ3日間の旅行プランを作成して",
   "walletId": "wallet_xxx",
-  "maxBudget": 5.0
+  "autoApproveThreshold": 5.0
 }
 ```
 

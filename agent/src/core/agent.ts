@@ -17,20 +17,20 @@ import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
  * エージェントを実行（非ストリーミング）
  */
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
-  const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = request;
+  const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
   const executionLog: ExecutionLogEntry[] = [];
   let totalCost = 0;
   let stepCounter = 0;
 
   logSeparator('Agent Execution Start');
-  logger.agent.info('Received request', { message, walletId, walletAddress, maxBudget, agentId });
+  logger.agent.info('Received request', { message, walletId, walletAddress, autoApproveThreshold, agentId });
 
   executionLog.push({
     
     step: ++stepCounter,
     type: 'llm',
     action: 'Request received',
-    details: { message, maxBudget },
+    details: { message, autoApproveThreshold },
     timestamp: new Date(),
   });
 
@@ -52,9 +52,8 @@ ${message}
 ## コンテキスト
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
-- max_budget: $${maxBudget} USDC
-- 現在の予算使用額: $${totalCost} USDC
-- 残り予算: $${maxBudget - totalCost} USDC${
+- auto_approve_threshold: $${autoApproveThreshold} USDC
+- 現在の予算使用額: $${totalCost} USDC${
       agentId
         ? `
 - 指定エージェントID: ${agentId}
@@ -70,8 +69,7 @@ ${message}
 - エージェントを実行する場合は execute_agent に以下を指定:
   - walletId: "${walletId}"
   - walletAddress: "${walletAddress}"
-  - maxPrice: 残り予算の90%以下に設定（安全マージン）
-- 各エージェント実行の maxPrice の合計が max_budget を超えないように注意してください
+  - maxPrice: auto_approve_threshold以下に設定
 `;
 
     logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
@@ -121,7 +119,6 @@ ${message}
             totalCost += parsed.paymentAmount;
             logger.payment.success(`Payment: $${parsed.paymentAmount} USDC`, {
               totalCost,
-              remainingBudget: maxBudget - totalCost,
             });
           }
         } catch {
@@ -149,7 +146,7 @@ ${message}
     });
 
     logSeparator('Agent Execution End');
-    logger.agent.success('Total cost', { totalCost, remainingBudget: maxBudget - totalCost });
+    logger.agent.success('Total cost', { totalCost });
 
     return {
       success: true,
@@ -187,11 +184,11 @@ ${message}
 export async function* runAgentStream(
   request: AgentRequest
 ): AsyncGenerator<{ type: string; data: unknown }, void, unknown> {
-  const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = request;
+  const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
   let totalCost = 0;
   let stepCounter = 0;
 
-  yield { type: 'start', data: { message, maxBudget } };
+  yield { type: 'start', data: { message } };
 
   try {
     const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
@@ -210,9 +207,8 @@ ${message}
 ## コンテキスト
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
-- max_budget: $${maxBudget} USDC
-- 現在の予算使用額: $${totalCost} USDC
-- 残り予算: $${maxBudget - totalCost} USDC${
+- auto_approve_threshold: $${autoApproveThreshold} USDC
+- 現在の予算使用額: $${totalCost} USDC${
       agentId
         ? `
 - 指定エージェントID: ${agentId}
@@ -228,7 +224,7 @@ ${message}
 - エージェントを実行する場合は execute_agent に以下を指定:
   - walletId: "${walletId}"
   - walletAddress: "${walletAddress}"
-  - maxPrice: 残り予算の90%以下に設定（安全マージン）
+  - maxPrice: auto_approve_threshold以下に設定
 `;
 
     yield {
@@ -303,7 +299,7 @@ ${message}
                     data: {
                       amount: parsed.paymentAmount,
                       totalCost,
-                      remainingBudget: maxBudget - totalCost,
+                      remainingBudget: autoApproveThreshold - totalCost,
                     },
                   };
                 }
@@ -321,7 +317,7 @@ ${message}
       data: {
         success: true,
         totalCost,
-        remainingBudget: maxBudget - totalCost,
+        remainingBudget: autoApproveThreshold - totalCost,
       },
     };
   } catch (error) {
