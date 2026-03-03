@@ -7,7 +7,7 @@ import type {
   ExecutionLogEntry,
   StreamEvent,
 } from '@agent-marketplace/shared';
-import { discoverAgentsTool, executeAndEvaluateAgentTool } from '../tools/index.js';
+import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
@@ -36,6 +36,7 @@ const checkpointer = new MemorySaver();
 const hitlMiddleware = humanInTheLoopMiddleware({
   interruptOn: {
     discover_agents: false,
+    fetch_agent_spec: false,
     execute_and_evaluate_agent: {
       allowedDecisions: ['approve', 'edit', 'reject'],
       description: (toolCall) => {
@@ -54,7 +55,7 @@ async function getAgent() {
   const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
   _agent = createAgent({
     model,
-    tools: [discoverAgentsTool, executeAndEvaluateAgentTool],
+    tools: [discoverAgentsTool, fetchAgentSpecTool, executeAndEvaluateAgentTool],
     systemPrompt: SYSTEM_PROMPT,
     checkpointer,
     middleware: [hitlMiddleware],

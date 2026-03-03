@@ -9,7 +9,7 @@
 
 import { initChatModel, createAgent } from 'langchain';
 import type { AgentRequest, AgentResponse, ExecutionLogEntry } from '@agent-marketplace/shared';
-import { discoverAgentsTool, executeAgentTool } from '../tools/index.js';
+import { discoverAgentsTool, executeAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
@@ -40,7 +40,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
     // @ts-ignore - Type instantiation is excessively deep (TS2589)
     const agent = createAgent({
       model,
-      tools: [discoverAgentsTool, executeAgentTool],
+      tools: [discoverAgentsTool, fetchAgentSpecTool, executeAgentTool],
       systemPrompt: SYSTEM_PROMPT,
     });
 
@@ -196,7 +196,7 @@ export async function* runAgentStream(
     // @ts-ignore - Type instantiation is excessively deep (TS2589)
     const agent = createAgent({
       model,
-      tools: [discoverAgentsTool, executeAgentTool],
+      tools: [discoverAgentsTool, fetchAgentSpecTool, executeAgentTool],
       systemPrompt: SYSTEM_PROMPT,
     });
 
