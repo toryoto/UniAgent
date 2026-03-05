@@ -57,6 +57,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   const abortControllerRef = useRef<AbortController | null>(null);
   // Track which assistant message is currently being streamed (for resume)
   const currentAssistantIdRef = useRef<string | null>(null);
+  const pendingApprovalRef = useRef<{ threadId: string } | null>(null);
 
   const abort = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -106,6 +107,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             return { ...m, payment: event.data };
 
           case 'interrupt':
+            pendingApprovalRef.current = { threadId: event.data.threadId };
             return {
               ...m,
               isStreaming: false,
@@ -314,26 +316,13 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       const assistantId = currentAssistantIdRef.current;
       if (!assistantId) return;
 
-      // approval情報からthreadIdを取得（refを使ってステートの最新値にアクセス）
-      let threadId: string | null = null;
-      // messagesはstateなのでsetMessages内のコールバックで最新値を参照する
-      const currentMessages = await new Promise<AgentStreamMessage[]>((resolve) => {
-        setMessages((prev) => {
-          resolve(prev);
-          return prev;
-        });
-      });
-
-      const msg = currentMessages.find((m) => m.id === assistantId);
-      if (msg?.approval) {
-        threadId = msg.approval.threadId;
-      }
-
+      const threadId = pendingApprovalRef.current?.threadId ?? null;
       if (!threadId) {
         setError('No pending approval to resume');
         return;
       }
 
+      pendingApprovalRef.current = null;
       setIsWaitingApproval(false);
       setIsStreaming(true);
 
@@ -417,6 +406,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
     setError(null);
     setConversationId(null);
     currentAssistantIdRef.current = null;
+    pendingApprovalRef.current = null;
   }, [abort]);
 
   return useMemo(
