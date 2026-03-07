@@ -650,6 +650,7 @@ function ApprovalCard({
 function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isCalling = toolCall.status === 'calling';
+  const isRejected = toolCall.result === 'Rejected by user';
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
@@ -659,6 +660,8 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
       >
         {isCalling ? (
           <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
+        ) : isRejected ? (
+          <XCircle className="h-3 w-3 text-red-400" />
         ) : (
           <Wrench className="h-3 w-3 text-green-400" />
         )}
@@ -667,10 +670,12 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
           className={`rounded px-1.5 py-0.5 text-[10px] ${
             isCalling
               ? 'bg-yellow-500/20 text-yellow-300'
-              : 'bg-green-500/20 text-green-300'
+              : isRejected
+                ? 'bg-red-500/20 text-red-300'
+                : 'bg-green-500/20 text-green-300'
           }`}
         >
-          {isCalling ? 'Running...' : 'Done'}
+          {isCalling ? 'Running...' : isRejected ? 'Rejected' : 'Done'}
         </span>
         <span className="ml-auto text-slate-500">
           {isExpanded ? (

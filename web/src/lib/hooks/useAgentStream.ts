@@ -324,17 +324,39 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       setIsWaitingApproval(false);
       setIsStreaming(true);
 
-      // approval を resolved に更新し、ストリーミング再開
+      // approval を resolved に更新し、edit/reject 時は toolCalls も反映
+      const isRejected = decisions.every((d) => d.type === 'reject');
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantId
-            ? {
-                ...m,
-                isStreaming: true,
-                approval: m.approval ? { ...m.approval, resolved: true } : undefined,
-              }
-            : m,
-        ),
+        prev.map((m) => {
+          if (m.id !== assistantId) return m;
+
+          let updatedToolCalls = m.toolCalls;
+          for (const decision of decisions) {
+            if (decision.type === 'edit' && decision.editedAction) {
+              const edited = decision.editedAction;
+              updatedToolCalls = (updatedToolCalls ?? []).map((tc) =>
+                tc.name === edited.name && tc.status === 'calling'
+                  ? { ...tc, args: edited.args }
+                  : tc,
+              );
+            }
+          }
+
+          if (isRejected) {
+            updatedToolCalls = (updatedToolCalls ?? []).map((tc) =>
+              tc.status === 'calling'
+                ? { ...tc, status: 'completed' as const, result: 'Rejected by user' }
+                : tc,
+            );
+          }
+
+          return {
+            ...m,
+            isStreaming: !isRejected,
+            toolCalls: updatedToolCalls,
+            approval: m.approval ? { ...m.approval, resolved: true } : undefined,
+          };
+        }),
       );
 
       const controller = new AbortController();
