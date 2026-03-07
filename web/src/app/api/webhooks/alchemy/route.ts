@@ -39,17 +39,27 @@ function timingSafeEqualHex(aHex: string, bHex: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
+function getAlchemySigningKeys(): string[] {
+  return [
+    process.env.ALCHEMY_WEBHOOK_SIGNING_KEY,
+    process.env.ALCHEMY_WEBHOOK_SIGNING_KEY_STAKING,
+  ].filter((k): k is string => !!k);
+}
+
 function verifyAlchemySignature(rawBody: string, signatureHeader: string | null) {
-  const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
-  if (!signingKey) return;
+  const keys = getAlchemySigningKeys();
+  if (keys.length === 0) return;
 
   if (!signatureHeader) throw new Error('Missing X-Alchemy-Signature');
 
   const signature = signatureHeader.trim().replace(/^sha256=/i, '');
   if (!/^[0-9a-f]{64}$/i.test(signature)) throw new Error('Invalid X-Alchemy-Signature format');
 
-  const expectedHex = crypto.createHmac('sha256', signingKey).update(rawBody, 'utf8').digest('hex');
-  if (!timingSafeEqualHex(expectedHex, signature)) throw new Error('Invalid X-Alchemy-Signature');
+  const matched = keys.some((key) => {
+    const expected = crypto.createHmac('sha256', key).update(rawBody, 'utf8').digest('hex');
+    return timingSafeEqualHex(expected, signature);
+  });
+  if (!matched) throw new Error('Invalid X-Alchemy-Signature');
 }
 
 function extractLogs(value: unknown, out: CandidateLog[]) {
