@@ -7,8 +7,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import type { AgentRequest, AgentResponse, AgentResumeRequest } from '@agent-marketplace/shared';
-import { runAgent } from '../core/agent.js';
+import type { AgentRequest, AgentResumeRequest } from '@agent-marketplace/shared';
 import { runAgentStream, resumeAgentStream } from '../core/agent-streaming.js';
 import { logger, logSeparator } from '../utils/logger.js';
 
@@ -30,74 +29,6 @@ app.use((req, _res, next) => {
  */
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'agent' });
-});
-
-/**
- * Agent execution endpoint
- *
- * POST /api/agent
- * Body: { message: string, walletId: string, walletAddress: string, autoApproveThreshold: number }
- */
-app.post('/api/agent', async (req, res) => {
-  try {
-    const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = req.body as AgentRequest;
-
-    // Validation
-    if (!message || typeof message !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'message is required and must be a string',
-      });
-      return;
-    }
-
-    if (!walletId || typeof walletId !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'walletId is required and must be a string',
-      });
-      return;
-    }
-
-    if (!walletAddress || typeof walletAddress !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'walletAddress is required and must be a string',
-      });
-      return;
-    }
-
-    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
-      res.status(400).json({
-        success: false,
-        error: 'autoApproveThreshold must be a non-negative number',
-      });
-      return;
-    }
-
-    // Run agent
-    const result: AgentResponse = await runAgent({
-      message,
-      walletId,
-      walletAddress,
-      autoApproveThreshold,
-      agentId,
-      messageHistory,
-    });
-
-    res.json(result);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Request failed', { error: errorMessage });
-
-    res.status(500).json({
-      success: false,
-      message: '',
-      executionLog: [],
-      totalCost: 0,
-      error: errorMessage,
-    });
-  }
 });
 
 /**
@@ -228,7 +159,6 @@ app.listen(PORT, '0.0.0.0', () => {
   logger.agent.success(`Server running on http://0.0.0.0:${PORT}`);
   logger.agent.info('Endpoints:');
   console.log('  - GET  /health       Health check');
-  console.log('  - POST /api/agent    Execute agent');
   console.log('  - POST /api/agent/stream   Execute agent (SSE)');
   console.log('  - POST /api/agent/resume   Resume agent (HITL)');
   logSeparator();

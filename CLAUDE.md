@@ -137,8 +137,8 @@ import { createMessage } from '@/lib/db/messages';
 ### Security: autoApproveThreshold
 
 - **autoApproveThreshold はサーバーサイドでのみ取得・使用する**。クライアントから送信された値は信頼せず、認証後に DB の `budgetSettings` から取得する。
-- `/api/agent/stream`, `/api/agent/resume`, `/api/agent` は `getBudgetSettings(auth.privyUserId)` で閾値を取得し、Agent Service に転送する。
-- クライアント（useAgentStream, useAgentChat, ChatView）は autoApproveThreshold をリクエストボディに含めない。
+- `/api/agent/stream`, `/api/agent/resume` は `getBudgetSettings(auth.privyUserId)` で閾値を取得し、Agent Service に転送する。
+- クライアント（useAgentStream, ChatView）は autoApproveThreshold をリクエストボディに含めない。
 
 ## Environment Setup
 
