@@ -7,8 +7,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+import { findUserIdByPrivyId } from '@/lib/db/users';
+import { findConversationOwner, deleteConversation } from '@/lib/db/conversations';
 
 export async function DELETE(
   request: NextRequest,
@@ -22,29 +23,20 @@ export async function DELETE(
 
     const { conversationId } = await params;
 
-    const user = await prisma.user.findUnique({
-      where: { privyUserId: auth.privyUserId },
-      select: { id: true },
-    });
-    if (!user) {
+    const userId = await findUserIdByPrivyId(auth.privyUserId);
+    if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // 所有者であることを確認してから削除
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId },
-      select: { userId: true },
-    });
+    const conversation = await findConversationOwner(conversationId);
     if (!conversation) {
       return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
     }
-    if (conversation.userId !== user.id) {
+    if (conversation.userId !== userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    await prisma.conversation.delete({
-      where: { id: conversationId },
-    });
+    await deleteConversation(conversationId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

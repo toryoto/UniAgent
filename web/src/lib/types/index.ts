@@ -11,6 +11,8 @@
 import type {
   ExecutionLogEntry,
   DiscoveredAgent,
+  HITLActionRequest,
+  HITLReviewConfig,
 } from '@agent-marketplace/shared';
 
 // ============================================================================
@@ -227,6 +229,13 @@ export interface AgentToolCall {
   step: number;
 }
 
+export interface AgentApproval {
+  threadId: string;
+  actionRequests: HITLActionRequest[];
+  reviewConfigs: HITLReviewConfig[];
+  resolved?: boolean;
+}
+
 export interface AgentStreamMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -237,6 +246,7 @@ export interface AgentStreamMessage {
   executionLog?: ExecutionLogEntry[];
   totalCost?: number;
   payment?: { amount: number; totalCost: number; remainingBudget: number };
+  approval?: AgentApproval;
 }
 
 // ============================================================================

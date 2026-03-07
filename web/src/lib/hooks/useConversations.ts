@@ -42,13 +42,16 @@ export function useConversations() {
     },
     onMutate: async (conversationId) => {
       await queryClient.cancelQueries({ queryKey: QUERY_KEY });
+      // 現在のチャット一覧をpreviousに退避する
       const previous = queryClient.getQueryData<Conversation[]>(QUERY_KEY);
+      // キャッシュの一覧から対象の会話を消す→実施の削除よりも先にUIが変わる
       queryClient.setQueryData<Conversation[]>(QUERY_KEY, (old) =>
         old?.filter((c) => c.id !== conversationId),
       );
       return { previous };
     },
     onError: (_err, _id, context) => {
+      // 削除に失敗したら一覧表示を元に戻す
       if (context?.previous) {
         queryClient.setQueryData(QUERY_KEY, context.previous);
       }

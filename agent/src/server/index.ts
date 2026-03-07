@@ -7,9 +7,8 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
-import { runAgent } from '../core/agent.js';
-import { runAgentStream } from '../core/agent-streaming.js';
+import type { AgentRequest, AgentResumeRequest } from '@agent-marketplace/shared';
+import { runAgentStream, resumeAgentStream } from '../core/agent-streaming.js';
 import { logger, logSeparator } from '../utils/logger.js';
 
 const app = express();
@@ -33,74 +32,6 @@ app.get('/health', (_req, res) => {
 });
 
 /**
- * Agent execution endpoint
- *
- * POST /api/agent
- * Body: { message: string, walletId: string, walletAddress: string, maxBudget: number }
- */
-app.post('/api/agent', async (req, res) => {
-  try {
-    const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = req.body as AgentRequest;
-
-    // Validation
-    if (!message || typeof message !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'message is required and must be a string',
-      });
-      return;
-    }
-
-    if (!walletId || typeof walletId !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'walletId is required and must be a string',
-      });
-      return;
-    }
-
-    if (!walletAddress || typeof walletAddress !== 'string') {
-      res.status(400).json({
-        success: false,
-        error: 'walletAddress is required and must be a string',
-      });
-      return;
-    }
-
-    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
-      res.status(400).json({
-        success: false,
-        error: 'maxBudget must be a positive number',
-      });
-      return;
-    }
-
-    // Run agent
-    const result: AgentResponse = await runAgent({
-      message,
-      walletId,
-      walletAddress,
-      maxBudget,
-      agentId,
-      messageHistory,
-    });
-
-    res.json(result);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Request failed', { error: errorMessage });
-
-    res.status(500).json({
-      success: false,
-      message: '',
-      executionLog: [],
-      totalCost: 0,
-      error: errorMessage,
-    });
-  }
-});
-
-/**
  * SSE Streaming endpoint
  *
  * POST /api/agent/stream
@@ -115,7 +46,7 @@ app.post('/api/agent/stream', async (req, res) => {
   res.flushHeaders();
 
   try {
-    const { message, walletId, walletAddress, maxBudget, agentId, messageHistory } = req.body as AgentRequest;
+    const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = req.body as AgentRequest;
 
     // Validation
     if (!message || typeof message !== 'string') {
@@ -138,16 +69,16 @@ app.post('/api/agent/stream', async (req, res) => {
       return;
     }
 
-    if (typeof maxBudget !== 'number' || maxBudget <= 0) {
+    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
       res.write(
-        `data: ${JSON.stringify({ type: 'error', error: 'maxBudget must be a positive number' })}\n\n`
+        `data: ${JSON.stringify({ type: 'error', error: 'autoApproveThreshold must be a non-negative number' })}\n\n`
       );
       res.end();
       return;
     }
 
     // ストリーミング実行
-    const stream = runAgentStream({ message, walletId, walletAddress, maxBudget, agentId, messageHistory });
+    const stream = runAgentStream({ message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory });
 
     for await (const event of stream) {
       const data = JSON.stringify(event);
@@ -168,13 +99,67 @@ app.post('/api/agent/stream', async (req, res) => {
   }
 });
 
+/**
+ * SSE Resume endpoint (HITL)
+ *
+ * POST /api/agent/resume
+ * 中断されたエージェント実行を再開（Human-in-the-Loop の承認/編集/拒否後）
+ */
+app.post('/api/agent/resume', async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  try {
+    const { threadId, decisions, autoApproveThreshold } = req.body as AgentResumeRequest;
+
+    if (!threadId || typeof threadId !== 'string') {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'threadId is required', executionLog: [] } })}\n\n`);
+      res.end();
+      return;
+    }
+
+    if (!Array.isArray(decisions) || decisions.length === 0) {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'decisions array is required', executionLog: [] } })}\n\n`);
+      res.end();
+      return;
+    }
+
+    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'autoApproveThreshold must be a non-negative number', executionLog: [] } })}\n\n`);
+      res.end();
+      return;
+    }
+
+    const stream = resumeAgentStream(threadId, { decisions }, autoApproveThreshold);
+
+    for await (const event of stream) {
+      const data = JSON.stringify(event);
+      res.write(`data: ${data}\n\n`);
+
+      if (res.closed) {
+        break;
+      }
+    }
+
+    res.end();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.agent.error('Resume request failed', { error: errorMessage });
+    res.write(`data: ${JSON.stringify({ type: 'error', data: { error: errorMessage, executionLog: [] } })}\n\n`);
+    res.end();
+  }
+});
+
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
   logSeparator('UniAgent Agent Service');
   logger.agent.success(`Server running on http://0.0.0.0:${PORT}`);
   logger.agent.info('Endpoints:');
   console.log('  - GET  /health       Health check');
-  console.log('  - POST /api/agent    Execute agent');
   console.log('  - POST /api/agent/stream   Execute agent (SSE)');
+  console.log('  - POST /api/agent/resume   Resume agent (HITL)');
   logSeparator();
 });

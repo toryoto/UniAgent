@@ -38,6 +38,8 @@ export interface AgentCacheRow {
   category: string | null;
   isActive: boolean | null;
   agentCard: unknown; // Prisma Json type
+  rating: number; // EAS 集計スコア (0.0-5.0)
+  ratingCount: number; // attestation 件数
 }
 
 // ============================================================================
@@ -129,8 +131,8 @@ export function agentCardRowToDiscoveredAgent(row: AgentCacheRow): DiscoveredAge
     version: a2aService?.version || '1.0.0',
     skills,
     price,
-    rating: 0,
-    ratingCount: 0,
+    rating: row.rating ?? 0,
+    ratingCount: row.ratingCount ?? 0,
     category: (c.category as string) || a2aService?.domains?.[0] || row.category || '',
     owner: row.owner || '',
     isActive: (c.active as boolean) !== false,

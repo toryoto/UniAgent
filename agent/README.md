@@ -30,13 +30,16 @@ cd agent && npm run dev
 
 ## API
 
-### POST /api/agent
+### POST /api/agent/stream (SSE)
+
+エージェント実行をリアルタイムでストリーミング。Body 例:
 
 ```json
 {
   "message": "パリ3日間の旅行プランを作成して",
   "walletId": "wallet_xxx",
-  "maxBudget": 5.0
+  "walletAddress": "0x...",
+  "autoApproveThreshold": 5.0
 }
 ```
 

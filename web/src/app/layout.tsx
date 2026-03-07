@@ -9,9 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Agent Marketplace - AI エージェントの分散型マーケットプレイス',
-  description: 'A2A、x402、ブロックチェーンを融合したAIエージェント向け分散型マーケットプレイス',
-  keywords: ['AI', 'Agent', 'Blockchain', 'A2A', 'x402', 'Marketplace'],
+  title: 'UniAgent - Decentralized AI Agent Marketplace',
+  description: 'Decentralized marketplace for AI agents compliant with ERC-8004, A2A, and x402',
+  keywords: ['AI', 'Agent', 'Blockchain', 'A2A', 'x402', 'ERC-8004', 'Marketplace'],
 };
 
 export default function RootLayout({

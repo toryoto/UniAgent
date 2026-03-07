@@ -102,6 +102,7 @@ import { DiscoveredAgent } from '@agent-marketplace/shared';
 import { CONTRACT_ADDRESSES } from '@agent-marketplace/shared/config';
 import { AGENT_IDENTITY_REGISTRY_ABI } from '@agent-marketplace/shared/contract';
 import { discoverAgents } from '@agent-marketplace/database';
+import { getBudgetSettings } from '@/lib/db/budget-settings';  // web の DB アクセス
 ```
 
 ### A2A Endpoints (hosted in web/)
@@ -113,6 +114,31 @@ import { discoverAgents } from '@agent-marketplace/database';
 - `discover-agents.ts`: Queries MCP server for available agents
 - `execute-agent.ts`: Executes agent with x402 payment flow
 - `privy-signer.ts`: EIP-3009 signing via Privy delegation
+
+### DB Access Architecture
+
+Prisma を介した DB アクセスは次の方針で配置する。
+
+| 配置 | 対象 | 用途 |
+|------|------|------|
+| **packages/database** | 複数ワークスペースで共有されるモデル | `discoverAgents`（AgentCache 検索）など |
+| **web/lib/db/** | web 固有のモデル | User, Conversation, Message, BudgetSettings, AgentCache(upsert), AccessLimit, EasAttestation |
+
+- **API ルートや Server Components では prisma を直接インポートしない**。`@/lib/db/*` の関数を使用する。
+- web/lib/db の構成: `users.ts`, `conversations.ts`, `messages.ts`, `budget-settings.ts`, `agent-cache.ts`, `access-limits.ts`, `attestations.ts`
+
+```typescript
+// web の API ルートでの DB アクセス例
+import { getBudgetSettings } from '@/lib/db/budget-settings';
+import { findConversationWithMessages } from '@/lib/db/conversations';
+import { createMessage } from '@/lib/db/messages';
+```
+
+### Security: autoApproveThreshold
+
+- **autoApproveThreshold はサーバーサイドでのみ取得・使用する**。クライアントから送信された値は信頼せず、認証後に DB の `budgetSettings` から取得する。
+- `/api/agent/stream`, `/api/agent/resume` は `getBudgetSettings(auth.privyUserId)` で閾値を取得し、Agent Service に転送する。
+- クライアント（useAgentStream, ChatView）は autoApproveThreshold をリクエストボディに含めない。
 
 ## Environment Setup
 
