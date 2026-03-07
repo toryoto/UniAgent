@@ -472,7 +472,7 @@ function ApprovalCard({
   const action = approval.actionRequests[0];
   if (!action) return null;
 
-  const { agentUrl, task, maxPrice, agentId } = action.args as Record<string, unknown>;
+  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -542,6 +542,14 @@ function ApprovalCard({
                 <span className="text-slate-200">{String(task)}</span>
               </div>
             )}
+            {data && typeof data === 'object' && (
+              <div className="flex gap-2">
+                <span className="text-slate-500">Params:</span>
+                <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
+                  {JSON.stringify(data, null, 2)}
+                </pre>
+              </div>
+            )}
             {maxPrice !== undefined && (
               <div className="flex gap-2">
                 <span className="text-slate-500">Max Price:</span>
@@ -552,16 +560,37 @@ function ApprovalCard({
         )}
       </div>
 
-      {/* Edit mode: editable task field */}
+      {/* Edit mode: editable task / data fields */}
       {isEditing && (
         <div className="mb-3 space-y-2">
-          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
-          <textarea
-            value={String(editedArgs.task ?? '')}
-            onChange={(e) => setEditedArgs({ ...editedArgs, task: e.target.value })}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-            rows={3}
-          />
+          {editedArgs.task !== undefined && (
+            <>
+              <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
+              <textarea
+                value={String(editedArgs.task ?? '')}
+                onChange={(e) => setEditedArgs({ ...editedArgs, task: e.target.value })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+                rows={2}
+              />
+            </>
+          )}
+          {editedArgs.data !== undefined && (
+            <>
+              <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
+              <textarea
+                value={typeof editedArgs.data === 'string' ? editedArgs.data : JSON.stringify(editedArgs.data, null, 2)}
+                onChange={(e) => {
+                  try {
+                    setEditedArgs({ ...editedArgs, data: JSON.parse(e.target.value) });
+                  } catch {
+                    setEditedArgs({ ...editedArgs, data: e.target.value });
+                  }
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+                rows={4}
+              />
+            </>
+          )}
         </div>
       )}
 

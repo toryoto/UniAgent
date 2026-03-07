@@ -23,6 +23,11 @@ export {
 
 export type {
   A2ASkill,
+  A2ATextPart,
+  A2ADataPart,
+  A2APart,
+  A2AMessage,
+  A2AMessageSendParams,
   AgentJson,
   AgentJsonEndpoint,
   DiscoveredAgent,
