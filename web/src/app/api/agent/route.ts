@@ -6,6 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+import { getBudgetSettings } from '@/lib/db/getBudgetSettings';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -15,17 +17,20 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/agent
  *
- * Body: { message: string, walletId: string, walletAddress: string, autoApproveThreshold: number, agentId?: string }
+ * Body: { message: string, walletId: string, walletAddress: string, agentId?: string }
  */
 export async function POST(request: NextRequest) {
   console.log('[Agent API] Request received');
 
   try {
+    const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
+    const { message, walletId, walletAddress, agentId } = body;
 
-    const { message, walletId, walletAddress, autoApproveThreshold, agentId } = body;
-
-    // Validation
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ success: false, error: 'message is required' }, { status: 400 });
     }
@@ -41,12 +46,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
-      return NextResponse.json(
-        { success: false, error: 'autoApproveThreshold must be a non-negative number' },
-        { status: 400 }
-      );
+    const budgetSettings = await getBudgetSettings(auth.privyUserId);
+    if (!budgetSettings) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
+    const { autoApproveThreshold } = budgetSettings;
 
     console.log('[Agent API] Forwarding to Agent Service', {
       message,

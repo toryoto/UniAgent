@@ -8,6 +8,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+import { getBudgetSettings } from '@/lib/db/getBudgetSettings';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -18,24 +19,40 @@ export const dynamic = 'force-dynamic';
  * POST /api/agent/resume
  *
  * Headers: Authorization: Bearer <privy-auth-token>
- * Body: { threadId: string, decisions: HITLDecision[], autoApproveThreshold: number, conversationId?: string }
+ * Body: { threadId: string, decisions: HITLDecision[], conversationId?: string }
  * Response: Server-Sent Events
  */
 export async function POST(request: NextRequest) {
   console.log('[Agent Resume API] Request received');
 
   try {
-    await verifyPrivyToken(request);
+    const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     const body = await request.json();
-    const { threadId, decisions, autoApproveThreshold, conversationId } = body;
+    const { threadId, decisions, conversationId } = body;
 
-    if (!threadId || !Array.isArray(decisions) || typeof autoApproveThreshold !== 'number') {
+    if (!threadId || !Array.isArray(decisions)) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Invalid request: threadId, decisions, and autoApproveThreshold are required' }),
+        JSON.stringify({ success: false, error: 'Invalid request: threadId and decisions are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    // サーバーサイドで autoApproveThreshold を取得（クライアント値は信頼しない）
+    const budgetSettings = await getBudgetSettings(auth.privyUserId);
+    if (!budgetSettings) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'User not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    const { autoApproveThreshold } = budgetSettings;
 
     console.log('[Agent Resume API] Forwarding to Agent Service (resume)', {
       threadId,

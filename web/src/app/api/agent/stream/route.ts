@@ -9,6 +9,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+import { getBudgetSettings } from '@/lib/db/getBudgetSettings';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -20,7 +21,7 @@ export const dynamic = 'force-dynamic';
  *
  * Headers: Authorization: Bearer <privy-auth-token>
  * Body: {
- *   message: string, walletId: string, walletAddress: string, autoApproveThreshold: number,
+ *   message: string, walletId: string, walletAddress: string,
  *   agentId?: string, conversationId?: string
  * }
  * Response: Server-Sent Events (with conversationId injected in start event)
@@ -30,64 +31,78 @@ export async function POST(request: NextRequest) {
 
   try {
     const auth = await verifyPrivyToken(request);
+    if (!auth) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     const body = await request.json();
-    const { message, walletId, walletAddress, autoApproveThreshold, agentId, conversationId } = body;
+    const { message, walletId, walletAddress, agentId, conversationId } = body;
 
-    if (!message || !walletId || !walletAddress || typeof autoApproveThreshold !== 'number') {
+    if (!message || !walletId || !walletAddress) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid request' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    // サーバーサイドで autoApproveThreshold を取得（クライアント値は信頼しない）
+    const budgetSettings = await getBudgetSettings(auth.privyUserId);
+    if (!budgetSettings) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'User not found' }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    const { autoApproveThreshold } = budgetSettings;
+
     // 会話の解決: 既存 or 新規作成
     let resolvedConversationId: string | null = conversationId || null;
     let messageHistory: Array<{ role: string; content: string }> = [];
 
-    if (auth) {
-      const user = await prisma.user.findUnique({
-        where: { privyUserId: auth.privyUserId },
-        select: { id: true },
-      });
+    const user = await prisma.user.findUnique({
+      where: { privyUserId: auth.privyUserId },
+      select: { id: true },
+    });
 
-      if (user) {
-        if (resolvedConversationId) {
-          // 既存会話: メッセージ履歴をロード
-          const conversation = await prisma.conversation.findUnique({
-            where: { id: resolvedConversationId, userId: user.id },
-            include: {
-              messages: {
-                orderBy: { createdAt: 'asc' },
-                select: { role: true, content: true },
-              },
+    if (user) {
+      if (resolvedConversationId) {
+        // 既存会話: メッセージ履歴をロード
+        const conversation = await prisma.conversation.findUnique({
+          where: { id: resolvedConversationId, userId: user.id },
+          include: {
+            messages: {
+              orderBy: { createdAt: 'asc' },
+              select: { role: true, content: true },
             },
-          });
-          if (conversation) {
-            messageHistory = conversation.messages.map(m => ({
-              role: m.role,
-              content: m.content,
-            }));
-          }
-        } else {
-          // 新規会話を作成
-          const title = message.length > 50 ? message.slice(0, 50) + '...' : message;
-          const conversation = await prisma.conversation.create({
-            data: { userId: user.id, title },
-          });
-          resolvedConversationId = conversation.id;
+          },
+        });
+        if (conversation) {
+          messageHistory = conversation.messages.map(m => ({
+            role: m.role,
+            content: m.content,
+          }));
         }
+      } else {
+        // 新規会話を作成
+        const title = message.length > 50 ? message.slice(0, 50) + '...' : message;
+        const conversation = await prisma.conversation.create({
+          data: { userId: user.id, title },
+        });
+        resolvedConversationId = conversation.id;
+      }
 
-        // ユーザーメッセージをDBに保存
-        if (resolvedConversationId) {
-          await prisma.message.create({
-            data: {
-              conversationId: resolvedConversationId,
-              role: 'user',
-              content: message,
-            },
-          });
-        }
+      // ユーザーメッセージをDBに保存
+      if (resolvedConversationId) {
+        await prisma.message.create({
+          data: {
+            conversationId: resolvedConversationId,
+            role: 'user',
+            content: message,
+          },
+        });
       }
     }
 
