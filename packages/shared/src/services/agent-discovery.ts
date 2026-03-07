@@ -40,6 +40,7 @@ export interface AgentCacheRow {
   agentCard: unknown; // Prisma Json type
   rating: number; // EAS 集計スコア (0.0-5.0)
   ratingCount: number; // attestation 件数
+  stakedAmount: number; // USDC ステーク量
 }
 
 // ============================================================================
@@ -138,6 +139,7 @@ export function agentCardRowToDiscoveredAgent(row: AgentCacheRow): DiscoveredAge
     isActive: (c.active as boolean) !== false,
     imageUrl: c.image as string | undefined,
     x402Support: (c.x402Support as boolean) || false,
+    stakedAmount: row.stakedAmount ?? 0,
   };
 }
 

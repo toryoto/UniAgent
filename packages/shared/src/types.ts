@@ -71,6 +71,7 @@ export interface DiscoveredAgent {
   openapi?: string;
   imageUrl?: string;
   x402Support?: boolean;
+  stakedAmount?: number;
 }
 
 // ============================================================================

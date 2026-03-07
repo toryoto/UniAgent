@@ -23,6 +23,7 @@ interface AgentCacheWithRatingRow {
   agentCard: unknown;
   rating: number;
   ratingCount: number;
+  stakedAmount: number;
 }
 
 /**
@@ -48,11 +49,13 @@ export async function discoverAgents(
       ac.is_active   AS "isActive",
       ac.agent_card  AS "agentCard",
       COALESCE(AVG((ea.quality + ea.reliability) / 2.0) / 51.0, 0)::float8 AS "rating",
-      COUNT(ea.id)::int AS "ratingCount"
+      COUNT(ea.id)::int AS "ratingCount",
+      COALESCE(ast.staked_amount, 0)::float8 AS "stakedAmount"
     FROM agent_cache ac
     LEFT JOIN eas_attestations ea ON ea.agent_id = ac.agent_id
+    LEFT JOIN agent_stakes ast ON ast.agent_id = ac.agent_id
     WHERE ${whereClause}
-    GROUP BY ac.agent_id, ac.owner, ac.category, ac.is_active, ac.agent_card, ac.updated_at
+    GROUP BY ac.agent_id, ac.owner, ac.category, ac.is_active, ac.agent_card, ac.updated_at, ast.staked_amount
     ORDER BY ac.updated_at DESC
     LIMIT 500
   `;
@@ -65,6 +68,7 @@ export async function discoverAgents(
     agentCard: r.agentCard,
     rating: Number(r.rating),
     ratingCount: r.ratingCount,
+    stakedAmount: Number(r.stakedAmount),
   }));
 
   const agents = discoverAgentsFromCache(cacheRows, input);

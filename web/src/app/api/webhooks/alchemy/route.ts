@@ -1,25 +1,31 @@
 /**
- * Alchemy Webhook エンドポイント（ERC-8004 コントラクトイベント）
+ * Alchemy Webhook エンドポイント（ERC-8004 + AgentStaking コントラクトイベント）
  *
- * 対象イベント:
+ * ERC-8004 対象イベント:
  *   - Transfer(address,address,uint256)    … ERC-721 mint/transfer
  *   - Registered(uint256,string,address)   … ERC-8004 新規登録
  *   - URIUpdated(uint256,string,address)   … ERC-8004 URI 更新
  *
- * いずれのイベントからも agentId (tokenId) を抽出し、
- * tokenURI → IPFS メタデータ取得 → Prisma upsert を行う
+ * AgentStaking 対象イベント:
+ *   - Staked(uint256,address,uint256,uint256)
+ *   - Unstaked(uint256,address,uint256,uint256)
+ *   - UnstakeRequested(uint256,uint256,uint256)
+ *   - UnstakeCancelled(uint256)
+ *   - Slashed(uint256,uint256,string)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
 import { upsertAgentCache } from '@/lib/db/agent-cache';
+import { upsertAgentStake } from '@/lib/db/agent-stakes';
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/config';
 import { AGENT_IDENTITY_REGISTRY_ABI } from '@/lib/blockchain/contract';
 import {
   getProvider,
   fetchAgentMetadata,
   fetchPaymentFromAgentEndpoint,
+  AGENT_STAKING_ABI,
 } from '@agent-marketplace/shared';
 
 export const runtime = 'nodejs';
@@ -121,6 +127,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── ERC-8004 Identity Registry: メタデータ同期 ──
     let processedCount = 0;
     const errors: Array<{ agentId: string; error: string }> = [];
 
@@ -162,21 +169,100 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── AgentStaking: ステーク状態同期 ──
+    const stakingContractAddr = CONTRACT_ADDRESSES.AGENT_STAKING;
+    const stakingAgentIds = new Set<string>();
+
+    if (stakingContractAddr) {
+      const stakingIface = new ethers.Interface(AGENT_STAKING_ABI as any);
+      const stakingAddrLower = stakingContractAddr.toLowerCase();
+      const stakingEventNames = ['Staked', 'Unstaked', 'UnstakeRequested', 'UnstakeCancelled', 'Slashed'];
+
+      for (const log of logs) {
+        if (log.removed) continue;
+        if (log.address && log.address.toLowerCase() !== stakingAddrLower) continue;
+        if (!log.topics?.length) continue;
+
+        let parsed: ethers.LogDescription | null = null;
+        try {
+          parsed = stakingIface.parseLog({ topics: log.topics, data: log.data });
+        } catch {
+          continue;
+        }
+        if (!parsed) continue;
+
+        if (stakingEventNames.includes(parsed.name)) {
+          const id = parsed.args?.agentId?.toString();
+          if (id) stakingAgentIds.add(id);
+        }
+      }
+    }
+
+    let stakingProcessedCount = 0;
+    const stakingErrors: Array<{ agentId: string; error: string }> = [];
+
+    if (stakingAgentIds.size > 0 && stakingContractAddr) {
+      const stakingContract = new ethers.Contract(
+        stakingContractAddr,
+        AGENT_STAKING_ABI as any,
+        provider
+      );
+
+      for (const agentId of stakingAgentIds) {
+        try {
+          const [stakeRaw, unstakeRequestRaw] = await Promise.all([
+            stakingContract.getStake(agentId) as Promise<bigint>,
+            stakingContract.unstakeRequests(agentId) as Promise<[bigint, bigint]>,
+          ]);
+
+          const stakedAmount = Number(stakeRaw) / 1_000_000;
+          const unstakeRequestAmount = Number(unstakeRequestRaw[0]) / 1_000_000;
+          const unstakeAvailableAtUnix = Number(unstakeRequestRaw[1]);
+          const unstakeAvailableAt =
+            unstakeAvailableAtUnix > 0 ? new Date(unstakeAvailableAtUnix * 1000) : null;
+
+          await upsertAgentStake({
+            agentId,
+            stakedAmount,
+            unstakeRequestAmount,
+            unstakeAvailableAt,
+          });
+          stakingProcessedCount++;
+        } catch (e) {
+          stakingErrors.push({ agentId, error: e instanceof Error ? e.message : String(e) });
+        }
+      }
+    }
+
     console.log('[Alchemy Webhook] Summary', {
-      contractAddress: contractAddrLower,
+      identity: {
+        contractAddress: contractAddrLower,
+        agentIdsFound: agentIds.size,
+        processedCount,
+        errorsCount: errors.length,
+      },
+      staking: {
+        agentIdsFound: stakingAgentIds.size,
+        processedCount: stakingProcessedCount,
+        errorsCount: stakingErrors.length,
+      },
       logsFound: logs.length,
-      agentIdsFound: agentIds.size,
-      processedCount,
-      errorsCount: errors.length,
     });
 
     return NextResponse.json({
       success: true,
-      contractAddress: contractAddrLower,
       logsFound: logs.length,
-      agentIdsFound: agentIds.size,
-      processedCount,
-      errors,
+      identity: {
+        contractAddress: contractAddrLower,
+        agentIdsFound: agentIds.size,
+        processedCount,
+        errors,
+      },
+      staking: {
+        agentIdsFound: stakingAgentIds.size,
+        processedCount: stakingProcessedCount,
+        errors: stakingErrors,
+      },
     });
   } catch (error) {
     console.error('[Alchemy Webhook] Error:', error);
