@@ -17,8 +17,10 @@ export {
 
 export {
   AGENT_IDENTITY_REGISTRY_ABI,
+  AGENT_STAKING_ABI,
   getProvider,
   getAgentIdentityRegistryContract,
+  getAgentStakingContract,
 } from './contract.js';
 
 export type {
