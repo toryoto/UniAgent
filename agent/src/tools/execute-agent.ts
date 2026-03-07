@@ -9,7 +9,7 @@
 import { tool } from 'langchain';
 import { z } from 'zod';
 import { PrivyClient } from '@privy-io/server-auth';
-import type { JsonRpcRequest, JsonRpcResponse } from '@agent-marketplace/shared';
+import type { JsonRpcRequest, JsonRpcResponse, A2APart, A2AMessageSendParams } from '@agent-marketplace/shared';
 import { logger } from '../utils/logger.js';
 import type { ExecuteAgentInput, ExecuteAgentResult } from './types.js';
 import { REQUEST_TIMEOUT_MS } from './constants.js';
@@ -41,19 +41,41 @@ logger.payment.info('Privy client initialized', {
 });
 
 /**
- * A2Aリクエストを作成
+ * A2A message/send リクエストを構築する。
+ * task → TextPart、data → DataPart としてそれぞれ追加。
+ * 両方オプショナルだが、少なくとも一方は必須。
  */
-function createJsonRpcRequest(task: string): JsonRpcRequest {
+function createJsonRpcRequest(
+  task?: string,
+  data?: Record<string, unknown>,
+): JsonRpcRequest {
+  const parts: A2APart[] = [];
+
+  if (task) {
+    parts.push({ kind: 'text', text: task });
+  }
+
+  if (data && Object.keys(data).length > 0) {
+    parts.push({ kind: 'data', data });
+  }
+
+  if (parts.length === 0) {
+    throw new Error('A2A request requires at least one Part (task or data)');
+  }
+
+  const params: A2AMessageSendParams = {
+    message: {
+      role: 'user',
+      parts,
+      messageId: crypto.randomUUID(),
+    },
+  };
+
   return {
     jsonrpc: '2.0',
     id: Date.now(),
     method: 'message/send',
-    params: {
-      message: {
-        role: 'user',
-        parts: [{ type: 'text', text: task }],
-      },
-    },
+    params,
   };
 }
 
@@ -141,11 +163,12 @@ async function processPaymentResponse(
  * execute_agent ツール実装 (v2対応)
  */
 async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
-  const { agentUrl, task, maxPrice, walletId, walletAddress } = input;
+  const { agentUrl, task, data, maxPrice, walletId, walletAddress } = input;
 
   logger.agent.info('Executing agent with x402 v2', {
     agentUrl,
-    task,
+    hasTask: !!task,
+    hasData: !!data,
     maxPrice,
     protocol: 'x402 v2',
   });
@@ -160,8 +183,8 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
 
     logger.logic.info('Using agent endpoint', { endpoint });
 
-    // 3. A2Aリクエストを準備
-    const request = createJsonRpcRequest(task);
+    // 3. A2Aリクエストを準備（data があれば DataPart として追加）
+    const request = createJsonRpcRequest(task, data);
 
     // 4. リクエスト送信
     // wrapFetchWithPaymentは以下のフローを自動的に処理:
@@ -247,13 +270,26 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
 /**
  * execute_agent ツール定義
  */
-const executeAgentSchema = z.object({
-  agentUrl: z.string().describe('エージェントのBase URL'),
-  task: z.string().describe('エージェントに依頼するタスク'),
-  maxPrice: z.number().describe('許容する最大価格 (USDC) - 参考値'),
-  walletId: z.string().describe('Privyウォレット ID'),
-  walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
-});
+const executeAgentSchema = z
+  .object({
+    agentUrl: z.string().describe('エージェントのBase URL'),
+    task: z
+      .string()
+      .optional()
+      .describe('自然言語テキスト（A2A TextPart）。テキスト入力を受け付けるエージェント向け。'),
+    data: z
+      .record(z.unknown())
+      .optional()
+      .describe(
+        '構造化パラメータ（A2A DataPart）。fetch_agent_spec の inputSchema / OpenAPI に基づいて構築。'
+      ),
+    maxPrice: z.number().describe('許容する最大価格 (USDC) - 参考値'),
+    walletId: z.string().describe('Privyウォレット ID'),
+    walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
+  })
+  .refine((d) => d.task || (d.data && Object.keys(d.data).length > 0), {
+    message: 'task または data の少なくとも一方が必要です',
+  });
 
 export const executeAgentTool = tool(
   async (input: z.infer<typeof executeAgentSchema>) => {
@@ -271,34 +307,27 @@ export const executeAgentTool = tool(
   },
   {
     name: 'execute_agent',
-    description: `外部エージェントをx402 v2決済付きで実行します。
+    description: `外部エージェントをx402 v2決済付きで実行します（A2A Protocol準拠）。
 
-【機能】
-- discover_agentsで取得したエージェントURLを指定してタスクを依頼
-- HTTP 402 Payment Requiredが返された場合、自動的にx402決済を実行
-- EIP-3009 TransferWithAuthorizationによるガスレス決済
-- Base Sepolia (eip155:84532) 対応
+【A2Aリクエスト構築 — task / data の使い分け】
+fetch_agent_spec で取得した仕様に基づき、エージェントが必要とする Part だけを送る:
+- task (TextPart): 自然言語テキスト入力を受け付けるエージェント向け
+- data (DataPart): inputSchema / OpenAPI でスキーマが定義されているエージェント向け
+- 両方指定も可。ただし少なくとも一方は必須。
 
-【注意】
-- 決済は自動的に実行されます（maxPriceは参考値）
-- USDC残高が不足している場合はエラーになります
-- 決済はオンチェーンで確定するため、取り消しできません
+【判断基準】
+1. inputSchema / OpenAPI がある → data にスキーマ準拠のオブジェクトを渡す。task は省略可。
+2. スキーマがなくテキスト入力のみ → task だけを渡す。
+3. スキーマ＋テキスト補足が有効 → 両方渡す。
 
-【レスポンス】
-- success: 実行成功可否
-- result: 外部エージェントからのレスポンス
-- paymentAmount: 決済額 (USDC)
-- transactionHash: オンチェーントランザクションハッシュ
-- error: エラーメッセージ（失敗時のみ）
+【使用例1: テキストのみ（スキーマなし）】
+{ "task": "東京の天気を教えて", ... }
 
-使用例:
-{
-  "agentUrl": "https://example.com/agent",
-  "task": "東京の天気を教えて",
-  "maxPrice": 0.1,
-  "walletId": "privy-wallet-id",
-  "walletAddress": "0x..."
-}`,
+【使用例2: 構造化データのみ（inputSchemaあり）】
+{ "data": { "origin": "TYO", "destination": "OKA", "date": "2026-03-15" }, ... }
+
+【使用例3: 両方】
+{ "task": "東京から沖縄へのフライトを検索", "data": { "origin": "TYO", "destination": "OKA" }, ... }`,
     schema: executeAgentSchema,
   }
 );

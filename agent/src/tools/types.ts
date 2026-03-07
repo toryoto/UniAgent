@@ -4,7 +4,8 @@
 
 export interface ExecuteAgentInput {
   agentUrl: string;
-  task: string;
+  task?: string;
+  data?: Record<string, unknown>;
   maxPrice: number;
   walletId: string;
   walletAddress: string;

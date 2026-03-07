@@ -15,6 +15,23 @@ export interface A2ASkill {
   inputSchema?: Record<string, unknown>;
 }
 
+/** A2A TextPart — 自然言語テキスト */
+export interface A2ATextPart {
+  kind: 'text';
+  text: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** A2A DataPart — 構造化 JSON データ */
+export interface A2ADataPart {
+  kind: 'data';
+  data: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+/** A2A で使用する Part（ファイル系は今回スコープ外） */
+export type A2APart = A2ATextPart | A2ADataPart;
+
 // ============================================================================
 // Agent JSON Types (.well-known/agent.json)
 // ============================================================================
@@ -191,11 +208,27 @@ export interface ERC8004RegistrationEntry {
 // JSON-RPC Types (A2A Protocol)
 // ============================================================================
 
+/** A2A message/send の params.message */
+export interface A2AMessage {
+  role: 'user' | 'agent';
+  parts: A2APart[];
+  messageId?: string;
+  contextId?: string;
+  taskId?: string;
+}
+
+/** A2A message/send の params */
+export interface A2AMessageSendParams {
+  message: A2AMessage;
+  metadata?: Record<string, unknown>;
+  configuration?: Record<string, unknown>;
+}
+
 export interface JsonRpcRequest {
   jsonrpc: '2.0';
   id?: string | number;
   method: string;
-  params: Record<string, unknown>;
+  params: A2AMessageSendParams | Record<string, unknown>;
 }
 
 export interface JsonRpcResponse<T = unknown> {

@@ -29,31 +29,45 @@ const evaluationResponseSchema = z.object({
   reasoning: z.string().describe('Chain of Thought による推論過程'),
 });
 
-const executeAndEvaluateSchema = z.object({
-  agentId: z.string().describe('エージェントID (16進数文字列。discover_agents の結果から取得)'),
-  category: z
-    .enum(['research', 'travel', 'general'])
-    .describe('エージェントのカテゴリ'),
-  agentUrl: z.string().describe('エージェントのBase URL'),
-  task: z.string().describe('エージェントに依頼するタスク'),
-  maxPrice: z.number().describe('許容する最大価格 (USDC)'),
-  walletId: z.string().describe('Privy ウォレット ID'),
-  walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
-});
+const executeAndEvaluateSchema = z
+  .object({
+    agentId: z.string().describe('エージェントID (16進数文字列。discover_agents の結果から取得)'),
+    category: z
+      .enum(['research', 'travel', 'general'])
+      .describe('エージェントのカテゴリ'),
+    agentUrl: z.string().describe('エージェントのBase URL'),
+    task: z
+      .string()
+      .optional()
+      .describe('自然言語テキスト（A2A TextPart）。テキスト入力を受け付けるエージェント向け。'),
+    data: z
+      .record(z.unknown())
+      .optional()
+      .describe(
+        '構造化パラメータ（A2A DataPart）。fetch_agent_spec の inputSchema / OpenAPI に基づいて構築。'
+      ),
+    maxPrice: z.number().describe('許容する最大価格 (USDC)'),
+    walletId: z.string().describe('Privy ウォレット ID'),
+    walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
+  })
+  .refine((d) => d.task || (d.data && Object.keys(d.data).length > 0), {
+    message: 'task または data の少なくとも一方が必要です',
+  });
 
 type ExecuteAndEvaluateInput = z.infer<typeof executeAndEvaluateSchema>;
 
 async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
-  const { agentId, category, agentUrl, task, maxPrice, walletId, walletAddress } = input;
+  const { agentId, category, agentUrl, task, data, maxPrice, walletId, walletAddress } = input;
 
   // ── 1. Execute AI Agent ──────────────────────────────────────
-  logger.eval.info('Execute & Evaluate started', { agentId, agentUrl });
+  logger.eval.info('Execute & Evaluate started', { agentId, agentUrl, hasData: !!data });
 
   const startTime = Date.now();
 
   const executeResultRaw = await executeAgentTool.invoke({
     agentUrl,
-    task,
+    ...(task ? { task } : {}),
+    ...(data ? { data } : {}),
     maxPrice,
     walletId,
     walletAddress,
@@ -110,11 +124,15 @@ async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
     });
     const evaluationModel = baseModel.withStructuredOutput(evaluationResponseSchema);
 
+    const taskDescription = task
+      ? task
+      : `構造化リクエスト: ${JSON.stringify(data)}`;
+
     const systemPrompt = getEvaluationPrompt(category as AgentCategory);
     const userPrompt = `## 評価対象
 
 ### ユーザーのタスク
-${task}
+${taskDescription}
 
 ### エージェントの応答
 ${responseText}
@@ -208,7 +226,9 @@ export const executeAndEvaluateAgentTool = tool(
 - agentId: エージェントID（discover_agents の結果から取得）
 - category: エージェントカテゴリ ("research" | "travel" | "general")
 - agentUrl: エージェントのBase URL
-- task: エージェントに依頼するタスク
+- task: 自然言語テキスト（A2A TextPart、省略可）
+- data: 構造化パラメータ（A2A DataPart、省略可）。fetch_agent_spec の inputSchema に基づいて構築
+- ※ task と data は少なくとも一方が必須。エージェント仕様に応じて必要な方だけ渡す。
 - maxPrice: 許容する最大価格 (USDC)
 - walletId: Privy ウォレット ID
 - walletAddress: ウォレットアドレス (0x...)

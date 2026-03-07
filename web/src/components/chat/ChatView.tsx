@@ -472,7 +472,7 @@ function ApprovalCard({
   const action = approval.actionRequests[0];
   if (!action) return null;
 
-  const { agentUrl, task, maxPrice, agentId } = action.args as Record<string, unknown>;
+  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
 
   const handleApprove = async () => {
     setIsSubmitting(true);
@@ -542,6 +542,14 @@ function ApprovalCard({
                 <span className="text-slate-200">{String(task)}</span>
               </div>
             )}
+            {data && typeof data === 'object' && (
+              <div className="flex gap-2">
+                <span className="text-slate-500">Params:</span>
+                <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
+                  {JSON.stringify(data, null, 2)}
+                </pre>
+              </div>
+            )}
             {maxPrice !== undefined && (
               <div className="flex gap-2">
                 <span className="text-slate-500">Max Price:</span>
@@ -552,16 +560,37 @@ function ApprovalCard({
         )}
       </div>
 
-      {/* Edit mode: editable task field */}
+      {/* Edit mode: editable task / data fields */}
       {isEditing && (
         <div className="mb-3 space-y-2">
-          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
-          <textarea
-            value={String(editedArgs.task ?? '')}
-            onChange={(e) => setEditedArgs({ ...editedArgs, task: e.target.value })}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-            rows={3}
-          />
+          {editedArgs.task !== undefined && (
+            <>
+              <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
+              <textarea
+                value={String(editedArgs.task ?? '')}
+                onChange={(e) => setEditedArgs({ ...editedArgs, task: e.target.value })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+                rows={2}
+              />
+            </>
+          )}
+          {editedArgs.data !== undefined && (
+            <>
+              <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
+              <textarea
+                value={typeof editedArgs.data === 'string' ? editedArgs.data : JSON.stringify(editedArgs.data, null, 2)}
+                onChange={(e) => {
+                  try {
+                    setEditedArgs({ ...editedArgs, data: JSON.parse(e.target.value) });
+                  } catch {
+                    setEditedArgs({ ...editedArgs, data: e.target.value });
+                  }
+                }}
+                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+                rows={4}
+              />
+            </>
+          )}
         </div>
       )}
 
@@ -621,6 +650,7 @@ function ApprovalCard({
 function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isCalling = toolCall.status === 'calling';
+  const isRejected = toolCall.result === 'Rejected by user';
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
@@ -630,6 +660,8 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
       >
         {isCalling ? (
           <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
+        ) : isRejected ? (
+          <XCircle className="h-3 w-3 text-red-400" />
         ) : (
           <Wrench className="h-3 w-3 text-green-400" />
         )}
@@ -638,10 +670,12 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
           className={`rounded px-1.5 py-0.5 text-[10px] ${
             isCalling
               ? 'bg-yellow-500/20 text-yellow-300'
-              : 'bg-green-500/20 text-green-300'
+              : isRejected
+                ? 'bg-red-500/20 text-red-300'
+                : 'bg-green-500/20 text-green-300'
           }`}
         >
-          {isCalling ? 'Running...' : 'Done'}
+          {isCalling ? 'Running...' : isRejected ? 'Rejected' : 'Done'}
         </span>
         <span className="ml-auto text-slate-500">
           {isExpanded ? (
