@@ -8,13 +8,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
-
-const DEFAULTS = {
-  dailyLimit: 100,
-  autoApproveThreshold: 1,
-};
+import { findUserIdByPrivyId } from '@/lib/db/users';
+import { getBudgetSettings, upsertBudgetSettings } from '@/lib/db/budget-settings';
 
 /**
  * GET /api/wallet/budget
@@ -26,23 +22,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { privyUserId: auth.privyUserId },
-      select: { id: true, budgetSettings: true },
-    });
-
-    if (!user) {
+    const settings = await getBudgetSettings(auth.privyUserId);
+    if (!settings) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      dailyLimit: user.budgetSettings
-        ? Number(user.budgetSettings.dailyLimit)
-        : DEFAULTS.dailyLimit,
-      autoApproveThreshold: user.budgetSettings
-        ? Number(user.budgetSettings.autoApproveThreshold)
-        : DEFAULTS.autoApproveThreshold,
-    });
+    return NextResponse.json(settings);
   } catch (error) {
     console.error('[Budget API] GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -73,27 +58,14 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { privyUserId: auth.privyUserId },
-      select: { id: true },
-    });
-
-    if (!user) {
+    const userId = await findUserIdByPrivyId(auth.privyUserId);
+    if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const data: Record<string, number> = {};
-    if (dailyLimit !== undefined) data.dailyLimit = dailyLimit;
-    if (autoApproveThreshold !== undefined) data.autoApproveThreshold = autoApproveThreshold;
-
-    const settings = await prisma.budgetSettings.upsert({
-      where: { userId: user.id },
-      create: {
-        userId: user.id,
-        dailyLimit: dailyLimit ?? DEFAULTS.dailyLimit,
-        autoApproveThreshold: autoApproveThreshold ?? DEFAULTS.autoApproveThreshold,
-      },
-      update: data,
+    const settings = await upsertBudgetSettings(userId, {
+      dailyLimit,
+      autoApproveThreshold,
     });
 
     return NextResponse.json({

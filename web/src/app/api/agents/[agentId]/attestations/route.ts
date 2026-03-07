@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@agent-marketplace/database';
+import { findAttestationsByAgent } from '@/lib/db/attestations';
 import type { ApiResponse } from '@/lib/types';
 import { buildEasScanUrl } from '@/lib/eas/encode-offchain-url';
 
@@ -43,10 +43,7 @@ export async function GET(
   try {
     const { agentId } = await params;
 
-    const rows = await prisma.easAttestation.findMany({
-      where: { agentId },
-      orderBy: { createdAt: 'desc' },
-    });
+    const rows = await findAttestationsByAgent(agentId);
 
     const attestations: AttestationResponse[] = rows.map((row) => ({
       id: row.id,

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, createWalletClient, http, parseUnits } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
-import { prisma, Prisma } from '@/lib/db/prisma';
+import { checkAndUpdateAccessLimit } from '@/lib/db/access-limits';
 import { CONTRACT_ADDRESSES, USDC_DECIMALS } from '@agent-marketplace/shared';
 
 const FAUCET_AMOUNT = process.env.FAUCET_AMOUNT || '0.1';
@@ -10,13 +10,11 @@ const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000;
 const IP_LIMIT = 3;
 const WALLET_LIMIT = 1;
 
-// ホワイトリスト（カンマ区切りで複数アドレスを指定可能）
 const FAUCET_WHITELIST = (process.env.FAUCET_WHITELIST || '')
   .split(',')
   .map((addr) => addr.trim().toLowerCase())
   .filter((addr) => addr.length > 0);
 
-// ホワイトリストに含まれているかチェック
 function isWhitelisted(walletAddress: string): boolean {
   return FAUCET_WHITELIST.includes(walletAddress.toLowerCase());
 }
@@ -34,142 +32,10 @@ const ERC20_ABI = [
   },
 ] as const;
 
-interface AccessCheckResult {
-  limited: boolean;
-  reason?: 'ip' | 'wallet';
-}
-
-const checkAccessLimit = async (
-  walletAddress: string,
-  ipAddress: string,
-  func: string
-): Promise<AccessCheckResult> => {
-  const now = new Date();
-
-  return await prisma.$transaction(
-    async (tx) => {
-      const [ipRecord, walletRecord] = await Promise.all([
-        tx.accessLimit.findUnique({
-          where: {
-            idx_identifier_type_feature: {
-              identifier: ipAddress,
-              identifierType: 'ip',
-              feature: func,
-            },
-          },
-        }),
-        tx.accessLimit.findUnique({
-          where: {
-            idx_identifier_type_feature: {
-              identifier: walletAddress,
-              identifierType: 'wallet',
-              feature: func,
-            },
-          },
-        }),
-      ]);
-
-      // IPアドレスの制限チェック
-      if (ipRecord) {
-        const elapsed = now.getTime() - new Date(ipRecord.firstRequestAt).getTime();
-        if (elapsed < RATE_LIMIT_WINDOW_MS && ipRecord.requestCount >= IP_LIMIT) {
-          return { limited: true, reason: 'ip' as const };
-        }
-      }
-
-      // ウォレットアドレスの制限チェック（ホワイトリストに含まれている場合はスキップ）
-      const isWhitelistedWallet = isWhitelisted(walletAddress);
-      if (!isWhitelistedWallet && walletRecord) {
-        const elapsed = now.getTime() - new Date(walletRecord.firstRequestAt).getTime();
-        if (elapsed < RATE_LIMIT_WINDOW_MS && walletRecord.requestCount >= WALLET_LIMIT) {
-          return { limited: true, reason: 'wallet' as const };
-        }
-      }
-
-      // 両方の制限チェックをパスした場合のみ更新処理を実行
-      const updatePromises = [];
-
-      // IPアドレスのレコード更新
-      if (ipRecord) {
-        const elapsed = now.getTime() - new Date(ipRecord.firstRequestAt).getTime();
-        if (elapsed >= RATE_LIMIT_WINDOW_MS) {
-          updatePromises.push(
-            tx.accessLimit.update({
-              where: { id: ipRecord.id },
-              data: { firstRequestAt: now, requestCount: 1 },
-            })
-          );
-        } else {
-          updatePromises.push(
-            tx.accessLimit.update({
-              where: { id: ipRecord.id },
-              data: { requestCount: { increment: 1 } },
-            })
-          );
-        }
-      } else {
-        updatePromises.push(
-          tx.accessLimit.create({
-            data: {
-              identifier: ipAddress,
-              identifierType: 'ip',
-              feature: func,
-              firstRequestAt: now,
-              requestCount: 1,
-            },
-          })
-        );
-      }
-
-      // ウォレットアドレスのレコード更新（ホワイトリストに含まれている場合はスキップ）
-      if (!isWhitelistedWallet) {
-        if (walletRecord) {
-          const elapsed = now.getTime() - new Date(walletRecord.firstRequestAt).getTime();
-          if (elapsed >= RATE_LIMIT_WINDOW_MS) {
-            updatePromises.push(
-              tx.accessLimit.update({
-                where: { id: walletRecord.id },
-                data: { firstRequestAt: now, requestCount: 1 },
-              })
-            );
-          } else {
-            updatePromises.push(
-              tx.accessLimit.update({
-                where: { id: walletRecord.id },
-                data: { requestCount: { increment: 1 } },
-              })
-            );
-          }
-        } else {
-          updatePromises.push(
-            tx.accessLimit.create({
-              data: {
-                identifier: walletAddress,
-                identifierType: 'wallet',
-                feature: func,
-                firstRequestAt: now,
-                requestCount: 1,
-              },
-            })
-          );
-        }
-      }
-
-      await Promise.all(updatePromises);
-
-      return { limited: false };
-    },
-    {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    }
-  );
-};
-
 export async function POST(request: NextRequest) {
   try {
     const { walletAddress } = await request.json();
 
-    // 入力検証
     if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
       return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 });
     }
@@ -199,14 +65,20 @@ export async function POST(request: NextRequest) {
       transport: http(process.env.NEXT_PUBLIC_RPC_URL),
     });
 
-    // IPアドレスの取得
     const ipAddress =
       request.headers.get('x-forwarded-for')?.split(',')[0] ||
       request.headers.get('x-real-ip') ||
       'unknown';
 
-    // レート制限チェック
-    const { limited, reason } = await checkAccessLimit(walletAddress, ipAddress, 'faucet');
+    const { limited, reason } = await checkAndUpdateAccessLimit({
+      walletAddress,
+      ipAddress,
+      feature: 'faucet',
+      ipLimit: IP_LIMIT,
+      walletLimit: WALLET_LIMIT,
+      windowMs: RATE_LIMIT_WINDOW_MS,
+      skipWalletLimit: isWhitelisted(walletAddress),
+    });
 
     if (limited) {
       return NextResponse.json(
@@ -221,10 +93,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // USDCの量をwei単位に変換（6 decimals）
     const amount = parseUnits(FAUCET_AMOUNT, USDC_DECIMALS);
 
-    // ERC20 transferトランザクション送信
     const hash = await walletClient.writeContract({
       address: CONTRACT_ADDRESSES.USDC as `0x${string}`,
       abi: ERC20_ABI,
@@ -250,7 +120,6 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Faucet API error:', error);
 
-    // エラーの種類に応じた処理
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorName = error instanceof Error ? error.name : '';
 

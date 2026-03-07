@@ -13,7 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { ethers } from 'ethers';
-import { prisma } from '@/lib/db/prisma';
+import { upsertAgentCache } from '@/lib/db/agent-cache';
 import { CONTRACT_ADDRESSES } from '@/lib/blockchain/config';
 import { AGENT_IDENTITY_REGISTRY_ABI } from '@/lib/blockchain/contract';
 import {
@@ -33,9 +33,6 @@ function timingSafeEqualHex(aHex: string, bHex: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-/**
- * Alchemy Webhook 署名検証（HMAC-SHA256）
- */
 function verifyAlchemySignature(rawBody: string, signatureHeader: string | null) {
   const signingKey = process.env.ALCHEMY_WEBHOOK_SIGNING_KEY;
   if (!signingKey) return;
@@ -108,19 +105,16 @@ export async function POST(request: NextRequest) {
       }
       if (!parsed) continue;
 
-      // ERC-721 Transfer: Transfer(address from, address to, uint256 tokenId)
       if (parsed.name === 'Transfer') {
         const tokenId = parsed.args?.tokenId?.toString();
         if (tokenId) agentIds.add(tokenId);
       }
 
-      // ERC-8004 Registered: Registered(uint256 agentId, string agentURI, address owner)
       if (parsed.name === 'Registered') {
         const agentId = parsed.args?.agentId?.toString();
         if (agentId) agentIds.add(agentId);
       }
 
-      // ERC-8004 URIUpdated: URIUpdated(uint256 agentId, string newURI, address updatedBy)
       if (parsed.name === 'URIUpdated') {
         const agentId = parsed.args?.agentId?.toString();
         if (agentId) agentIds.add(agentId);
@@ -145,7 +139,6 @@ export async function POST(request: NextRequest) {
         const category = metadata.category ?? a2aService?.domains?.[0] ?? '';
         const isActive = metadata.active !== false;
 
-        // A2A エンドポイントから payment（価格）を取得してマージ
         let agentCardObj: Record<string, unknown> = { ...metadata };
         if (a2aService?.endpoint) {
           const payment = await fetchPaymentFromAgentEndpoint(a2aService.endpoint);
@@ -154,28 +147,14 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // ERC-8004 形式のまま agent_card に保存
         const agentCard = toJsonSafe(agentCardObj);
 
-        await prisma.agentCache.upsert({
-          where: { agentId },
-          create: {
-            agentId,
-            owner,
-            category,
-            isActive,
-            agentCard: agentCard as object,
-            lastSyncedBlock: 0,
-            lastSyncedLogIdx: 0,
-          },
-          update: {
-            owner,
-            category,
-            isActive,
-            agentCard: agentCard as object,
-            lastSyncedBlock: 0,
-            lastSyncedLogIdx: 0,
-          },
+        await upsertAgentCache({
+          agentId,
+          owner,
+          category,
+          isActive,
+          agentCard: agentCard as object,
         });
         processedCount++;
       } catch (e) {

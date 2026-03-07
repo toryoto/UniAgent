@@ -6,9 +6,10 @@
  */
 
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
-import { getBudgetSettings } from '@/lib/db/getBudgetSettings';
+import { getBudgetSettings } from '@/lib/db/budget-settings';
+import { createMessage } from '@/lib/db/messages';
+import { touchConversation } from '@/lib/db/conversations';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -44,7 +45,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // サーバーサイドで autoApproveThreshold を取得（クライアント値は信頼しない）
     const budgetSettings = await getBudgetSettings(auth.privyUserId);
     if (!budgetSettings) {
       return new Response(
@@ -81,7 +81,6 @@ export async function POST(request: NextRequest) {
     }
 
     // SSEストリームをインターセプトしてアシスタントメッセージの更新を保存
-    const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     let assistantContent = '';
     let totalCost = 0;
@@ -106,21 +105,15 @@ export async function POST(request: NextRequest) {
         }
       },
       async flush() {
-        // resume完了後にアシスタントメッセージをDBに保存（conversationIdがある場合のみ）
         if (conversationId && assistantContent) {
           try {
-            await prisma.message.create({
-              data: {
-                conversationId,
-                role: 'assistant',
-                content: assistantContent,
-                totalCost: totalCost > 0 ? totalCost : null,
-              },
+            await createMessage({
+              conversationId,
+              role: 'assistant',
+              content: assistantContent,
+              totalCost: totalCost > 0 ? totalCost : null,
             });
-            await prisma.conversation.update({
-              where: { id: conversationId },
-              data: { updatedAt: new Date() },
-            });
+            await touchConversation(conversationId);
           } catch (err) {
             console.error('[Agent Resume API] Failed to save assistant message:', err);
           }

@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
-import { getBudgetSettings } from '@/lib/db/getBudgetSettings';
+import { getBudgetSettings } from '@/lib/db/budget-settings';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 

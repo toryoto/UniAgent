@@ -5,8 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+import { findUserByPrivyId, updateUserDelegation } from '@/lib/db/users';
 
 /**
  * GET /api/wallet/delegation
@@ -19,15 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { privyUserId: auth.privyUserId },
-      select: {
-        id: true,
-        walletAddress: true,
-        isDelegated: true,
-      },
-    });
-
+    const user = await findUserByPrivyId(auth.privyUserId);
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
@@ -63,15 +55,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const user = await prisma.user.update({
-      where: { privyUserId: auth.privyUserId },
-      data: { isDelegated },
-      select: {
-        id: true,
-        walletAddress: true,
-        isDelegated: true,
-      },
-    });
+    const user = await updateUserDelegation(auth.privyUserId, isDelegated);
 
     return NextResponse.json({
       isDelegated: user.isDelegated,

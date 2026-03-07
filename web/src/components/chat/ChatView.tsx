@@ -24,7 +24,6 @@ import { useAgentStream } from '@/lib/hooks/useAgentStream';
 import type { AgentStreamMessage, AgentToolCall, AgentApproval } from '@/lib/types';
 import type { HITLDecision } from '@agent-marketplace/shared';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
-import { useBudgetSettings } from '@/lib/hooks/useBudgetSettings';
 import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
 import { CommandDropdown } from '@/components/chat/CommandDropdown';
 import { CommandBadge } from '@/components/chat/CommandBadge';
@@ -55,7 +54,6 @@ interface ChatViewProps {
 export function ChatView({ conversationId: initialConversationId, initialMessages }: ChatViewProps) {
   const { getAccessToken } = usePrivy();
   const { wallet } = useDelegatedWallet();
-  const { settings: budgetSettings } = useBudgetSettings();
   const queryClient = useQueryClient();
 
   const walletId = wallet?.walletId || '';
@@ -76,7 +74,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   } = useAgentStream({
     walletId,
     walletAddress,
-    autoApproveThreshold: budgetSettings.autoApproveThreshold,
     conversationId: initialConversationId,
     getAccessToken,
     initialMessages,

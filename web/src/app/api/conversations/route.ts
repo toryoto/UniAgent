@@ -8,8 +8,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+import { findUserIdByPrivyId } from '@/lib/db/users';
+import { listConversationsByUser, createConversation } from '@/lib/db/conversations';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,25 +19,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { privyUserId: auth.privyUserId },
-      select: { id: true },
-    });
-    if (!user) {
+    const userId = await findUserIdByPrivyId(auth.privyUserId);
+    if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const conversations = await prisma.conversation.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: 'desc' },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
+    const conversations = await listConversationsByUser(userId);
     return NextResponse.json({ conversations });
   } catch (error) {
     console.error('[Conversations API] GET error:', error);
@@ -54,27 +42,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { title } = body;
 
-    const user = await prisma.user.findUnique({
-      where: { privyUserId: auth.privyUserId },
-      select: { id: true },
-    });
-    if (!user) {
+    const userId = await findUserIdByPrivyId(auth.privyUserId);
+    if (!userId) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const conversation = await prisma.conversation.create({
-      data: {
-        userId: user.id,
-        title: title || null,
-      },
-      select: {
-        id: true,
-        title: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
+    const conversation = await createConversation(userId, title || null);
     return NextResponse.json({ conversation }, { status: 201 });
   } catch (error) {
     console.error('[Conversations API] POST error:', error);

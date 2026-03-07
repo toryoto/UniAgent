@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/db/prisma';
+import { findConversationWithMessages } from '@/lib/db/conversations';
 import { AppLayout } from '@/components/layout/app-layout';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { ChatView } from '@/components/chat/ChatView';
@@ -12,15 +12,7 @@ export default async function ConversationPage({
 }) {
   const { conversationId } = await params;
 
-  const conversation = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    include: {
-      messages: {
-        orderBy: { createdAt: 'asc' },
-        select: { id: true, role: true, content: true, totalCost: true, createdAt: true },
-      },
-    },
-  });
+  const conversation = await findConversationWithMessages(conversationId);
 
   if (!conversation) notFound();
 
