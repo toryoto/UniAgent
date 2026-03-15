@@ -13,7 +13,12 @@ const WEIGHTS = {
   freshness: 0.1,
 } as const;
 
-/** Bayesian prior strength — レビュー C 件未満は全体平均に寄せる */
+/**
+ * Bayesian prior strength.
+ * 3 件未満はサンプル不足として全体平均に強く寄せる。
+ * `COLD_THRESHOLD` と同値にして、「十分な実績がまだない区間」を
+ * スコア平滑化と explore 対象の両方で同じ意味にそろえている。
+ */
 const BAYESIAN_C = 3;
 
 /** Deposit 上限 (USDC)。これ以上は 1.0 にクランプ */
@@ -22,7 +27,12 @@ const DEPOSIT_CAP = 500;
 /** Freshness 減衰率 (half-life ≈ 14 days) */
 const FRESHNESS_LAMBDA = 0.05;
 
-/** Cold Pool 閾値 — ratingCount がこの値未満はコールドスタート */
+/**
+ * Cold Pool 閾値.
+ * `BAYESIAN_C` と同じ 3 を採用し、Bayesian prior がまだ支配的な
+ * エージェントを explore 対象として扱う。
+ * 役割は別なので定数は分離し、将来チューニングを独立にできるようにしている。
+ */
 const COLD_THRESHOLD = 3;
 
 /** 返却するエージェント数 */

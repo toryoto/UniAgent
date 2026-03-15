@@ -234,6 +234,11 @@ Application 層で `is_cold = true` から 1体ランダム選出、残りから
 | `RANKING_COLD_THRESHOLD` | 3 | Cold pool ratingCount threshold |
 | `RANKING_TOP_K` | 3 | Number of agents to return |
 
+`RANKING_BAYESIAN_C` と `RANKING_COLD_THRESHOLD` は現在どちらも `3` だが、これは偶然ではない。
+「レビュー 3 件未満は実績不足で Bayesian prior の影響を強く受ける」という区間を、そのまま
+「Cold Pool に入れて explore する区間」としてそろえているためである。
+ただし責務は別なので定数は分離し、将来的には独立して調整できるようにしている。
+
 ---
 
 ## Implementation Layers
