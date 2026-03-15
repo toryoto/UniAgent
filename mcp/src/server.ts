@@ -20,9 +20,13 @@ export const mcpServer = new FastMCP({
 mcpServer.addTool({
   name: 'discover_agents',
   description: `ブロックチェーン上のAgent Identity Registry (ERC-8004) からエージェントを検索します。
-カテゴリやスキル名で検索可能で、価格・評価でのフィルタリングもサポートしています。
+名前・説明・カテゴリ・スキル名で検索可能で、価格・評価でのフィルタリングもサポートしています。
 結果にはオンチェーンのエージェント情報と、各エージェントの.well-known/agent.jsonから取得したA2Aエンドポイント・価格情報が含まれます。`,
   parameters: z.object({
+    q: z
+      .string()
+      .optional()
+      .describe('自由検索キーワード。名前検索に推奨 (例: "FlightFinderPro")'),
     category: z
       .string()
       .optional()
@@ -37,6 +41,7 @@ mcpServer.addTool({
 
     try {
       const result = await discoverAgents({
+        q: args.q,
         category: args.category,
         skillName: args.skillName,
         maxPrice: args.maxPrice,

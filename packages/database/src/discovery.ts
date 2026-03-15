@@ -26,19 +26,35 @@ interface AgentCacheWithRatingRow {
   stakedAmount: number;
 }
 
-/**
- * DB(AgentCache) からエージェントを検索（EAS 評価スコア付き）
- */
-export async function discoverAgents(
-  input: DiscoverAgentsInput
-): Promise<DiscoverAgentsOutput> {
+function buildDiscoveryConditions(input: DiscoverAgentsInput): Prisma.Sql[] {
   const conditions: Prisma.Sql[] = [Prisma.sql`ac.is_active = true`];
+
   if (input.agentId) {
     conditions.push(Prisma.sql`ac.agent_id = ${input.agentId}`);
   }
   if (input.category) {
     conditions.push(Prisma.sql`ac.category = ${input.category}`);
   }
+  if (input.q?.trim()) {
+    const likeQuery = `%${input.q.trim()}%`;
+    conditions.push(
+      Prisma.sql`(
+        ac.category ILIKE ${likeQuery}
+        OR CAST(ac.agent_card AS text) ILIKE ${likeQuery}
+      )`
+    );
+  }
+
+  return conditions;
+}
+
+/**
+ * DB(AgentCache) からエージェントを検索（EAS 評価スコア付き）
+ */
+export async function discoverAgents(
+  input: DiscoverAgentsInput
+): Promise<DiscoverAgentsOutput> {
+  const conditions = buildDiscoveryConditions(input);
   const whereClause = Prisma.join(conditions, ' AND ');
 
   const rows = await prisma.$queryRaw<AgentCacheWithRatingRow[]>`
@@ -101,13 +117,7 @@ export interface AgentStatsRow {
 export async function discoverAgentsWithStats(
   input: DiscoverAgentsInput
 ): Promise<AgentStatsRow[]> {
-  const conditions: Prisma.Sql[] = [Prisma.sql`ac.is_active = true`];
-  if (input.agentId) {
-    conditions.push(Prisma.sql`ac.agent_id = ${input.agentId}`);
-  }
-  if (input.category) {
-    conditions.push(Prisma.sql`ac.category = ${input.category}`);
-  }
+  const conditions = buildDiscoveryConditions(input);
   const whereClause = Prisma.join(conditions, ' AND ');
 
   const rows = await prisma.$queryRaw<AgentStatsRow[]>`
