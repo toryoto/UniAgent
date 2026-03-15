@@ -54,7 +54,7 @@ B(x) = (C × μ + n × x̄) / (C + n)
 | Symbol | Meaning | Value |
 |--------|---------|-------|
 | C | 信頼に必要な最低レビュー数 | **3** |
-| μ | 全エージェントの global mean | 動的 (SQL で計算) |
+| μ | 全 attestation を母集団にした global mean | 動的 (SQL または `ratingCount` 重み付き集計で計算) |
 | n | 該当エージェントの ratingCount | DB |
 | x̄ | 該当エージェントの平均スコア | DB |
 
@@ -75,6 +75,12 @@ w_q × B_quality / 100  +  w_r × B_reliability / 100
 - ratingCount = 0 → スコアは μ に収束（不当に高くも低くもならない）
 - ratingCount ≥ 10 → 自身の実績がほぼそのまま反映
 - 1〜2件の高評価自作自演 → C=3 の prior に引き寄せられ効果が薄い
+
+実装上の注意:
+
+- `μ` は「エージェント平均の単純平均」ではなく、「全レビュー平均」と一致している必要がある
+- アプリケーション層で `avgQuality` / `avgReliability` から復元する場合は、`ratingCount` を重みにして集計する
+- つまり `SUM(avg_quality * rating_count) / SUM(rating_count)` は、SQL の `AVG(ea.quality)` と等価
 
 ### 2. Deposit Score（対数スケーリング）
 

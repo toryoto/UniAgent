@@ -42,6 +42,8 @@ interface GlobalMeans {
 
 /**
  * レビューのあるエージェント群から quality / reliability の全体平均を算出。
+ * 各エージェントを 1 票として扱うのではなく、ratingCount を重みにした
+ * 加重平均にすることで「全 attestation の平均」と等価にする。
  * 全エージェントがレビュー 0 件の場合はデフォルト 50 を返す。
  */
 export function computeGlobalMeans(agents: AgentWithStats[]): GlobalMeans {
@@ -49,8 +51,11 @@ export function computeGlobalMeans(agents: AgentWithStats[]): GlobalMeans {
   if (rated.length === 0) {
     return { meanQuality: 50, meanReliability: 50 };
   }
-  const meanQuality = rated.reduce((sum, a) => sum + a.avgQuality, 0) / rated.length;
-  const meanReliability = rated.reduce((sum, a) => sum + a.avgReliability, 0) / rated.length;
+  const totalRatings = rated.reduce((sum, a) => sum + a.ratingCount, 0);
+  const meanQuality =
+    rated.reduce((sum, a) => sum + a.avgQuality * a.ratingCount, 0) / totalRatings;
+  const meanReliability =
+    rated.reduce((sum, a) => sum + a.avgReliability * a.ratingCount, 0) / totalRatings;
   return { meanQuality, meanReliability };
 }
 
