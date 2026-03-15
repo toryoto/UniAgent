@@ -47,6 +47,9 @@ export type {
   HITLReviewConfig,
   HITLDecision,
   AgentResumeRequest,
+  SelectionReason,
+  ScoredAgent,
+  SelectedAgent,
 } from './types.js';
 
 // Services
@@ -61,3 +64,10 @@ export {
 } from './services/index.js';
 
 export { uploadAgentMetadata, fetchAgentMetadata } from './services/pinata.js';
+
+export {
+  computeGlobalMeans,
+  scoreAgents,
+  selectAgents,
+  type AgentWithStats,
+} from './services/agent-ranking.js';

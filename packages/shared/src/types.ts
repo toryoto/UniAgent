@@ -75,6 +75,25 @@ export interface DiscoveredAgent {
 }
 
 // ============================================================================
+// Agent Ranking Types
+// ============================================================================
+
+export type SelectionReason = 'cold_start_exploration' | 'score_ranked';
+
+export interface ScoredAgent extends DiscoveredAgent {
+  bayesianQuality: number; // 0-100
+  bayesianReliability: number; // 0-100
+  depositScore: number; // 0-1
+  freshnessScore: number; // 0-1
+  compositeScore: number; // 0-1
+  isCold: boolean;
+}
+
+export interface SelectedAgent extends ScoredAgent {
+  selectionReason: SelectionReason;
+}
+
+// ============================================================================
 // Agent Request Types
 // ============================================================================
 

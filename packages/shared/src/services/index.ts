@@ -15,3 +15,10 @@ export {
 } from './agent-discovery.js';
 
 export { uploadAgentMetadata, fetchAgentMetadata } from './pinata.js';
+
+export {
+  computeGlobalMeans,
+  scoreAgents,
+  selectAgents,
+  type AgentWithStats,
+} from './agent-ranking.js';

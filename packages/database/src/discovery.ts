@@ -75,3 +75,73 @@ export async function discoverAgents(
 
   return { agents, total: agents.length, source: 'db' };
 }
+
+// ============================================================================
+// Ranked Discovery (Bayesian ε-Greedy 用の生データ取得)
+// ============================================================================
+
+/** ランキング計算に必要な生データ行 */
+export interface AgentStatsRow {
+  agentId: string;
+  owner: string | null;
+  category: string | null;
+  isActive: boolean | null;
+  agentCard: unknown;
+  avgQuality: number;
+  avgReliability: number;
+  ratingCount: number;
+  stakedAmount: number;
+  createdAt: Date;
+}
+
+/**
+ * ランキング用の生データを DB から取得。
+ * Bayesian スコア・Composite Score の計算はアプリ層 (agent-ranking.ts) で行う。
+ */
+export async function discoverAgentsWithStats(
+  input: DiscoverAgentsInput
+): Promise<AgentStatsRow[]> {
+  const conditions: Prisma.Sql[] = [Prisma.sql`ac.is_active = true`];
+  if (input.agentId) {
+    conditions.push(Prisma.sql`ac.agent_id = ${input.agentId}`);
+  }
+  if (input.category) {
+    conditions.push(Prisma.sql`ac.category = ${input.category}`);
+  }
+  const whereClause = Prisma.join(conditions, ' AND ');
+
+  const rows = await prisma.$queryRaw<AgentStatsRow[]>`
+    SELECT
+      ac.agent_id    AS "agentId",
+      ac.owner       AS "owner",
+      ac.category    AS "category",
+      ac.is_active   AS "isActive",
+      ac.agent_card  AS "agentCard",
+      COALESCE(AVG(ea.quality), 0)::float8     AS "avgQuality",
+      COALESCE(AVG(ea.reliability), 0)::float8 AS "avgReliability",
+      COUNT(ea.id)::int                        AS "ratingCount",
+      COALESCE(ast.staked_amount, 0)::float8   AS "stakedAmount",
+      ac.created_at                            AS "createdAt"
+    FROM agent_cache ac
+    LEFT JOIN eas_attestations ea ON ea.agent_id = ac.agent_id
+    LEFT JOIN agent_stakes ast ON ast.agent_id = ac.agent_id
+    WHERE ${whereClause}
+    GROUP BY ac.agent_id, ac.owner, ac.category, ac.is_active,
+             ac.agent_card, ac.created_at, ast.staked_amount
+    ORDER BY ac.created_at DESC
+    LIMIT 500
+  `;
+
+  return rows.map((r) => ({
+    agentId: r.agentId,
+    owner: r.owner,
+    category: r.category,
+    isActive: r.isActive,
+    agentCard: r.agentCard,
+    avgQuality: Number(r.avgQuality),
+    avgReliability: Number(r.avgReliability),
+    ratingCount: r.ratingCount,
+    stakedAmount: Number(r.stakedAmount),
+    createdAt: new Date(r.createdAt),
+  }));
+}
