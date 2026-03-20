@@ -29,8 +29,10 @@ Cold Pool が空の場合は Top 3 のみを返す。
 ## Composite Score
 
 ```
-score = w_r × B_reliability + w_q × B_quality + w_d × D(deposit) + w_f × F(age)
+score = w_r × B_reliability + w_q × B_quality + w_d × D(stake) + w_f × F(age)
 ```
+
+`D` の入力はオンチェーン相当のステーク量。DB では `agent_stakes.staked_amount`。`agent_cache` に `deposit` 列はない。
 
 | Weight | Value | Rationale |
 |--------|-------|-----------|
@@ -84,17 +86,20 @@ w_q × B_quality / 100  +  w_r × B_reliability / 100
 
 ### 2. Deposit Score（対数スケーリング）
 
+ステーク量（DB: `agent_stakes.staked_amount`、USDC 相当）を `d` とする。
+
 ```
 D(d) = ln(1 + d / d_base) / ln(1 + d_cap / d_base)    → 0.0 - 1.0
 ```
 
 | Parameter | Meaning | Value |
 |-----------|---------|-------|
-| d_base | 半減点 (この額で ≈50% のスコア) | **50 USDC** |
+| d | ステーク量（USDC 相当） | `staked_amount` |
+| d_base | スケール基準（小額の寄与を抑える） | **50 USDC** |
 | d_cap | 上限 (これ以上は 1.0) | **500 USDC** |
 
 ```
- Deposit (USDC) │ D(d)
+ Stake d (USDC) │ D(d)
 ────────────────┼──────
        0        │ 0.000
        5        │ 0.040
@@ -161,7 +166,9 @@ function selectAgents(candidates: ScoredAgent[]): SelectedAgent[] {
 
 ---
 
-## SQL Query
+## SQL Query（参考・本番パスとの対応）
+
+本番では複合スコアは **アプリ層**（`packages/shared/src/services/agent-ranking.ts` の `scoreAgents`）で計算し、`packages/database/src/discovery.ts` の `discoverAgentsWithStats` は下記に相当する **生データ** のみを返す。以下はアルゴリズムを 1 本の SQL で表した参考例である。
 
 ```sql
 WITH global_stats AS (
@@ -177,7 +184,7 @@ scored AS (
     ac.category,
     ac.is_active,
     ac.agent_card,
-    ac.deposit,
+    COALESCE(ast.staked_amount, 0)::float8 AS staked_amount,
     ac.created_at,
     COUNT(ea.id)::int AS rating_count,
 
@@ -189,9 +196,9 @@ scored AS (
     (3 * gs.mu_r + COALESCE(SUM(ea.reliability), 0))
       / (3 + COUNT(ea.id))  AS b_reliability,
 
-    -- Deposit (ln-scaled, 0-1)
+    -- Deposit / stake score (ln-scaled, 0-1) — TS の depositScore と同式
     LEAST(1.0,
-      LN(1.0 + COALESCE(ac.deposit, 0) / 50.0)
+      LN(1.0 + COALESCE(ast.staked_amount, 0) / 50.0)
       / LN(1.0 + 500.0 / 50.0)
     ) AS d_score,
 
@@ -201,9 +208,10 @@ scored AS (
   FROM agent_cache ac
   CROSS JOIN global_stats gs
   LEFT JOIN eas_attestations ea ON ea.agent_id = ac.agent_id
+  LEFT JOIN agent_stakes ast ON ast.agent_id = ac.agent_id
   WHERE ac.is_active = true
   GROUP BY ac.agent_id, ac.owner, ac.category, ac.is_active,
-           ac.agent_card, ac.deposit, ac.created_at, gs.mu_q, gs.mu_r
+           ac.agent_card, ac.created_at, ast.staked_amount, gs.mu_q, gs.mu_r
 )
 SELECT *,
   (0.35 * b_reliability / 100.0)
@@ -234,6 +242,8 @@ Application 層で `is_cold = true` から 1体ランダム選出、残りから
 | `RANKING_COLD_THRESHOLD` | 3 | Cold pool ratingCount threshold |
 | `RANKING_TOP_K` | 3 | Number of agents to return |
 
+上表の `RANKING_*` は **設計上の名前**（将来 env 化する場合の想定キー）。現状の実装は `packages/shared/src/services/agent-ranking.ts` の定数（`DEPOSIT_BASE` = 50、`DEPOSIT_CAP` = 500 など）に対応する。
+
 `RANKING_BAYESIAN_C` と `RANKING_COLD_THRESHOLD` は現在どちらも `3` だが、これは偶然ではない。
 「レビュー 3 件未満は実績不足で Bayesian prior の影響を強く受ける」という区間を、そのまま
 「Cold Pool に入れて explore する区間」としてそろえているためである。
@@ -245,17 +255,19 @@ Application 層で `is_cold = true` から 1体ランダム選出、残りから
 
 | Layer | Responsibility |
 |-------|---------------|
-| `packages/database/src/discovery.ts` | SQL: Bayesian score + deposit + freshness 計算 |
-| `packages/shared/src/services/agent-ranking.ts` | 純粋関数: composite score 算出 + 3体選出 |
+| `packages/database/src/discovery.ts` | Prisma raw SQL: 生データ取得（Bayesian 用の平均・件数 + `agent_stakes.staked_amount` 等）。複合スコアは算出しない |
+| `packages/shared/src/services/agent-ranking.ts` | 純粋関数: Bayesian・deposit（ステーク）・freshness・composite 算出 + 3体選出 |
 | `packages/shared/src/types.ts` | `ScoredAgent`, `SelectionReason` 型 |
 | `agent/src/tools/discover-agents.ts` | ランキング済み 3体を LLM に返却 |
 
 ---
 
-## Dependencies (Not Yet Implemented)
+## Dependencies（ステーク / デポジット周り）
 
-| Item | Status | Required For |
-|------|--------|-------------|
-| Staking Contract | Not deployed | deposit score |
-| `AgentCache.deposit` column | Not in schema | deposit persistence |
-| Deposit sync (webhook / cron) | Not built | on-chain → DB sync |
+| Item | Status | Notes |
+|------|--------|-------|
+| `agent_stakes.staked_amount` | スキーマあり | ランキングの `D(stake)` 入力。`discoverAgentsWithStats` が参照 |
+| Staking Contract | 運用依存 | チェーン連携の有無 |
+| On-chain → DB 同期 | 要確認 | `staked_amount` が最新であることが前提 |
+
+`AgentCache.deposit` 列はスキーマにない（`agent_stakes` を使用）。

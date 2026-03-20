@@ -21,7 +21,10 @@ const WEIGHTS = {
  */
 const BAYESIAN_C = 3;
 
-/** Deposit 上限 (USDC)。これ以上は 1.0 にクランプ */
+/** Deposit スケールの基準額 (USDC)。d_base — 式 ln(1+d/d_base) の分母側スケール */
+const DEPOSIT_BASE = 50;
+
+/** Deposit 上限 (USDC)。d_cap — 正規化の上限、これ以上は 1.0 にクランプ */
 const DEPOSIT_CAP = 500;
 
 /** Freshness 減衰率 (half-life ≈ 14 days) */
@@ -82,12 +85,15 @@ function bayesianAverage(globalMean: number, agentMean: number, count: number): 
 }
 
 /**
- * Deposit score — log1p 正規化 (0-1)
- * D(d) = min(1, log1p(d) / log1p(CAP))
+ * Deposit score — 対数スケール正規化 (0-1)
+ * D(d) = min(1, ln(1 + d/d_base) / ln(1 + d_cap/d_base))
+ * d は USDC 相当のステーク量（`agent_stakes.staked_amount`）
  */
 function depositScore(stakedAmount: number): number {
   if (stakedAmount <= 0) return 0;
-  return Math.min(1, Math.log1p(stakedAmount) / Math.log1p(DEPOSIT_CAP));
+  const numer = Math.log1p(stakedAmount / DEPOSIT_BASE);
+  const denom = Math.log1p(DEPOSIT_CAP / DEPOSIT_BASE);
+  return Math.min(1, numer / denom);
 }
 
 /**
