@@ -2,11 +2,7 @@ import { initChatModel, createAgent, humanInTheLoopMiddleware } from 'langchain'
 import type { HITLRequest, HITLResponse, Interrupt } from 'langchain';
 import { MemorySaver, Command } from '@langchain/langgraph';
 import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
-import type {
-  AgentRequest,
-  ExecutionLogEntry,
-  StreamEvent,
-} from '@agent-marketplace/shared';
+import type { AgentRequest, StreamEvent } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
@@ -74,7 +70,6 @@ interface StreamProcessingContext {
   totalCost: number;
   autoApproveThreshold: number;
   finalResponse: string;
-  executionLog: ExecutionLogEntry[];
 }
 
 async function* processAgentStream(
@@ -138,17 +133,9 @@ async function* processAgentStream(
         for (const msg of msgs) {
           if (!AIMessage.isInstance(msg)) continue;
 
-          // LLMテキストを executionLog に記録
           const text = extractTextContent(msg.content as string | Array<{ type: string; text?: string }>);
           if (text) {
             ctx.stepCounter++;
-            ctx.executionLog.push({
-              step: ctx.stepCounter,
-              type: 'llm',
-              action: 'LLM response',
-              details: { content: text },
-              timestamp: new Date(),
-            });
             logger.agent.info(`[model] text: ${text.slice(0, 120)}...`);
           }
 
@@ -156,20 +143,10 @@ async function* processAgentStream(
           for (const tc of msg.tool_calls ?? []) {
             ctx.stepCounter++;
 
-            const logEntry: ExecutionLogEntry = {
-              step: ctx.stepCounter,
-              type: tc.name === 'execute_and_evaluate_agent' ? 'payment' : 'logic',
-              action: `Tool call: ${tc.name}`,
-              details: tc.args,
-              timestamp: new Date(),
-            };
-            ctx.executionLog.push(logEntry);
-
             yield {
               type: 'tool_call',
               data: { name: tc.name, args: tc.args, step: ctx.stepCounter },
             };
-            yield { type: 'step', data: logEntry };
 
             logger.agent.info(
               `[model] tool_call: ${tc.name}(${JSON.stringify(tc.args)})`,
@@ -191,20 +168,10 @@ async function* processAgentStream(
 
           ctx.stepCounter++;
 
-          const logEntry: ExecutionLogEntry = {
-            step: ctx.stepCounter,
-            type: 'logic',
-            action: `Tool result: ${toolName}`,
-            details: { result: resultContent },
-            timestamp: new Date(),
-          };
-          ctx.executionLog.push(logEntry);
-
           yield {
             type: 'tool_result',
             data: { name: toolName, result: resultContent, step: ctx.stepCounter },
           };
-          yield { type: 'step', data: logEntry };
 
           logger.agent.info(
             `[tools] ${toolName} => ${resultContent.slice(0, 120)}`,
@@ -237,23 +204,12 @@ async function* processAgentStream(
 
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
   const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
-  const executionLog: ExecutionLogEntry[] = [];
   let totalCost = 0;
   let stepCounter = 0;
 
   logSeparator('Agent Execution Start (Streaming)');
 
   yield { type: 'start', data: { message } };
-
-  executionLog.push({
-    step: ++stepCounter,
-    type: 'llm',
-    action: 'Request received',
-    details: { message, autoApproveThreshold },
-    timestamp: new Date(),
-  });
-
-  yield { type: 'step', data: executionLog[executionLog.length - 1] };
 
   try {
     const agent = await getAgent();
@@ -293,7 +249,6 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       totalCost,
       autoApproveThreshold,
       finalResponse: '',
-      executionLog,
     };
 
     for await (const event of processAgentStream(
@@ -308,14 +263,6 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
     stepCounter = ctx.stepCounter;
     totalCost = ctx.totalCost;
 
-    executionLog.push({
-      step: ++stepCounter,
-      type: 'llm',
-      action: 'Execution completed',
-      details: { totalCost },
-      timestamp: new Date(),
-    });
-
     logSeparator('Agent Execution End');
 
     yield {
@@ -323,23 +270,14 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       data: {
         message: ctx.finalResponse,
         totalCost,
-        executionLog,
       },
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    executionLog.push({
-      step: ++stepCounter,
-      type: 'error',
-      action: 'Execution failed',
-      details: { error: errorMessage },
-      timestamp: new Date(),
-    });
-
     yield {
       type: 'error',
-      data: { error: errorMessage, executionLog },
+      data: { error: errorMessage },
     };
   }
 }
@@ -352,7 +290,6 @@ export async function* resumeAgentStream(
   decisions: HITLResponse,
   autoApproveThreshold: number,
 ): AsyncGenerator<StreamEvent> {
-  const executionLog: ExecutionLogEntry[] = [];
   let stepCounter = 0;
   let totalCost = 0;
 
@@ -375,7 +312,6 @@ export async function* resumeAgentStream(
       totalCost,
       autoApproveThreshold,
       finalResponse: '',
-      executionLog,
     };
 
     for await (const event of processAgentStream(
@@ -390,14 +326,6 @@ export async function* resumeAgentStream(
     stepCounter = ctx.stepCounter;
     totalCost = ctx.totalCost;
 
-    executionLog.push({
-      step: ++stepCounter,
-      type: 'llm',
-      action: 'Execution completed',
-      details: { totalCost },
-      timestamp: new Date(),
-    });
-
     logSeparator('Agent Resume End');
 
     yield {
@@ -405,23 +333,14 @@ export async function* resumeAgentStream(
       data: {
         message: ctx.finalResponse,
         totalCost,
-        executionLog,
       },
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    executionLog.push({
-      step: ++stepCounter,
-      type: 'error',
-      action: 'Resume failed',
-      details: { error: errorMessage },
-      timestamp: new Date(),
-    });
-
     yield {
       type: 'error',
-      data: { error: errorMessage, executionLog },
+      data: { error: errorMessage },
     };
   }
 }

@@ -28,7 +28,6 @@ import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCo
 import { CommandDropdown } from '@/components/chat/CommandDropdown';
 import { CommandBadge } from '@/components/chat/CommandBadge';
 import { parseMessage } from '@/lib/utils/message-parser';
-import type { ExecutionLogEntry } from '@agent-marketplace/shared';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 
@@ -431,19 +430,6 @@ function MessageBubble({
           )}
         </div>
 
-        {/* Execution Log (完了後に表示) */}
-        {!isUser && !message.isStreaming && message.executionLog && message.executionLog.length > 0 && (
-          <div className="mt-3 space-y-2 border-t border-slate-700 pt-3 md:mt-4 md:pt-4">
-            <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-              <Wrench className="h-3 w-3" />
-              Execution Log
-            </div>
-            {message.executionLog.map((entry, index) => (
-              <ExecutionLogCard key={index} entry={entry} />
-            ))}
-          </div>
-        )}
-
         {/* Total Cost */}
         {!isUser && message.totalCost !== undefined && message.totalCost > 0 && (
           <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-700 pt-2 text-xs md:mt-3 md:pt-3 md:text-sm">
@@ -709,46 +695,6 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
             </div>
           )}
         </div>
-      )}
-    </div>
-  );
-}
-
-function ExecutionLogCard({ entry }: { entry: ExecutionLogEntry }) {
-  const [collapsed, setCollapsed] = useState(true);
-
-  const typeColors = {
-    llm: 'bg-purple-500',
-    logic: 'bg-blue-500',
-    payment: 'bg-green-500',
-    error: 'bg-red-500',
-  };
-
-  const typeLabels = {
-    llm: 'LLM',
-    logic: 'Logic',
-    payment: 'Payment',
-    error: 'Error',
-  };
-
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
-      <button
-        type="button"
-        onClick={() => setCollapsed((c) => !c)}
-        className="flex w-full flex-wrap items-center gap-1.5 text-left md:gap-2"
-      >
-        <span className={`h-2 w-2 shrink-0 rounded-full ${typeColors[entry.type]}`} />
-        <span className="font-mono text-slate-500">[Step {entry.step}]</span>
-        <span className="rounded bg-slate-700 px-1.5 py-0.5 text-slate-300">
-          {typeLabels[entry.type]}
-        </span>
-        <span className="text-slate-300">{entry.action}</span>
-      </button>
-      {!collapsed && (
-        <pre className="mt-2 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
-          {JSON.stringify(entry.details, null, 2)}
-        </pre>
       )}
     </div>
   );

@@ -35,7 +35,6 @@ export type {
   DiscoveredAgent,
   AgentRequest,
   AgentResponse,
-  ExecutionLogEntry,
   StreamEvent,
   X402PaymentInfo,
   JsonRpcRequest,

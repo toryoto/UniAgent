@@ -109,17 +109,8 @@ export interface AgentRequest {
 export interface AgentResponse {
   success: boolean;
   message: string;
-  executionLog: ExecutionLogEntry[];
   totalCost: number;
   error?: string;
-}
-
-export interface ExecutionLogEntry {
-  step: number;
-  type: 'llm' | 'logic' | 'payment' | 'error';
-  action: string;
-  details?: Record<string, unknown>;
-  timestamp: Date;
 }
 
 // ============================================================================
@@ -128,7 +119,6 @@ export interface ExecutionLogEntry {
 
 export type StreamEvent =
   | { type: 'start'; data: { message: string } }
-  | { type: 'step'; data: ExecutionLogEntry }
   | { type: 'llm_token'; data: { token: string; step: number } }
   | { type: 'llm_thinking'; data: { content: string; step: number } }
   | { type: 'tool_call'; data: { name: string; args: Record<string, unknown>; step: number } }
@@ -136,9 +126,9 @@ export type StreamEvent =
   | { type: 'payment'; data: { amount: number; totalCost: number; remainingBudget: number } }
   | {
       type: 'final';
-      data: { message: string; totalCost: number; executionLog: ExecutionLogEntry[] };
+      data: { message: string; totalCost: number };
     }
-  | { type: 'error'; data: { error: string; executionLog: ExecutionLogEntry[] } }
+  | { type: 'error'; data: { error: string } }
   | {
       type: 'interrupt';
       data: {
