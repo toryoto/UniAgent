@@ -142,9 +142,10 @@ export const discoverAgentsTool = tool(
   },
   {
     name: 'discover_agents',
-    description: `AgentCache(DB)からエージェントを検索し、Bayesian ε-Greedy ランキングで最適な3体を選出します。
+    description: `AgentCache(DB)からエージェントを検索し、Bayesian ε-Greedy ランキングで最適な最大3体を選出します。
 カテゴリやスキル名に加え、名前や説明の自由検索にも対応。価格でのフィルタリングもサポート。
-結果にはエージェントのID、名前、説明、URL、価格（USDC）、composite score、選出理由が含まれます。`,
+結果にはエージェントのID、名前、説明、URL、価格（USDC）、composite score、選出理由が含まれます。
+注意: 1回の呼び出しで返るのは最大3体のみ。フライト+ホテルなど複数の異なる能力が必要な場合は、skillNameやqを変えて役割ごとに検索を分けると、各役割で複数候補を得やすい。`,
     schema: discoverAgentsSchema,
   }
 );
