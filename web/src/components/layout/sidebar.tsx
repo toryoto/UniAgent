@@ -10,6 +10,7 @@ import {
   Wallet,
   Droplet,
   PlusCircle,
+  Coins,
   X,
   ChevronDown,
   ChevronRight,
@@ -28,6 +29,7 @@ const navigation = [
   { name: 'History', href: '/history', icon: History },
   { name: 'Wallet', href: '/wallet', icon: Wallet },
   { name: 'Register Agent', href: '/agents/register', icon: PlusCircle },
+  { name: 'Staking', href: '/agents/staking', icon: Coins },
   { name: 'Faucet', href: '/faucet', icon: Droplet },
 ];
 

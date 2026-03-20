@@ -10,11 +10,14 @@
  */
 
 import { PrivyProvider } from '@privy-io/react-auth';
-import { WagmiProvider } from '@privy-io/wagmi';
+import { WagmiProvider, type SetActiveWalletForWagmiType } from '@privy-io/wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { config } from '@/lib/blockchain/wagmi';
 import { ReactNode, useState } from 'react';
 import { baseSepolia } from 'viem/chains';
+
+const preferEmbeddedWallet: SetActiveWalletForWagmiType = ({ wallets }) =>
+  wallets.find((w) => w.walletClientType === 'privy') ?? wallets[0];
 
 interface ProvidersProps {
   children: ReactNode;
@@ -59,7 +62,9 @@ export function Providers({ children }: ProvidersProps) {
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <WagmiProvider config={config}>{children}</WagmiProvider>
+        <WagmiProvider config={config} setActiveWalletForWagmi={preferEmbeddedWallet}>
+          {children}
+        </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>
   );

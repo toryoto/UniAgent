@@ -46,6 +46,7 @@ function getSystemPrompt(mcpEnabled: boolean): string {
 ブロックチェーン上のAgentRegistryからエージェントを検索します。
 
 **使用例:**
+- 名前で検索: discover_agents(q: "FlightFinderPro")
 - カテゴリで検索: discover_agents(category: "travel")
 - スキル名で検索: discover_agents(skillName: "flight")
 - 価格フィルタ: discover_agents(maxPrice: 0.05)

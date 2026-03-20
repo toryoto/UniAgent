@@ -8,6 +8,8 @@ export const CONTRACT_ADDRESSES = {
   /** AgentIdentityRegistry (ERC-8004) - Base Sepolia */
   // NOTE: Deployed address (see CLAUDE.md / contracts README)
   AGENT_IDENTITY_REGISTRY: '0x28E0346B623C80Fc425E85339310fe09B79012Cd',
+  /** AgentStaking - Base Sepolia (placeholder until deployed) */
+  AGENT_STAKING: '0xd4ab217a31f475d2f5827A8b760cabb17b44f4aC',
   /** USDC (Base Sepolia) */
   USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
 } as const;

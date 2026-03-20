@@ -9,6 +9,7 @@ import {
   Shield,
   Clock,
   MessageSquare,
+  Coins,
 } from 'lucide-react';
 import type { DiscoveredAgent } from '@agent-marketplace/shared';
 import { useAgentAttestations } from '@/lib/hooks/useAgentAttestations';
@@ -187,6 +188,17 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
                   </div>
                   <div className="text-xs text-slate-400">Reviews</div>
                 </div>
+              </div>
+            )}
+
+            {/* Staked Amount */}
+            {(agent.stakedAmount ?? 0) > 0 && (
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-green-500/30 bg-green-500/10 p-3">
+                <Coins className="h-4 w-4 text-green-400" />
+                <span className="text-sm text-slate-400">Staked:</span>
+                <span className="text-sm font-bold text-white">
+                  {(agent.stakedAmount ?? 0).toFixed(2)} USDC
+                </span>
               </div>
             )}
           </div>

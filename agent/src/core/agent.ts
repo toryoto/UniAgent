@@ -8,7 +8,7 @@
  */
 
 import { initChatModel, createAgent } from 'langchain';
-import type { AgentRequest, AgentResponse, ExecutionLogEntry } from '@agent-marketplace/shared';
+import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
@@ -18,21 +18,11 @@ import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
  */
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
-  const executionLog: ExecutionLogEntry[] = [];
   let totalCost = 0;
   let stepCounter = 0;
 
   logSeparator('Agent Execution Start');
   logger.agent.info('Received request', { message, walletId, walletAddress, autoApproveThreshold, agentId });
-
-  executionLog.push({
-    
-    step: ++stepCounter,
-    type: 'llm',
-    action: 'Request received',
-    details: { message, autoApproveThreshold },
-    timestamp: new Date(),
-  });
 
   try {
     const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
@@ -100,13 +90,6 @@ ${message}
             logStep(stepCounter, 'mcp', `Tool call: ${toolCall.name}`);
             logger.mcp.info('Tool arguments', toolCall.args);
 
-            executionLog.push({
-              step: stepCounter,
-              type: toolCall.name === 'execute_agent' ? 'payment' : 'logic',
-              action: `Tool: ${toolCall.name}`,
-              details: toolCall.args,
-              timestamp: new Date(),
-            });
           }
         }
       }
@@ -137,41 +120,23 @@ ${message}
     stepCounter++;
     logStep(stepCounter, 'llm', 'Agent execution completed');
 
-    executionLog.push({
-      step: stepCounter,
-      type: 'llm',
-      action: 'Execution completed',
-      details: { totalCost },
-      timestamp: new Date(),
-    });
-
     logSeparator('Agent Execution End');
     logger.agent.success('Total cost', { totalCost });
 
     return {
       success: true,
       message: typeof finalResponse === 'string' ? finalResponse : JSON.stringify(finalResponse),
-      executionLog,
       totalCost,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Agent execution failed', { error: errorMessage });
 
-    executionLog.push({
-      step: ++stepCounter,
-      type: 'error',
-      action: 'Execution failed',
-      details: { error: errorMessage },
-      timestamp: new Date(),
-    });
-
     logSeparator('Agent Execution End (Error)');
 
     return {
       success: false,
       message: '',
-      executionLog,
       totalCost,
       error: errorMessage,
     };

@@ -8,12 +8,7 @@
 // A2A Protocol Types
 // ============================================================================
 
-import type {
-  ExecutionLogEntry,
-  DiscoveredAgent,
-  HITLActionRequest,
-  HITLReviewConfig,
-} from '@agent-marketplace/shared';
+import type { DiscoveredAgent, HITLActionRequest, HITLReviewConfig } from '@agent-marketplace/shared';
 
 // ============================================================================
 // Transaction Types
@@ -243,7 +238,6 @@ export interface AgentStreamMessage {
   timestamp: Date;
   isStreaming?: boolean;
   toolCalls?: AgentToolCall[];
-  executionLog?: ExecutionLogEntry[];
   totalCost?: number;
   payment?: { amount: number; totalCost: number; remainingBudget: number };
   approval?: AgentApproval;

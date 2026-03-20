@@ -121,7 +121,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             return {
               ...m,
               content: event.data.message,
-              executionLog: event.data.executionLog,
               totalCost: event.data.totalCost,
               isStreaming: false,
             };
@@ -130,12 +129,10 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
             return {
               ...m,
               content: m.content || `Error: ${event.data.error}`,
-              executionLog: event.data.executionLog,
               isStreaming: false,
             };
 
           case 'start':
-          case 'step':
             return m;
 
           default:

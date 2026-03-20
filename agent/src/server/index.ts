@@ -116,19 +116,19 @@ app.post('/api/agent/resume', async (req, res) => {
     const { threadId, decisions, autoApproveThreshold } = req.body as AgentResumeRequest;
 
     if (!threadId || typeof threadId !== 'string') {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'threadId is required', executionLog: [] } })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'threadId is required' } })}\n\n`);
       res.end();
       return;
     }
 
     if (!Array.isArray(decisions) || decisions.length === 0) {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'decisions array is required', executionLog: [] } })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'decisions array is required' } })}\n\n`);
       res.end();
       return;
     }
 
     if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'autoApproveThreshold must be a non-negative number', executionLog: [] } })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'autoApproveThreshold must be a non-negative number' } })}\n\n`);
       res.end();
       return;
     }
@@ -148,7 +148,7 @@ app.post('/api/agent/resume', async (req, res) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Resume request failed', { error: errorMessage });
-    res.write(`data: ${JSON.stringify({ type: 'error', data: { error: errorMessage, executionLog: [] } })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'error', data: { error: errorMessage } })}\n\n`);
     res.end();
   }
 });

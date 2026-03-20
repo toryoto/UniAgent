@@ -17,8 +17,10 @@ export {
 
 export {
   AGENT_IDENTITY_REGISTRY_ABI,
+  AGENT_STAKING_ABI,
   getProvider,
   getAgentIdentityRegistryContract,
+  getAgentStakingContract,
 } from './contract.js';
 
 export type {
@@ -33,7 +35,6 @@ export type {
   DiscoveredAgent,
   AgentRequest,
   AgentResponse,
-  ExecutionLogEntry,
   StreamEvent,
   X402PaymentInfo,
   JsonRpcRequest,
@@ -45,6 +46,9 @@ export type {
   HITLReviewConfig,
   HITLDecision,
   AgentResumeRequest,
+  SelectionReason,
+  ScoredAgent,
+  SelectedAgent,
 } from './types.js';
 
 // Services
@@ -59,3 +63,10 @@ export {
 } from './services/index.js';
 
 export { uploadAgentMetadata, fetchAgentMetadata } from './services/pinata.js';
+
+export {
+  computeGlobalMeans,
+  scoreAgents,
+  selectAgents,
+  type AgentWithStats,
+} from './services/agent-ranking.js';

@@ -7,8 +7,10 @@
 import { ethers } from 'ethers';
 import { CONTRACT_ADDRESSES, RPC_URL } from './config.js';
 import AgentIdentityRegistryArtifact from './AgentIdentityRegistry.json' with { type: 'json' };
+import AgentStakingArtifact from './AgentStaking.json' with { type: 'json' };
 
 export const AGENT_IDENTITY_REGISTRY_ABI = AgentIdentityRegistryArtifact.abi;
+export const AGENT_STAKING_ABI = AgentStakingArtifact.abi;
 
 /**
  * Providerを取得（読み取り専用）
@@ -29,4 +31,16 @@ export function getAgentIdentityRegistryContract(
     AGENT_IDENTITY_REGISTRY_ABI,
     providerOrSigner
   );
+}
+
+/**
+ * AgentStakingコントラクトインスタンスを取得
+ */
+export function getAgentStakingContract(
+  signerOrProvider?: ethers.Signer | ethers.Provider
+): ethers.Contract {
+  const address = CONTRACT_ADDRESSES.AGENT_STAKING;
+  if (!address) throw new Error('AGENT_STAKING address not configured');
+  const providerOrSigner = signerOrProvider || getProvider();
+  return new ethers.Contract(address, AGENT_STAKING_ABI, providerOrSigner);
 }
