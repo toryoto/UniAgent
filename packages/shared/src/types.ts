@@ -70,7 +70,7 @@ export interface DiscoveredAgent {
   isActive: boolean;
   openapi?: string;
   imageUrl?: string;
-  x402Support?: boolean;
+  x402Support: true;
   stakedAmount?: number;
 }
 
@@ -194,7 +194,7 @@ export interface ERC8004RegistrationFile {
   description: string;
   image: string;
   services: ERC8004Service[];
-  x402Support?: boolean;
+  x402Support: true;
   active?: boolean;
   registrations?: ERC8004RegistrationEntry[];
   supportedTrust?: string[];

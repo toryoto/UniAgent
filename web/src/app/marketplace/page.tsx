@@ -199,11 +199,9 @@ function AgentCard({
           <div className="text-xs text-slate-400">Price</div>
           <div className="text-lg font-bold text-white md:text-xl">{agent.price.toFixed(2)} USDC</div>
         </div>
-        {agent.x402Support && (
-          <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-300">
-            x402
-          </span>
-        )}
+        <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-300">
+          x402
+        </span>
       </div>
     </div>
   );

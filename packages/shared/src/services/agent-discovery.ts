@@ -106,6 +106,7 @@ export function agentCardRowToDiscoveredAgent(row: AgentCacheRow): DiscoveredAge
 
   const c = card as Record<string, unknown>;
   if (!c.name) return null;
+  if (c.x402Support !== true) return null;
 
   const services = c.services as ERC8004Service[] | undefined;
   const a2aService = services?.find((s) => s.name === 'A2A');
@@ -138,7 +139,7 @@ export function agentCardRowToDiscoveredAgent(row: AgentCacheRow): DiscoveredAge
     owner: row.owner || '',
     isActive: (c.active as boolean) !== false,
     imageUrl: c.image as string | undefined,
-    x402Support: (c.x402Support as boolean) || false,
+    x402Support: true,
     stakedAmount: row.stakedAmount ?? 0,
   };
 }

@@ -7,7 +7,6 @@ interface UploadMetadataRequest {
   description: string;
   image: string;
   services: ERC8004Service[];
-  x402Support?: boolean;
   category?: string;
 }
 
@@ -60,7 +59,7 @@ export async function POST(req: NextRequest) {
       description: body.description,
       image: body.image,
       services: body.services,
-      x402Support: body.x402Support ?? false,
+      x402Support: true,
       active: true,
       category: body.category,
     };

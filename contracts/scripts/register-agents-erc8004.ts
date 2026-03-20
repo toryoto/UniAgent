@@ -17,7 +17,7 @@ interface ERC8004RegistrationFile {
     skills?: Array<{ id: string; name: string; description: string }>;
     domains?: string[];
   }>;
-  x402Support?: boolean;
+  x402Support: true;
   active?: boolean;
   category?: string;
 }

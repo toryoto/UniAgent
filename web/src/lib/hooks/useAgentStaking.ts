@@ -39,7 +39,7 @@ export function useAgentStaking(agentId: string | undefined) {
     isLoading: isLoadingStake,
   } = useReadContract({
     address: stakingAddress,
-    abi: AGENT_STAKING_ABI as any,
+    abi: AGENT_STAKING_ABI,
     functionName: 'getStake',
     args: agentId ? [BigInt(agentId)] : undefined,
     query: { enabled: !!agentId },
@@ -51,7 +51,7 @@ export function useAgentStaking(agentId: string | undefined) {
     refetch: refetchUnstakeRequest,
   } = useReadContract({
     address: stakingAddress,
-    abi: AGENT_STAKING_ABI as any,
+    abi: AGENT_STAKING_ABI,
     functionName: 'unstakeRequests',
     args: agentId ? [BigInt(agentId)] : undefined,
     query: { enabled: !!agentId },
@@ -124,7 +124,7 @@ export function useAgentStaking(agentId: string | undefined) {
         const amountWei = BigInt(Math.floor(amount * 10 ** USDC_DECIMALS));
         await writeStake({
           address: stakingAddress,
-          abi: AGENT_STAKING_ABI as any,
+          abi: AGENT_STAKING_ABI,
           functionName: 'stake',
           args: [BigInt(agentId), amountWei],
         });
@@ -144,7 +144,7 @@ export function useAgentStaking(agentId: string | undefined) {
         const amountWei = BigInt(Math.floor(amount * 10 ** USDC_DECIMALS));
         await writeRequestUnstake({
           address: stakingAddress,
-          abi: AGENT_STAKING_ABI as any,
+          abi: AGENT_STAKING_ABI,
           functionName: 'requestUnstake',
           args: [BigInt(agentId), amountWei],
         });
@@ -162,7 +162,7 @@ export function useAgentStaking(agentId: string | undefined) {
     try {
       await writeExecuteUnstake({
         address: stakingAddress,
-        abi: AGENT_STAKING_ABI as any,
+        abi: AGENT_STAKING_ABI,
         functionName: 'executeUnstake',
         args: [BigInt(agentId)],
       });
@@ -178,7 +178,7 @@ export function useAgentStaking(agentId: string | undefined) {
     try {
       await writeCancelUnstake({
         address: stakingAddress,
-        abi: AGENT_STAKING_ABI as any,
+        abi: AGENT_STAKING_ABI,
         functionName: 'cancelUnstake',
         args: [BigInt(agentId)],
       });

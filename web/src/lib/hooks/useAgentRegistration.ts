@@ -19,7 +19,6 @@ export interface RegistrationFormData {
   description: string;
   image: string;
   category: string;
-  x402Support: boolean;
   services: ERC8004Service[];
   agentWallet: string;
 }
@@ -29,7 +28,6 @@ const initialFormData: RegistrationFormData = {
   description: '',
   image: '',
   category: '',
-  x402Support: false,
   services: [{ name: '', endpoint: '' }],
   agentWallet: '',
 };
@@ -55,7 +53,6 @@ export function useAgentRegistration() {
           description: data.description,
           image: data.image,
           services: data.services.filter((s) => s.name && s.endpoint),
-          x402Support: data.x402Support,
           category: data.category || undefined,
         }),
       });

@@ -116,23 +116,9 @@ export function RegistrationForm({ reg, disabled }: RegistrationFormProps) {
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <label className="relative inline-flex cursor-pointer items-center">
-            <input
-              type="checkbox"
-              checked={formData.x402Support}
-              onChange={(e) =>
-                updateFormData({ x402Support: e.target.checked })
-              }
-              disabled={disabled}
-              className="peer sr-only"
-            />
-            <div className="peer h-5 w-9 rounded-full bg-slate-600 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-all peer-checked:bg-purple-600 peer-checked:after:translate-x-full" />
-          </label>
-          <span className="text-sm text-slate-300">
-            x402 Payment Support
-          </span>
-        </div>
+        <p className="rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-200">
+          x402 payment support is required for all registered agents.
+        </p>
 
         <ServiceForm
           services={formData.services}
@@ -170,7 +156,7 @@ export function RegistrationForm({ reg, disabled }: RegistrationFormProps) {
                 services: formData.services.filter(
                   (s) => s.name && s.endpoint
                 ),
-                x402Support: formData.x402Support,
+                x402Support: true,
                 active: true,
                 category: formData.category || undefined,
               },
