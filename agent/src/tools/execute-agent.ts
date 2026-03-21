@@ -186,25 +186,54 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
     // 3. A2Aリクエストを準備（data があれば DataPart として追加）
     const request = createJsonRpcRequest(task, data);
 
-    // 4. リクエスト送信
+    // 4. リクエスト送信（並列実行時のfacilitator競合に備えリトライ付き）
     // wrapFetchWithPaymentは以下のフローを自動的に処理:
     // 1. 初回リクエスト送信
     // 2. 402 Payment Required + PAYMENT-REQUIREDヘッダーを受信
     // 3. 署名を作成（PrivyEIP712Signerを使用）
     // 4. PAYMENT-SIGNATUREヘッダーを追加して再送信
-    logger.logic.info('Sending request (402 will be handled automatically)', {
-      endpoint,
-      note: 'wrapFetchWithPayment will automatically retry with PAYMENT-SIGNATURE if 402 is received',
-    });
+    //
+    // 並列実行時、x402 facilitatorのトランザクションナンス競合で
+    // 署名済みリトライが402で返ることがある。新しいクライアントで再試行する。
+    const MAX_PAYMENT_RETRIES = 2;
+    let response!: Response;
+    let lastFetchClient = fetchWithPayment;
 
-    const response = await fetchWithPayment(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    for (let attempt = 0; attempt <= MAX_PAYMENT_RETRIES; attempt++) {
+      if (attempt > 0) {
+        logger.payment.info('Retrying payment request (facilitator conflict)', {
+          attempt: attempt + 1,
+          endpoint,
+        });
+        // 新しいx402クライアントを作成（署名を再生成するため）
+        lastFetchClient = createX402FetchClient(privyClient, walletId, walletAddress);
+        // facilitatorの処理を待つ
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+
+      response = await lastFetchClient(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      // 402かつPAYMENT-REQUIREDヘッダーなし = facilitator側の決済失敗 → リトライ
+      if (
+        response.status === 402 &&
+        !response.headers.has('PAYMENT-REQUIRED') &&
+        attempt < MAX_PAYMENT_RETRIES
+      ) {
+        logger.payment.warn('Payment settlement failed (facilitator conflict), will retry', {
+          attempt: attempt + 1,
+          status: response.status,
+        });
+        continue;
+      }
+      break;
+    }
 
     // 5. PAYMENT-REQUIREDヘッダーをデコード
     const paymentRequiredHeader = response.headers.get('PAYMENT-REQUIRED');
