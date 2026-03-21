@@ -36,8 +36,8 @@ const hitlMiddleware = humanInTheLoopMiddleware({
     execute_and_evaluate_agent: {
       allowedDecisions: ['approve', 'edit', 'reject'],
       description: (toolCall) => {
-        const { agentUrl, task, data, maxPrice } = toolCall.args as Record<string, unknown>;
-        const lines = [`Execute external agent.`, `Agent URL: ${agentUrl}`];
+        const { agentId, task, data, maxPrice } = toolCall.args as Record<string, unknown>;
+        const lines = [`Execute external agent.`, `Agent ID: ${agentId ?? '(missing)'}`];
         if (task) lines.push(`Task: ${task}`);
         if (data) lines.push(`Params: ${JSON.stringify(data, null, 2)}`);
         lines.push(`Max Price: $${maxPrice} USDC`, '', 'Do you approve?');

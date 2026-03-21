@@ -21,6 +21,7 @@ import {
   getPaymentSettleResponse,
 } from './payment-utils.js';
 import { handle402Error, handlePaymentSettlementError } from './error-handlers.js';
+import { resolveAgentUrlFromAgentId } from './resolve-agent-url.js';
 
 // Privy client initialization with authorization key
 const authorizationKey = process.env.PRIVY_AUTHORIZATION_KEY || '';
@@ -163,10 +164,10 @@ async function processPaymentResponse(
  * execute_agent ツール実装 (v2対応)
  */
 async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
-  const { agentUrl, task, data, maxPrice, walletId, walletAddress } = input;
+  const { agentId, task, data, maxPrice, walletId, walletAddress } = input;
 
   logger.agent.info('Executing agent with x402 v2', {
-    agentUrl,
+    agentId,
     hasTask: !!task,
     hasData: !!data,
     maxPrice,
@@ -174,6 +175,16 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
   });
 
   try {
+    const agentUrl = await resolveAgentUrlFromAgentId(agentId);
+    if (!agentUrl) {
+      return {
+        success: false,
+        error: `agentId に対応するエージェントURLを取得できませんでした: ${agentId}`,
+      };
+    }
+
+    logger.agent.info('Resolved agent base URL from registry', { agentId, agentUrl });
+
     // 1. x402対応fetchクライアントを作成
     const fetchWithPayment = createX402FetchClient(privyClient, walletId, walletAddress);
 
@@ -301,7 +312,7 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
  */
 const executeAgentSchema = z
   .object({
-    agentUrl: z.string().describe('エージェントのBase URL'),
+    agentId: z.string().describe('エージェントID（discover_agents の結果の agentId。Base URL はサーバーが解決）'),
     task: z
       .string()
       .optional()
@@ -337,6 +348,7 @@ export const executeAgentTool = tool(
   {
     name: 'execute_agent',
     description: `外部エージェントをx402 v2決済付きで実行します（A2A Protocol準拠）。
+agentId は discover_agents で得た値のみを指定すること。Base URL は AgentCache から自動解決される。
 
 【A2Aリクエスト構築 — task / data の使い分け】
 fetch_agent_spec で取得した仕様に基づき、エージェントが必要とする Part だけを送る:
