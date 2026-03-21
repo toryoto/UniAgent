@@ -30,6 +30,7 @@ import { CommandBadge } from '@/components/chat/CommandBadge';
 import { parseMessage } from '@/lib/utils/message-parser';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
+import { MessageMarkdown } from '@/components/chat/MessageMarkdown';
 
 // Slash command definitions
 const SLASH_COMMANDS: SlashCommandOption[] = [
@@ -416,18 +417,22 @@ function MessageBubble({
 
         {/* Content */}
         <div
-          className={`whitespace-pre-wrap text-sm md:text-base ${isUser ? 'text-white' : 'text-slate-300'}`}
+          className={`min-w-0 text-sm md:text-base ${isUser ? 'whitespace-pre-wrap text-white' : 'text-slate-300'}`}
         >
-          {message.content || (
-            message.isStreaming ? (
-              <span className="flex items-center gap-2 text-slate-500 italic">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Thinking...
-              </span>
-            ) : !message.approval ? (
-              <span className="text-slate-500 italic">No response</span>
-            ) : null
-          )}
+          {message.content ? (
+            isUser ? (
+              message.content
+            ) : (
+              <MessageMarkdown content={message.content} />
+            )
+          ) : message.isStreaming ? (
+            <span className="flex items-center gap-2 text-slate-500 italic">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Thinking...
+            </span>
+          ) : !message.approval ? (
+            <span className="text-slate-500 italic">No response</span>
+          ) : null}
         </div>
 
         {/* Total Cost */}
