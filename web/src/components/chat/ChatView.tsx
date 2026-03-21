@@ -443,6 +443,55 @@ function MessageBubble({
   );
 }
 
+function ActionDetail({ action }: { action: { name: string; args: Record<string, unknown>; description?: string } }) {
+  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
+
+  if (action.description) {
+    return <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>;
+  }
+
+  return (
+    <>
+      <div className="flex gap-2">
+        <span className="text-slate-500">Tool:</span>
+        <span className="font-mono text-slate-200">{action.name}</span>
+      </div>
+      {agentId && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Agent ID:</span>
+          <span className="font-mono text-slate-200">{String(agentId)}</span>
+        </div>
+      )}
+      {agentUrl && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Agent URL:</span>
+          <span className="font-mono text-slate-200">{String(agentUrl)}</span>
+        </div>
+      )}
+      {task && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Task:</span>
+          <span className="text-slate-200">{String(task)}</span>
+        </div>
+      )}
+      {data && typeof data === 'object' && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Params:</span>
+          <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      )}
+      {maxPrice !== undefined && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Max Price:</span>
+          <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
+        </div>
+      )}
+    </>
+  );
+}
+
 function ApprovalCard({
   approval,
   onResume,
@@ -454,21 +503,23 @@ function ApprovalCard({
   const [editedArgs, setEditedArgs] = useState<Record<string, unknown>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 最初のactionRequestのみを表示（通常1つ）
-  const action = approval.actionRequests[0];
-  if (!action) return null;
+  const actions = approval.actionRequests;
+  if (actions.length === 0) return null;
 
-  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
+  const isBatch = actions.length > 1;
+
+  // 単一アクション用（後方互換）
+  const action = actions[0];
 
   const handleApprove = async () => {
     setIsSubmitting(true);
-    await onResume(approval.actionRequests.map(() => ({ type: 'approve' as const })));
+    await onResume(actions.map(() => ({ type: 'approve' as const })));
   };
 
   const handleReject = async () => {
     setIsSubmitting(true);
     await onResume(
-      approval.actionRequests.map(() => ({
+      actions.map(() => ({
         type: 'reject' as const,
         message: 'User rejected the agent execution',
       })),
@@ -483,7 +534,7 @@ function ApprovalCard({
     }
     setIsSubmitting(true);
     await onResume(
-      approval.actionRequests.map(() => ({
+      actions.map(() => ({
         type: 'edit' as const,
         editedAction: { name: action.name, args: editedArgs },
       })),
@@ -493,61 +544,56 @@ function ApprovalCard({
   const reviewConfig = approval.reviewConfigs.find((r) => r.actionName === action.name);
   const allowedDecisions = reviewConfig?.allowedDecisions ?? ['approve', 'reject'];
 
+  // バッチ時の合計コスト
+  const totalMaxPrice = isBatch
+    ? actions.reduce((sum, a) => sum + (Number((a.args as Record<string, unknown>).maxPrice) || 0), 0)
+    : null;
+
   return (
     <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 md:p-4">
       <div className="mb-3 flex items-center gap-2 text-xs font-medium text-amber-300 md:text-sm">
         <Shield className="h-4 w-4" />
         Approval Required
+        {isBatch && (
+          <span className="rounded bg-amber-800/50 px-1.5 py-0.5 text-[10px] text-amber-200">
+            {actions.length} agents
+          </span>
+        )}
       </div>
 
-      <div className="mb-3 space-y-1.5 text-xs text-slate-300 md:text-sm">
-        {action.description && (
-          <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>
-        )}
-        {!action.description && (
-          <>
-            <div className="flex gap-2">
-              <span className="text-slate-500">Tool:</span>
-              <span className="font-mono text-slate-200">{action.name}</span>
+      {/* バッチ時: 合計コスト表示 */}
+      {isBatch && totalMaxPrice !== null && (
+        <div className="mb-3 flex items-center gap-2 rounded bg-slate-800/50 px-2.5 py-1.5 text-xs text-slate-300">
+          <span className="text-slate-500">Total estimated cost:</span>
+          <span className="font-mono text-green-400">${totalMaxPrice.toFixed(4)} USDC</span>
+        </div>
+      )}
+
+      {/* バッチ時: 全アクションをカード表示 */}
+      {isBatch && (
+        <div className="mb-3 space-y-2">
+          {actions.map((a, i) => (
+            <div key={i} className="rounded border border-slate-700/50 bg-slate-800/30 p-2.5">
+              <div className="mb-1.5 text-[10px] font-medium text-slate-500">
+                AGENT {i + 1}
+              </div>
+              <div className="space-y-1.5 text-xs text-slate-300 md:text-sm">
+                <ActionDetail action={a} />
+              </div>
             </div>
-            {agentId && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Agent ID:</span>
-                <span className="font-mono text-slate-200">{String(agentId)}</span>
-              </div>
-            )}
-            {agentUrl && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Agent URL:</span>
-                <span className="font-mono text-slate-200">{String(agentUrl)}</span>
-              </div>
-            )}
-            {task && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Task:</span>
-                <span className="text-slate-200">{String(task)}</span>
-              </div>
-            )}
-            {data && typeof data === 'object' && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Params:</span>
-                <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
-                  {JSON.stringify(data, null, 2)}
-                </pre>
-              </div>
-            )}
-            {maxPrice !== undefined && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Max Price:</span>
-                <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Edit mode: editable task / data fields */}
-      {isEditing && (
+      {/* 単一アクション時: 従来のレイアウト */}
+      {!isBatch && (
+        <div className="mb-3 space-y-1.5 text-xs text-slate-300 md:text-sm">
+          <ActionDetail action={action} />
+        </div>
+      )}
+
+      {/* Edit mode: editable task / data fields（単一アクション時のみ） */}
+      {!isBatch && isEditing && (
         <div className="mb-3 space-y-2">
           {editedArgs.task !== undefined && (
             <>
@@ -589,10 +635,10 @@ function ApprovalCard({
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 md:text-sm"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Approve
+            {isBatch ? `Approve All (${actions.length})` : 'Approve'}
           </button>
         )}
-        {allowedDecisions.includes('edit') && (
+        {!isBatch && allowedDecisions.includes('edit') && (
           <button
             onClick={handleEdit}
             disabled={isSubmitting}
@@ -618,7 +664,7 @@ function ApprovalCard({
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 md:text-sm"
           >
             <XCircle className="h-3.5 w-3.5" />
-            Reject
+            {isBatch ? 'Reject All' : 'Reject'}
           </button>
         )}
       </div>

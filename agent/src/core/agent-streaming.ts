@@ -2,7 +2,7 @@ import { initChatModel, createAgent, humanInTheLoopMiddleware } from 'langchain'
 import type { HITLRequest, HITLResponse, Interrupt } from 'langchain';
 import { MemorySaver, Command } from '@langchain/langgraph';
 import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
-import type { AgentRequest, StreamEvent } from '@agent-marketplace/shared';
+import type { AgentRequest, StreamEvent, HITLDecision } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
@@ -72,7 +72,51 @@ interface StreamProcessingContext {
   finalResponse: string;
 }
 
+/**
+ * Auto-approve 判定:
+ *  - いずれかの action で requireUserApproval === true → HITL
+ *  - 合計 maxPrice が autoApproveThreshold を超過 → HITL
+ *  - それ以外 → 自動承認
+ */
+function shouldAutoApprove(
+  hitlRequest: HITLRequest,
+  ctx: StreamProcessingContext,
+): boolean {
+  const actions = hitlRequest.actionRequests as Array<{ name: string; args: Record<string, unknown> }>;
+
+  if (actions.some((a) => a.args?.requireUserApproval === true)) {
+    logger.agent.info('HITL required: agent set requireUserApproval');
+    return false;
+  }
+
+  const totalMaxPrice = actions.reduce(
+    (sum, a) => sum + (Number(a.args?.maxPrice) || 0),
+    0,
+  );
+
+  if (totalMaxPrice <= 0) {
+    logger.agent.info('HITL required: no valid maxPrice found');
+    return false;
+  }
+
+  if (totalMaxPrice > ctx.autoApproveThreshold) {
+    logger.agent.info('HITL required: totalMaxPrice exceeds threshold', {
+      totalMaxPrice,
+      autoApproveThreshold: ctx.autoApproveThreshold,
+    });
+    return false;
+  }
+
+  logger.agent.info('Auto-approving: within threshold', {
+    totalMaxPrice,
+    autoApproveThreshold: ctx.autoApproveThreshold,
+  });
+  return true;
+}
+
 async function* processAgentStream(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  agent: any,
   stream: AsyncIterable<[string, unknown]>,
   ctx: StreamProcessingContext,
   threadId: string,
@@ -111,6 +155,30 @@ async function* processAgentStream(
           logger.agent.info('HITL interrupt detected', {
             actions: hitlRequest.actionRequests.map((a: { name: string }) => a.name),
           });
+
+          // ── Auto-approve: requireUserApproval なし & 閾値以下 → 自動承認 ──
+          if (shouldAutoApprove(hitlRequest, ctx)) {
+            const decisions: HITLDecision[] = hitlRequest.actionRequests.map(
+              () => ({ type: 'approve' as const }),
+            );
+            const resumeStream = await agent.stream(
+              new Command({ resume: { decisions } }),
+              {
+                streamMode: ['messages', 'updates'],
+                configurable: { thread_id: threadId },
+              },
+            );
+            // 再帰的にストリームを処理（連鎖する auto-approve にも対応）
+            yield* processAgentStream(
+              agent,
+              resumeStream as AsyncIterable<[string, unknown]>,
+              ctx,
+              threadId,
+            );
+            return;
+          }
+
+          // ── Auto-approve 対象外 → クライアントに interrupt を送信 ──
           yield {
             type: 'interrupt',
             data: {
@@ -252,6 +320,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
     };
 
     for await (const event of processAgentStream(
+      agent,
       stream as AsyncIterable<[string, unknown]>,
       ctx,
       threadId,
@@ -315,6 +384,7 @@ export async function* resumeAgentStream(
     };
 
     for await (const event of processAgentStream(
+      agent,
       stream as AsyncIterable<[string, unknown]>,
       ctx,
       threadId,

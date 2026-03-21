@@ -279,7 +279,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         const interrupted = await readStream(response, assistantId);
         if (interrupted) {
           setIsWaitingApproval(true);
-          // Don't clear isStreaming in finally — we're waiting for approval
           return;
         }
       } catch (err) {
