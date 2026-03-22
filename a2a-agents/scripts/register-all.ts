@@ -107,22 +107,19 @@ async function main() {
 
   const results: Array<{ name: string; slug: string; ipfsUri: string; agentId?: string }> = [];
 
-  // viem clients (only if not dry run)
-  let publicClient: ReturnType<typeof createPublicClient> | null = null;
-  let walletClient: ReturnType<typeof createWalletClient> | null = null;
-  let account: ReturnType<typeof privateKeyToAccount> | null = null;
+  const account = !isDryRun && PRIVATE_KEY
+    ? privateKeyToAccount(PRIVATE_KEY as `0x${string}`)
+    : null;
 
-  if (!isDryRun && PRIVATE_KEY) {
-    account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
-    publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(RPC_URL || undefined),
-    });
-    walletClient = createWalletClient({
-      account,
-      chain: baseSepolia,
-      transport: http(RPC_URL || undefined),
-    });
+  const publicClient = account
+    ? createPublicClient({ transport: http(RPC_URL || undefined) })
+    : null;
+
+  const walletClient = account
+    ? createWalletClient({ account, transport: http(RPC_URL || undefined) })
+    : null;
+
+  if (account) {
     console.log(`Using account: ${account.address}`);
     console.log('');
   }
@@ -163,6 +160,8 @@ async function main() {
         console.log('  Registering on-chain...');
 
         const hash = await walletClient.writeContract({
+          account,
+          chain: baseSepolia,
           address: CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY as `0x${string}`,
           abi: AGENT_IDENTITY_REGISTRY_ABI,
           functionName: 'register',
@@ -192,6 +191,8 @@ async function main() {
         if (result.agentId && WALLET_ADDRESS) {
           console.log('  Setting agent wallet...');
           const walletHash = await walletClient.writeContract({
+            account,
+            chain: baseSepolia,
             address: CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY as `0x${string}`,
             abi: AGENT_IDENTITY_REGISTRY_ABI,
             functionName: 'setAgentWallet',

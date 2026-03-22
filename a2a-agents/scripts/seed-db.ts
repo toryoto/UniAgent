@@ -116,7 +116,7 @@ async function main() {
 
     console.log(`[${i + 1}/${data.agents.length}] ${agent.name} (${agentId})`);
 
-    const agentCard = {
+    const agentCard = JSON.parse(JSON.stringify({
       type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
       name: agent.name,
       description: agent.description,
@@ -141,7 +141,7 @@ async function main() {
         network: 'base-sepolia',
         chain: 'eip155:84532',
       },
-    };
+    }));
 
     // 1. AgentCache
     await prisma.agentCache.upsert({
