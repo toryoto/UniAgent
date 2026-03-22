@@ -21,6 +21,7 @@ import {
   getPaymentSettleResponse,
 } from './payment-utils.js';
 import { handle402Error, handlePaymentSettlementError } from './error-handlers.js';
+import { resolveAgentUrlFromAgentId } from './resolve-agent-url.js';
 
 // Privy client initialization with authorization key
 const authorizationKey = process.env.PRIVY_AUTHORIZATION_KEY || '';
@@ -163,10 +164,10 @@ async function processPaymentResponse(
  * execute_agent ツール実装 (v2対応)
  */
 async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
-  const { agentUrl, task, data, maxPrice, walletId, walletAddress } = input;
+  const { agentId, task, data, maxPrice, walletId, walletAddress } = input;
 
   logger.agent.info('Executing agent with x402 v2', {
-    agentUrl,
+    agentId,
     hasTask: !!task,
     hasData: !!data,
     maxPrice,
@@ -174,6 +175,16 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
   });
 
   try {
+    const agentUrl = await resolveAgentUrlFromAgentId(agentId);
+    if (!agentUrl) {
+      return {
+        success: false,
+        error: `agentId に対応するエージェントURLを取得できませんでした: ${agentId}`,
+      };
+    }
+
+    logger.agent.info('Resolved agent base URL from registry', { agentId, agentUrl });
+
     // 1. x402対応fetchクライアントを作成
     const fetchWithPayment = createX402FetchClient(privyClient, walletId, walletAddress);
 
@@ -186,25 +197,54 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
     // 3. A2Aリクエストを準備（data があれば DataPart として追加）
     const request = createJsonRpcRequest(task, data);
 
-    // 4. リクエスト送信
+    // 4. リクエスト送信（並列実行時のfacilitator競合に備えリトライ付き）
     // wrapFetchWithPaymentは以下のフローを自動的に処理:
     // 1. 初回リクエスト送信
     // 2. 402 Payment Required + PAYMENT-REQUIREDヘッダーを受信
     // 3. 署名を作成（PrivyEIP712Signerを使用）
     // 4. PAYMENT-SIGNATUREヘッダーを追加して再送信
-    logger.logic.info('Sending request (402 will be handled automatically)', {
-      endpoint,
-      note: 'wrapFetchWithPayment will automatically retry with PAYMENT-SIGNATURE if 402 is received',
-    });
+    //
+    // 並列実行時、x402 facilitatorのトランザクションナンス競合で
+    // 署名済みリトライが402で返ることがある。新しいクライアントで再試行する。
+    const MAX_PAYMENT_RETRIES = 2;
+    let response!: Response;
+    let lastFetchClient = fetchWithPayment;
 
-    const response = await fetchWithPayment(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    for (let attempt = 0; attempt <= MAX_PAYMENT_RETRIES; attempt++) {
+      if (attempt > 0) {
+        logger.payment.info('Retrying payment request (facilitator conflict)', {
+          attempt: attempt + 1,
+          endpoint,
+        });
+        // 新しいx402クライアントを作成（署名を再生成するため）
+        lastFetchClient = createX402FetchClient(privyClient, walletId, walletAddress);
+        // facilitatorの処理を待つ
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+
+      response = await lastFetchClient(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+
+      // 402かつPAYMENT-REQUIREDヘッダーなし = facilitator側の決済失敗 → リトライ
+      if (
+        response.status === 402 &&
+        !response.headers.has('PAYMENT-REQUIRED') &&
+        attempt < MAX_PAYMENT_RETRIES
+      ) {
+        logger.payment.warn('Payment settlement failed (facilitator conflict), will retry', {
+          attempt: attempt + 1,
+          status: response.status,
+        });
+        continue;
+      }
+      break;
+    }
 
     // 5. PAYMENT-REQUIREDヘッダーをデコード
     const paymentRequiredHeader = response.headers.get('PAYMENT-REQUIRED');
@@ -272,7 +312,7 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
  */
 const executeAgentSchema = z
   .object({
-    agentUrl: z.string().describe('エージェントのBase URL'),
+    agentId: z.string().describe('エージェントID（discover_agents の結果の agentId。Base URL はサーバーが解決）'),
     task: z
       .string()
       .optional()
@@ -308,6 +348,7 @@ export const executeAgentTool = tool(
   {
     name: 'execute_agent',
     description: `外部エージェントをx402 v2決済付きで実行します（A2A Protocol準拠）。
+agentId は discover_agents で得た値のみを指定すること。Base URL は AgentCache から自動解決される。
 
 【A2Aリクエスト構築 — task / data の使い分け】
 fetch_agent_spec で取得した仕様に基づき、エージェントが必要とする Part だけを送る:

@@ -8,22 +8,16 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { discoverAgents } from '@agent-marketplace/database';
 import { logger } from '../utils/logger.js';
 import { fetchAgentJson } from './agent-utils.js';
 import { AGENT_JSON_TIMEOUT_MS } from './constants.js';
+import { resolveAgentUrlFromAgentId } from './resolve-agent-url.js';
 
 const fetchAgentSpecSchema = z.object({
   agentId: z
     .string()
     .describe('エージェントID（discover_agents の結果から取得）'),
 });
-
-async function resolveAgentUrl(agentId: string): Promise<string | null> {
-  const result = await discoverAgents({ agentId });
-  const agent = result.agents[0];
-  return agent?.url || null;
-}
 
 /**
  * OpenAPI spec を URL からフェッチする
@@ -59,7 +53,7 @@ export const fetchAgentSpecTool = tool(
     try {
       logger.logic.info('Fetching agent spec', { agentId: input.agentId });
 
-      const agentUrl = await resolveAgentUrl(input.agentId);
+      const agentUrl = await resolveAgentUrlFromAgentId(input.agentId);
       if (!agentUrl) {
         return JSON.stringify({
           success: false,

@@ -3,7 +3,7 @@
  */
 
 export interface ExecuteAgentInput {
-  agentUrl: string;
+  agentId: string;
   task?: string;
   data?: Record<string, unknown>;
   maxPrice: number;

@@ -69,7 +69,7 @@ export interface MCPToolDiscoverAgentsOutput {
 }
 
 export interface MCPToolExecuteAgentInput {
-  agentUrl: string;
+  agentId: string;
   message: string;
   userId: string;
 }

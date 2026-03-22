@@ -20,6 +20,7 @@ import {
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
 import type { AgentStreamMessage, AgentToolCall, AgentApproval } from '@/lib/types';
 import type { HITLDecision } from '@agent-marketplace/shared';
@@ -30,6 +31,7 @@ import { CommandBadge } from '@/components/chat/CommandBadge';
 import { parseMessage } from '@/lib/utils/message-parser';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
+import { MessageMarkdown } from '@/components/chat/MessageMarkdown';
 
 // Slash command definitions
 const SLASH_COMMANDS: SlashCommandOption[] = [
@@ -45,6 +47,9 @@ const SLASH_COMMANDS: SlashCommandOption[] = [
   },
 ];
 
+/** 下端からこの距離以内なら「追従」扱い（上に読んでいるときは自動スクロールしない） */
+const BOTTOM_SCROLL_THRESHOLD_PX = 80;
+
 interface ChatViewProps {
   conversationId?: string;
   initialMessages?: AgentStreamMessage[];
@@ -54,6 +59,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const { getAccessToken } = usePrivy();
   const { wallet } = useDelegatedWallet();
   const queryClient = useQueryClient();
+  const pathname = usePathname();
 
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
@@ -69,6 +75,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     isWaitingApproval,
     error,
     clearError,
+    reset,
     conversationId,
   } = useAgentStream({
     walletId,
@@ -77,6 +84,16 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     getAccessToken,
     initialMessages,
   });
+
+  // /chat/[id] → /chat 遷移で状態をリセット(useRefは2回目以降のレンダーで同じオブジェクトを返す)
+  const prevPathnameRef = useRef(pathname);
+  useEffect(() => {
+    const prev = prevPathnameRef.current;
+    prevPathnameRef.current = pathname;
+    if (prev !== pathname && pathname === '/chat') {
+      reset();
+    }
+  }, [pathname]);
 
   // 新規会話作成後にURLを更新 & サイドバーのリストを再取得
   useEffect(() => {
@@ -87,11 +104,22 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   }, [conversationId, initialConversationId, queryClient]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  /** ユーザーが下端付近にいるときだけストリーム更新で追従する */
+  const isNearBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
-  // 新しいメッセージが来たら自動スクロール
+  const updateScrollPin = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX;
+  }, []);
+
+  // 下端にいるときだけ新着・ストリーム更新で自動スクロール（上にスクロールして読んでいるときは引き戻さない）
   useEffect(() => {
+    if (!isNearBottomRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -160,6 +188,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   const handleSubmit = useCallback(() => {
     if (!input.trim() || isStreaming) return;
+    isNearBottomRef.current = true;
     const parsed = parseMessage(input);
     sendMessage(parsed.text, parsed.agentId);
   }, [input, isStreaming, sendMessage]);
@@ -211,7 +240,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       <PageHeader title="Chat" />
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto p-4 md:p-8"
+        onScroll={updateScrollPin}
+      >
         <div className="mx-auto max-w-4xl">
           {walletWarning}
 
@@ -416,18 +449,22 @@ function MessageBubble({
 
         {/* Content */}
         <div
-          className={`whitespace-pre-wrap text-sm md:text-base ${isUser ? 'text-white' : 'text-slate-300'}`}
+          className={`min-w-0 text-sm md:text-base ${isUser ? 'whitespace-pre-wrap text-white' : 'text-slate-300'}`}
         >
-          {message.content || (
-            message.isStreaming ? (
-              <span className="flex items-center gap-2 text-slate-500 italic">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Thinking...
-              </span>
-            ) : !message.approval ? (
-              <span className="text-slate-500 italic">No response</span>
-            ) : null
-          )}
+          {message.content ? (
+            isUser ? (
+              message.content
+            ) : (
+              <MessageMarkdown content={message.content} />
+            )
+          ) : message.isStreaming ? (
+            <span className="flex items-center gap-2 text-slate-500 italic">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Thinking...
+            </span>
+          ) : !message.approval ? (
+            <span className="text-slate-500 italic">No response</span>
+          ) : null}
         </div>
 
         {/* Total Cost */}
@@ -443,6 +480,96 @@ function MessageBubble({
   );
 }
 
+function ActionDetail({ action }: { action: { name: string; args: Record<string, unknown>; description?: string } }) {
+  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
+
+  if (action.description) {
+    return <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>;
+  }
+
+  return (
+    <>
+      <div className="flex gap-2">
+        <span className="text-slate-500">Tool:</span>
+        <span className="font-mono text-slate-200">{action.name}</span>
+      </div>
+      {agentId && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Agent ID:</span>
+          <span className="font-mono text-slate-200">{String(agentId)}</span>
+        </div>
+      )}
+      {agentUrl && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Agent URL:</span>
+          <span className="font-mono text-slate-200">{String(agentUrl)}</span>
+        </div>
+      )}
+      {task && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Task:</span>
+          <span className="text-slate-200">{String(task)}</span>
+        </div>
+      )}
+      {data && typeof data === 'object' && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Params:</span>
+          <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      )}
+      {maxPrice !== undefined && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Max Price:</span>
+          <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ActionEditor({
+  args,
+  onChange,
+}: {
+  args: Record<string, unknown>;
+  onChange: (updated: Record<string, unknown>) => void;
+}) {
+  return (
+    <div className="mt-2 space-y-2">
+      {args.task !== undefined && (
+        <>
+          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
+          <textarea
+            value={String(args.task ?? '')}
+            onChange={(e) => onChange({ ...args, task: e.target.value })}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+            rows={2}
+          />
+        </>
+      )}
+      {args.data !== undefined && (
+        <>
+          <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
+          <textarea
+            value={typeof args.data === 'string' ? args.data : JSON.stringify(args.data, null, 2)}
+            onChange={(e) => {
+              try {
+                onChange({ ...args, data: JSON.parse(e.target.value) });
+              } catch {
+                onChange({ ...args, data: e.target.value });
+              }
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+            rows={4}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 function ApprovalCard({
   approval,
   onResume,
@@ -450,175 +577,193 @@ function ApprovalCard({
   approval: AgentApproval;
   onResume: (decisions: HITLDecision[]) => Promise<void>;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedArgs, setEditedArgs] = useState<Record<string, unknown>>({});
+  const [editingIndices, setEditingIndices] = useState<Set<number>>(new Set());
+  const [editedArgsMap, setEditedArgsMap] = useState<Record<number, Record<string, unknown>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 最初のactionRequestのみを表示（通常1つ）
-  const action = approval.actionRequests[0];
-  if (!action) return null;
+  const actions = approval.actionRequests;
+  if (actions.length === 0) return null;
 
-  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
+  const isBatch = actions.length > 1;
+  const isEditing = editingIndices.size > 0;
+
+  const getAllowedDecisions = (idx: number) => {
+    const rc = approval.reviewConfigs.find((r) => r.actionName === actions[idx].name);
+    return rc?.allowedDecisions ?? ['approve', 'reject'];
+  };
+
+  const canEditAny = actions.some((_, i) => getAllowedDecisions(i).includes('edit'));
+
+  const toggleEdit = (idx: number) => {
+    setEditingIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+        setEditedArgsMap((m) => {
+          const { [idx]: _, ...rest } = m;
+          return rest;
+        });
+      } else {
+        next.add(idx);
+        setEditedArgsMap((m) => ({ ...m, [idx]: { ...actions[idx].args } }));
+      }
+      return next;
+    });
+  };
+
+  const updateEditedArgs = (idx: number, updated: Record<string, unknown>) => {
+    setEditedArgsMap((m) => ({ ...m, [idx]: updated }));
+  };
+
+  const buildDecisions = (): HITLDecision[] =>
+    actions.map((a, i) => {
+      const edited = editedArgsMap[i];
+      if (edited && JSON.stringify(edited) !== JSON.stringify(a.args)) {
+        return { type: 'edit' as const, editedAction: { name: a.name, args: edited } };
+      }
+      return { type: 'approve' as const };
+    });
 
   const handleApprove = async () => {
     setIsSubmitting(true);
-    await onResume(approval.actionRequests.map(() => ({ type: 'approve' as const })));
+    await onResume(actions.map(() => ({ type: 'approve' as const })));
+  };
+
+  const handleSubmitEdits = async () => {
+    setIsSubmitting(true);
+    await onResume(buildDecisions());
   };
 
   const handleReject = async () => {
     setIsSubmitting(true);
     await onResume(
-      approval.actionRequests.map(() => ({
+      actions.map(() => ({
         type: 'reject' as const,
         message: 'User rejected the agent execution',
       })),
     );
   };
 
-  const handleEdit = async () => {
-    if (!isEditing) {
-      setEditedArgs({ ...action.args });
-      setIsEditing(true);
-      return;
-    }
-    setIsSubmitting(true);
-    await onResume(
-      approval.actionRequests.map(() => ({
-        type: 'edit' as const,
-        editedAction: { name: action.name, args: editedArgs },
-      })),
-    );
-  };
-
-  const reviewConfig = approval.reviewConfigs.find((r) => r.actionName === action.name);
-  const allowedDecisions = reviewConfig?.allowedDecisions ?? ['approve', 'reject'];
+  const totalMaxPrice = isBatch
+    ? actions.reduce((sum, a) => sum + (Number((a.args as Record<string, unknown>).maxPrice) || 0), 0)
+    : null;
 
   return (
     <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 md:p-4">
       <div className="mb-3 flex items-center gap-2 text-xs font-medium text-amber-300 md:text-sm">
         <Shield className="h-4 w-4" />
         Approval Required
-      </div>
-
-      <div className="mb-3 space-y-1.5 text-xs text-slate-300 md:text-sm">
-        {action.description && (
-          <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>
-        )}
-        {!action.description && (
-          <>
-            <div className="flex gap-2">
-              <span className="text-slate-500">Tool:</span>
-              <span className="font-mono text-slate-200">{action.name}</span>
-            </div>
-            {agentId && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Agent ID:</span>
-                <span className="font-mono text-slate-200">{String(agentId)}</span>
-              </div>
-            )}
-            {agentUrl && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Agent URL:</span>
-                <span className="font-mono text-slate-200">{String(agentUrl)}</span>
-              </div>
-            )}
-            {task && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Task:</span>
-                <span className="text-slate-200">{String(task)}</span>
-              </div>
-            )}
-            {data && typeof data === 'object' && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Params:</span>
-                <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
-                  {JSON.stringify(data, null, 2)}
-                </pre>
-              </div>
-            )}
-            {maxPrice !== undefined && (
-              <div className="flex gap-2">
-                <span className="text-slate-500">Max Price:</span>
-                <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
-              </div>
-            )}
-          </>
+        {isBatch && (
+          <span className="rounded bg-amber-800/50 px-1.5 py-0.5 text-[10px] text-amber-200">
+            {actions.length} agents
+          </span>
         )}
       </div>
 
-      {/* Edit mode: editable task / data fields */}
-      {isEditing && (
-        <div className="mb-3 space-y-2">
-          {editedArgs.task !== undefined && (
-            <>
-              <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
-              <textarea
-                value={String(editedArgs.task ?? '')}
-                onChange={(e) => setEditedArgs({ ...editedArgs, task: e.target.value })}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-                rows={2}
-              />
-            </>
-          )}
-          {editedArgs.data !== undefined && (
-            <>
-              <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
-              <textarea
-                value={typeof editedArgs.data === 'string' ? editedArgs.data : JSON.stringify(editedArgs.data, null, 2)}
-                onChange={(e) => {
-                  try {
-                    setEditedArgs({ ...editedArgs, data: JSON.parse(e.target.value) });
-                  } catch {
-                    setEditedArgs({ ...editedArgs, data: e.target.value });
-                  }
-                }}
-                className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-                rows={4}
-              />
-            </>
-          )}
+      {isBatch && totalMaxPrice !== null && (
+        <div className="mb-3 flex items-center gap-2 rounded bg-slate-800/50 px-2.5 py-1.5 text-xs text-slate-300">
+          <span className="text-slate-500">Total estimated cost:</span>
+          <span className="font-mono text-green-400">${totalMaxPrice.toFixed(4)} USDC</span>
         </div>
       )}
 
-      {/* Action buttons */}
+      {isBatch ? (
+        <div className="mb-3 space-y-2">
+          {actions.map((a, i) => {
+            const allowed = getAllowedDecisions(i);
+            const isEditingThis = editingIndices.has(i);
+            return (
+              <div key={i} className="rounded border border-slate-700/50 bg-slate-800/30 p-2.5">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-slate-500">AGENT {i + 1}</span>
+                  {allowed.includes('edit') && (
+                    <button
+                      onClick={() => toggleEdit(i)}
+                      disabled={isSubmitting}
+                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-400 transition-colors hover:bg-amber-900/30 disabled:opacity-50"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      {isEditingThis ? 'Cancel' : 'Edit'}
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-300 md:text-sm">
+                  {isEditingThis ? (
+                    <ActionEditor
+                      args={editedArgsMap[i] ?? { ...a.args }}
+                      onChange={(updated) => updateEditedArgs(i, updated)}
+                    />
+                  ) : (
+                    <ActionDetail action={a} />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="mb-3 space-y-1.5 text-xs text-slate-300 md:text-sm">
+            {editingIndices.has(0) ? (
+              <ActionEditor
+                args={editedArgsMap[0] ?? { ...actions[0].args }}
+                onChange={(updated) => updateEditedArgs(0, updated)}
+              />
+            ) : (
+              <ActionDetail action={actions[0]} />
+            )}
+          </div>
+        </>
+      )}
+
       <div className="flex flex-wrap gap-2">
-        {allowedDecisions.includes('approve') && !isEditing && (
+        {!isEditing && getAllowedDecisions(0).includes('approve') && (
           <button
             onClick={handleApprove}
             disabled={isSubmitting}
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 md:text-sm"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            Approve
-          </button>
-        )}
-        {allowedDecisions.includes('edit') && (
-          <button
-            onClick={handleEdit}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 md:text-sm"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            {isEditing ? 'Submit Edit' : 'Edit'}
+            {isBatch ? `Approve All (${actions.length})` : 'Approve'}
           </button>
         )}
         {isEditing && (
           <button
-            onClick={() => setIsEditing(false)}
+            onClick={handleSubmitEdits}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 md:text-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Apply Changes
+          </button>
+        )}
+        {!isBatch && !isEditing && canEditAny && (
+          <button
+            onClick={() => toggleEdit(0)}
+            disabled={isSubmitting}
+            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 md:text-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </button>
+        )}
+        {isEditing && (
+          <button
+            onClick={() => { setEditingIndices(new Set()); setEditedArgsMap({}); }}
             disabled={isSubmitting}
             className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-600 disabled:opacity-50 md:text-sm"
           >
             Cancel
           </button>
         )}
-        {allowedDecisions.includes('reject') && !isEditing && (
+        {!isEditing && getAllowedDecisions(0).includes('reject') && (
           <button
             onClick={handleReject}
             disabled={isSubmitting}
             className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 md:text-sm"
           >
             <XCircle className="h-3.5 w-3.5" />
-            Reject
+            {isBatch ? 'Reject All' : 'Reject'}
           </button>
         )}
       </div>

@@ -57,6 +57,7 @@ ${message}
 - discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
 - execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
 - エージェントを実行する場合は execute_agent に以下を指定:
+  - agentId: discover_agents の結果の agentId（Base URL はサーバーが解決）
   - walletId: "${walletId}"
   - walletAddress: "${walletAddress}"
   - maxPrice: auto_approve_threshold以下に設定
@@ -187,6 +188,7 @@ ${message}
 - discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
 - execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
 - エージェントを実行する場合は execute_agent に以下を指定:
+  - agentId: discover_agents の結果の agentId（Base URL はサーバーが解決）
   - walletId: "${walletId}"
   - walletAddress: "${walletAddress}"
   - maxPrice: auto_approve_threshold以下に設定

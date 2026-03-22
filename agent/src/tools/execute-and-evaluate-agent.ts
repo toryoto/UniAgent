@@ -35,7 +35,6 @@ const executeAndEvaluateSchema = z
     category: z
       .enum(['research', 'travel', 'general'])
       .describe('エージェントのカテゴリ'),
-    agentUrl: z.string().describe('エージェントのBase URL'),
     task: z
       .string()
       .optional()
@@ -47,6 +46,13 @@ const executeAndEvaluateSchema = z
         '構造化パラメータ（A2A DataPart）。fetch_agent_spec の inputSchema / OpenAPI に基づいて構築。'
       ),
     maxPrice: z.number().describe('許容する最大価格 (USDC)'),
+    requireUserApproval: z
+      .boolean()
+      .optional()
+      .describe(
+        'true にすると、autoApproveThreshold 以下でも承認画面を表示する。' +
+        'ユーザーが確認を求めている場合や、意図が曖昧で誤実行リスクが高い場合に設定する。'
+      ),
     walletId: z.string().describe('Privy ウォレット ID'),
     walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
   })
@@ -57,15 +63,15 @@ const executeAndEvaluateSchema = z
 type ExecuteAndEvaluateInput = z.infer<typeof executeAndEvaluateSchema>;
 
 async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
-  const { agentId, category, agentUrl, task, data, maxPrice, walletId, walletAddress } = input;
+  const { agentId, category, task, data, maxPrice, walletId, walletAddress } = input;
 
   // ── 1. Execute AI Agent ──────────────────────────────────────
-  logger.eval.info('Execute & Evaluate started', { agentId, agentUrl, hasData: !!data });
+  logger.eval.info('Execute & Evaluate started', { agentId, hasData: !!data });
 
   const startTime = Date.now();
 
   const executeResultRaw = await executeAgentTool.invoke({
-    agentUrl,
+    agentId,
     ...(task ? { task } : {}),
     ...(data ? { data } : {}),
     maxPrice,
@@ -223,13 +229,13 @@ export const executeAndEvaluateAgentTool = tool(
 3. EAS署名: 評価結果をオフチェーンアテステーションとして署名・DB保存
 
 【入力】
-- agentId: エージェントID（discover_agents の結果から取得）
+- agentId: エージェントID（discover_agents の結果から取得。Base URL はサーバーが AgentCache から解決）
 - category: エージェントカテゴリ ("research" | "travel" | "general")
-- agentUrl: エージェントのBase URL
 - task: 自然言語テキスト（A2A TextPart、省略可）
 - data: 構造化パラメータ（A2A DataPart、省略可）。fetch_agent_spec の inputSchema に基づいて構築
 - ※ task と data は少なくとも一方が必須。エージェント仕様に応じて必要な方だけ渡す。
 - maxPrice: 許容する最大価格 (USDC)
+- requireUserApproval: true で承認画面を強制（省略時は false。ユーザーが確認を求めた場合や誤実行リスクが高い場合に使う）
 - walletId: Privy ウォレット ID
 - walletAddress: ウォレットアドレス (0x...)
 

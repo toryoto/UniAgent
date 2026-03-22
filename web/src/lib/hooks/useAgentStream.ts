@@ -279,7 +279,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         const interrupted = await readStream(response, assistantId);
         if (interrupted) {
           setIsWaitingApproval(true);
-          // Don't clear isStreaming in finally — we're waiting for approval
           return;
         }
       } catch (err) {
@@ -321,26 +320,30 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       setIsWaitingApproval(false);
       setIsStreaming(true);
 
-      // approval を resolved に更新し、edit/reject 時は toolCalls も反映
       const isRejected = decisions.every((d) => d.type === 'reject');
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== assistantId) return m;
 
-          let updatedToolCalls = m.toolCalls;
-          for (const decision of decisions) {
+          let updatedToolCalls = m.toolCalls ?? [];
+
+          // calling 状態のツールをインデックス順で取り出し、decisions と 1:1 対応させる
+          const callingIndices = updatedToolCalls
+            .map((tc, idx) => (tc.status === 'calling' ? idx : -1))
+            .filter((idx) => idx !== -1);
+
+          for (let i = 0; i < Math.min(decisions.length, callingIndices.length); i++) {
+            const decision = decisions[i];
+            const tcIdx = callingIndices[i];
             if (decision.type === 'edit' && decision.editedAction) {
-              const edited = decision.editedAction;
-              updatedToolCalls = (updatedToolCalls ?? []).map((tc) =>
-                tc.name === edited.name && tc.status === 'calling'
-                  ? { ...tc, args: edited.args }
-                  : tc,
+              updatedToolCalls = updatedToolCalls.map((tc, j) =>
+                j === tcIdx ? { ...tc, args: decision.editedAction.args } : tc,
               );
             }
           }
 
           if (isRejected) {
-            updatedToolCalls = (updatedToolCalls ?? []).map((tc) =>
+            updatedToolCalls = updatedToolCalls.map((tc) =>
               tc.status === 'calling'
                 ? { ...tc, status: 'completed' as const, result: 'Rejected by user' }
                 : tc,
