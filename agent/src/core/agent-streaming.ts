@@ -25,6 +25,20 @@ function extractTextContent(
     .join('');
 }
 
+/** 「今週」「明日」など相対日付を解釈するため、リクエスト時点の日時を付与する */
+function getRequestTimeContext(): { iso: string; timeZone: string } {
+  const now = new Date();
+  let timeZone = 'UTC';
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch (err) {
+    logger.agent.warn('Intl timezone resolution failed; falling back to UTC', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+  return { iso: now.toISOString(), timeZone };
+}
+
 // ── Module-level singletons (shared between run & resume) ────────────────
 
 const checkpointer = new MemorySaver();
@@ -260,7 +274,15 @@ async function* processAgentStream(
                   },
                 };
               }
-            } catch { /* 非JSON結果は無視 */ }
+            } catch (err) {
+              logger.payment.warn(
+                'execute_and_evaluate_agent result was not valid JSON; payment amount not extracted',
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  preview: resultContent.slice(0, 240),
+                },
+              );
+            }
           }
         }
       }
@@ -281,10 +303,12 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 
   try {
     const agent = await getAgent();
+    const { iso: requestTimeIso, timeZone: requestTimeZone } = getRequestTimeContext();
 
     const userMessage = agentId
       ? `${message}
 ## コンテキスト
+- 現在の日時（サーバー）: ${requestTimeIso}（タイムゾーン: ${requestTimeZone}）
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
 - auto_approve_threshold: $${autoApproveThreshold} USDC
@@ -294,7 +318,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
 ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
 ※そのエージェントがタスクに適している場合のみ execute_and_evaluate_agent で実行してください
 ※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
-      : `${message}\n\n[Context: walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
+      : `${message}\n\n[Context: requestTime=${requestTimeIso}, timeZone=${requestTimeZone}, walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
 
     const messages = [
       ...(messageHistory ?? []).map((m) => ({ role: m.role, content: m.content })),
