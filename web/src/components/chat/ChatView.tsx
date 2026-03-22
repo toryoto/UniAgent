@@ -20,6 +20,7 @@ import {
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
 import type { AgentStreamMessage, AgentToolCall, AgentApproval } from '@/lib/types';
 import type { HITLDecision } from '@agent-marketplace/shared';
@@ -58,6 +59,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const { getAccessToken } = usePrivy();
   const { wallet } = useDelegatedWallet();
   const queryClient = useQueryClient();
+  const pathname = usePathname();
 
   const walletId = wallet?.walletId || '';
   const walletAddress = wallet?.address || '';
@@ -73,6 +75,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     isWaitingApproval,
     error,
     clearError,
+    reset,
     conversationId,
   } = useAgentStream({
     walletId,
@@ -81,6 +84,16 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     getAccessToken,
     initialMessages,
   });
+
+  // /chat/[id] → /chat 遷移で状態をリセット(useRefは2回目以降のレンダーで同じオブジェクトを返す)
+  const prevPathnameRef = useRef(pathname);
+  useEffect(() => {
+    const prev = prevPathnameRef.current;
+    prevPathnameRef.current = pathname;
+    if (prev !== pathname && pathname === '/chat') {
+      reset();
+    }
+  }, [pathname]);
 
   // 新規会話作成後にURLを更新 & サイドバーのリストを再取得
   useEffect(() => {
