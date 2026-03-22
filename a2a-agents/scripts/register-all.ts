@@ -18,7 +18,7 @@ import { readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
-import { createPublicClient, createWalletClient, http, parseAbiItem } from 'viem';
+import { createPublicClient, createWalletClient, http, encodeEventTopics, parseAbiItem } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import {
@@ -172,19 +172,17 @@ async function main() {
         const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
         // Parse Registered event to get agentId
-        const registeredTopic = parseAbiItem(
+        const registeredEvent = parseAbiItem(
           'event Registered(uint256 indexed agentId, string agentURI, address indexed owner)',
         );
-        const log = receipt.logs.find(
-          (l) => l.topics[0] === '0x' + registeredTopic.name, // simplified check
+        const [eventSelector] = encodeEventTopics({ abi: [registeredEvent] });
+        const registeredLog = receipt.logs.find(
+          (l) => l.topics[0] === eventSelector,
         );
 
-        if (receipt.logs.length > 0) {
-          const agentIdHex = receipt.logs[0].topics?.[1];
-          if (agentIdHex) {
-            result.agentId = BigInt(agentIdHex).toString();
-            console.log(`  Agent ID: ${result.agentId}`);
-          }
+        if (registeredLog?.topics[1]) {
+          result.agentId = BigInt(registeredLog.topics[1]).toString();
+          console.log(`  Agent ID: ${result.agentId}`);
         }
 
         // 3. Set agent wallet
