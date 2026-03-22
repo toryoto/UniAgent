@@ -8,7 +8,8 @@
     "web",
     "contracts",
     "mcp",
-    "agent"
+    "agent",
+    "a2a-agents"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
