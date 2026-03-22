@@ -23,17 +23,28 @@ async function main() {
     res.json({ status: 'ok', agents: slugs.length });
   });
 
-  app.get('/agents', (_req, res) => {
-    res.json(
-      slugs.map((slug) => ({
-        slug,
-        name: registry[slug].name,
-        qualityLevel: registry[slug].qualityLevel,
-        responseFormat: registry[slug].responseFormat,
-        requestFormat: registry[slug].requestFormat,
-        price: registry[slug].price,
-      })),
-    );
+  app.get('/', (req, res) => {
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    res.json({
+      name: 'A2A Agents Server',
+      agents: slugs.length,
+      endpoints: slugs.map((slug) => {
+        const agent = registry[slug];
+        return {
+          slug,
+          name: agent.name,
+          qualityLevel: agent.qualityLevel,
+          responseFormat: agent.responseFormat,
+          requestFormat: agent.requestFormat,
+          price: agent.price,
+          urls: {
+            execute: `${baseUrl}/${slug}`,
+            agentJson: `${baseUrl}/${slug}/.well-known/agent.json`,
+            openapi: `${baseUrl}/${slug}/openapi.json`,
+          },
+        };
+      }),
+    });
   });
 
   app.use(createWellKnownRoutes(registry));
