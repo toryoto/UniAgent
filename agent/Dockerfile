@@ -8,9 +8,11 @@ WORKDIR /app
 COPY package*.json ./
 COPY agent/package.json ./agent/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/database/package.json ./packages/database/
 
 # Copy source files
 COPY packages/shared ./packages/shared
+COPY packages/database ./packages/database
 COPY agent ./agent
 
 # Install all dependencies at once (including dev dependencies for build)
@@ -19,8 +21,14 @@ RUN npm install
 # Build shared package
 RUN npm run build --workspace=packages/shared
 
+# Build database package (agent tsconfig references + runtime dependency)
+RUN npm run build --workspace=@agent-marketplace/database
+
 # Build agent service
 RUN npm run build --workspace=agent
+
+# Drop devDependencies so runner can copy a lean node_modules (includes generated Prisma client)
+RUN npm prune --omit=dev
 
 # Production image  
 FROM base AS runner
@@ -28,17 +36,18 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Copy package files for production install
-COPY package*.json ./
-COPY agent/package.json ./agent/
-COPY packages/shared/package.json ./packages/shared/
+# Workspace manifests (required for npm -w agent)
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/agent/package.json ./agent/
+COPY --from=builder /app/packages/shared/package.json ./packages/shared/
+COPY --from=builder /app/packages/database/package.json ./packages/database/
 
-# Install production dependencies only
-# Using npm install instead of npm ci to handle lock file inconsistencies
-RUN npm install --omit=dev
+# Pruned install from builder: includes @prisma/client + generated .prisma (workspace postinstall skips prisma CLI in prod-only installs)
+COPY --from=builder /app/node_modules ./node_modules
 
-# Copy built packages from builder
+# Built workspace outputs
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/agent/dist ./agent/dist
 
 # Expose port
