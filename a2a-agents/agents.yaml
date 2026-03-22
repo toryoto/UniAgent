@@ -1,0 +1,354 @@
+agents:
+  # ==========================================================================
+  # HIGH QUALITY — Trusted, reliable agents
+  # ==========================================================================
+
+  - slug: premium-hotel-search
+    name: "PremiumHotelSearch"
+    description: "Premium hotel search with detailed amenity analysis, real-time pricing, and personalized recommendations powered by advanced matching algorithms"
+    category: travel
+    price: "$0.03"
+    qualityLevel: high
+    responseFormat: mixed
+    requestFormat: a2a-standard
+    skills:
+      - id: search-hotels
+        name: "Hotel Search"
+        description: "Search hotels with comprehensive filters including location, price, amenities, and guest ratings"
+      - id: amenity-analysis
+        name: "Amenity Analysis"
+        description: "Detailed amenity comparison across multiple properties"
+
+  - slug: budget-stay-finder
+    name: "BudgetStayFinder"
+    description: "Finds the cheapest accommodations within your budget using price optimization algorithms across hundreds of booking sources"
+    category: travel
+    price: "$0.005"
+    qualityLevel: high
+    responseFormat: data-only
+    requestFormat: a2a-standard
+    skills:
+      - id: budget-search
+        name: "Budget Search"
+        description: "Find cheapest hotels in any city with price guarantee"
+      - id: deal-alerts
+        name: "Deal Alerts"
+        description: "Identify limited-time offers and flash sales"
+
+  - slug: luxury-concierge
+    name: "LuxuryConcierge"
+    description: "Exclusive luxury hotel curation service specializing in 5-star properties, boutique hotels, and premium suites worldwide"
+    category: travel
+    price: "$0.04"
+    qualityLevel: high
+    responseFormat: markdown
+    requestFormat: a2a-standard
+    skills:
+      - id: luxury-search
+        name: "Luxury Search"
+        description: "Curated search for 5-star and boutique luxury accommodations"
+      - id: vip-services
+        name: "VIP Services"
+        description: "Arrange special VIP amenities and concierge services"
+
+  - slug: family-hotel-expert
+    name: "FamilyHotelExpert"
+    description: "Specialized in family-friendly accommodations with child amenities, connecting rooms, kids clubs, and family meal plans"
+    category: travel
+    price: "$0.02"
+    qualityLevel: high
+    responseFormat: mixed
+    requestFormat: mixed-input
+    skills:
+      - id: family-search
+        name: "Family Hotel Search"
+        description: "Find hotels with family-friendly amenities and activities"
+      - id: child-amenities
+        name: "Child Amenities Check"
+        description: "Verify availability of cribs, high chairs, and kids programs"
+
+  - slug: business-travel-pro
+    name: "BusinessTravelPro"
+    description: "Corporate travel specialist finding hotels with business centers, meeting rooms, express check-in, and corporate rate programs"
+    category: travel
+    price: "$0.025"
+    qualityLevel: high
+    responseFormat: data-only
+    requestFormat: a2a-standard
+    skills:
+      - id: business-search
+        name: "Business Hotel Search"
+        description: "Find hotels optimized for business travelers"
+      - id: corporate-rates
+        name: "Corporate Rates"
+        description: "Access negotiated corporate rates and loyalty programs"
+
+  - slug: eco-stay-finder
+    name: "EcoStayFinder"
+    description: "Green-certified and eco-friendly accommodation specialist with sustainability ratings, carbon offset information, and environmental certifications"
+    category: travel
+    price: "$0.015"
+    qualityLevel: high
+    responseFormat: text-only
+    requestFormat: natural-language
+    skills:
+      - id: eco-search
+        name: "Eco Hotel Search"
+        description: "Find environmentally certified green hotels"
+      - id: sustainability-rating
+        name: "Sustainability Rating"
+        description: "Provide detailed sustainability and carbon footprint ratings"
+
+  # ==========================================================================
+  # MEDIUM QUALITY — Functional but not comprehensive
+  # ==========================================================================
+
+  - slug: city-hotel-guide
+    name: "CityHotelGuide"
+    description: "Hotel recommendations with local area guides and neighborhood insights for informed booking decisions"
+    category: travel
+    price: "$0.02"
+    qualityLevel: medium
+    responseFormat: text-only
+    requestFormat: natural-language
+    skills:
+      - id: city-recommendations
+        name: "City Recommendations"
+        description: "Hotel recommendations based on city neighborhoods"
+
+  - slug: hotel-review-analyzer
+    name: "HotelReviewAnalyzer"
+    description: "Aggregates and analyzes hotel reviews from multiple sources to provide sentiment scores and highlight common praise and complaints"
+    category: travel
+    price: "$0.015"
+    qualityLevel: medium
+    responseFormat: markdown
+    requestFormat: a2a-standard
+    skills:
+      - id: review-analysis
+        name: "Review Analysis"
+        description: "Aggregate and analyze hotel reviews with sentiment scoring"
+
+  - slug: hotel-price-tracker
+    name: "HotelPriceTracker"
+    description: "Tracks hotel price changes over time and identifies the best booking windows based on historical pricing patterns"
+    category: travel
+    price: "$0.01"
+    qualityLevel: medium
+    responseFormat: nested
+    requestFormat: a2a-standard
+    skills:
+      - id: price-tracking
+        name: "Price Tracking"
+        description: "Track and compare hotel prices across date ranges"
+
+  - slug: airport-hotel-finder
+    name: "AirportHotelFinder"
+    description: "Finds hotels near airports with shuttle services, early check-in, and transit-friendly locations for layover stays"
+    category: travel
+    price: "$0.01"
+    qualityLevel: medium
+    responseFormat: data-only
+    requestFormat: flat
+    skills:
+      - id: airport-search
+        name: "Airport Hotel Search"
+        description: "Find hotels near airports with shuttle and transit options"
+
+  - slug: pet-friendly-stays
+    name: "PetFriendlyStays"
+    description: "Specialized search for pet-friendly hotels with pet policies, fees, weight limits, and nearby pet services"
+    category: travel
+    price: "$0.012"
+    qualityLevel: medium
+    responseFormat: mixed
+    requestFormat: a2a-standard
+    skills:
+      - id: pet-friendly-search
+        name: "Pet-Friendly Search"
+        description: "Find hotels that welcome pets with detailed pet policies"
+
+  - slug: group-booking-agent
+    name: "GroupBookingAgent"
+    description: "Handles group and event hotel bookings with block rate negotiations and room block management"
+    category: travel
+    price: "$0.025"
+    qualityLevel: medium
+    responseFormat: data-only
+    requestFormat: mixed-input
+    skills:
+      - id: group-search
+        name: "Group Booking Search"
+        description: "Find hotels with group rates and event facilities"
+
+  - slug: weekend-getaway
+    name: "WeekendGetaway"
+    description: "Curates weekend escape packages combining hotel stays with local experiences and activities"
+    category: travel
+    price: "$0.018"
+    qualityLevel: medium
+    responseFormat: markdown
+    requestFormat: natural-language
+    skills:
+      - id: getaway-packages
+        name: "Getaway Packages"
+        description: "Find weekend hotel packages with local experiences"
+
+  - slug: hotel-comparison-bot
+    name: "HotelComparisonBot"
+    description: "Side-by-side hotel comparison tool analyzing price, location, amenities, and guest reviews across multiple properties"
+    category: travel
+    price: "$0.008"
+    qualityLevel: medium
+    responseFormat: nested
+    requestFormat: a2a-standard
+    skills:
+      - id: hotel-comparison
+        name: "Hotel Comparison"
+        description: "Compare multiple hotels across key dimensions"
+
+  # ==========================================================================
+  # LOW QUALITY — Minimal, inaccurate, or incomplete
+  # ==========================================================================
+
+  - slug: quick-hotel-bot
+    name: "QuickHotelBot"
+    description: "Fast but minimal hotel search results"
+    category: travel
+    price: "$0.003"
+    qualityLevel: low
+    responseFormat: legacy-flat
+    requestFormat: flat
+    skills:
+      - id: quick-search
+        name: "Quick Search"
+        description: "Basic hotel search"
+
+  - slug: basic-room-finder
+    name: "BasicRoomFinder"
+    description: "Simple room availability checker with limited filtering"
+    category: travel
+    price: "$0.002"
+    qualityLevel: low
+    responseFormat: text-only
+    requestFormat: flat
+    skills:
+      - id: room-check
+        name: "Room Check"
+        description: "Check basic room availability"
+
+  - slug: cheap-beds-search
+    name: "CheapBedsSearch"
+    description: "Bare-bones search for the absolute cheapest beds available"
+    category: travel
+    price: "$0.001"
+    qualityLevel: low
+    responseFormat: data-only
+    requestFormat: a2a-standard
+    skills:
+      - id: cheap-search
+        name: "Cheap Search"
+        description: "Find cheapest available rooms"
+
+  - slug: auto-hotel-suggest
+    name: "AutoHotelSuggest"
+    description: "Automated hotel suggestions with minimal personalization"
+    category: travel
+    price: "$0.004"
+    qualityLevel: low
+    responseFormat: legacy-flat
+    requestFormat: flat
+    skills:
+      - id: auto-suggest
+        name: "Auto Suggest"
+        description: "Automated hotel suggestions"
+
+  - slug: hostel-finder-lite
+    name: "HostelFinderLite"
+    description: "Basic hostel and budget accommodation search"
+    category: travel
+    price: "$0.002"
+    qualityLevel: low
+    responseFormat: text-only
+    requestFormat: natural-language
+    skills:
+      - id: hostel-search
+        name: "Hostel Search"
+        description: "Find hostels and budget stays"
+
+  # ==========================================================================
+  # UNRELIABLE — Error-prone, slow, or inconsistent
+  # ==========================================================================
+
+  - slug: discount-hotel-hunter
+    name: "DiscountHotelHunter"
+    description: "Hunts for deeply discounted hotel deals but frequently fails to connect to data sources"
+    category: travel
+    price: "$0.01"
+    qualityLevel: unreliable
+    responseFormat: data-only
+    requestFormat: a2a-standard
+    errorRate: 0.4
+    skills:
+      - id: discount-search
+        name: "Discount Search"
+        description: "Hunt for deeply discounted hotel deals"
+
+  - slug: luxury-stay-bot
+    name: "LuxuryStayBot"
+    description: "Luxury hotel specialist with exclusive deals but extremely slow response times"
+    category: travel
+    price: "$0.05"
+    qualityLevel: unreliable
+    responseFormat: mixed
+    requestFormat: a2a-standard
+    latencyMs: 8000
+    errorRate: 0.2
+    skills:
+      - id: luxury-deals
+        name: "Luxury Deals"
+        description: "Find exclusive luxury hotel deals"
+
+  - slug: flash-deal-bot
+    name: "FlashDealBot"
+    description: "Flash deal aggregator that often returns stale or expired offers"
+    category: travel
+    price: "$0.006"
+    qualityLevel: unreliable
+    responseFormat: legacy-flat
+    requestFormat: flat
+    errorRate: 0.5
+    skills:
+      - id: flash-deals
+        name: "Flash Deals"
+        description: "Aggregate flash hotel deals"
+
+  - slug: global-hotel-scraper
+    name: "GlobalHotelScraper"
+    description: "Scrapes hotel listings from various sources but data is frequently outdated or incorrect"
+    category: travel
+    price: "$0.008"
+    qualityLevel: unreliable
+    responseFormat: nested
+    requestFormat: a2a-standard
+    errorRate: 0.35
+    latencyMs: 5000
+    skills:
+      - id: global-scrape
+        name: "Global Scrape"
+        description: "Scrape hotel data from multiple sources"
+
+  - slug: last-minute-rooms
+    name: "LastMinuteRooms"
+    description: "Last-minute room booking agent that intermittently loses connection to booking APIs"
+    category: travel
+    price: "$0.012"
+    qualityLevel: unreliable
+    responseFormat: text-only
+    requestFormat: natural-language
+    errorRate: 0.3
+    latencyMs: 3000
+    skills:
+      - id: last-minute
+        name: "Last Minute Booking"
+        description: "Find last-minute hotel room availability"

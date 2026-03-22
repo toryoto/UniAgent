@@ -18,6 +18,7 @@ UniAgent is a decentralized AI agent marketplace integrating A2A (Agent-to-Agent
 | `agent/` | LangChain ReAct agent service | 3002 |
 | `mcp/` | A2A discovery MCP server | 3001 |
 | `contracts/` | Hardhat smart contracts | - |
+| `a2a-agents/` | A2A hotel agents server (25 agents) | 3003 |
 | `packages/shared/` | Pure functions, types, business logic（DB 非依存） | - |
 | `packages/database/` | Prisma Client & DB アクセス層 | - |
 
@@ -28,7 +29,7 @@ shared (最下層・依存なし)
   ↑
 database (shared に依存)
   ↑
-web / mcp / agent (shared, database を使用)
+web / mcp / agent / a2a-agents (shared, database を使用)
 ```
 
 ## Build & Development Commands
