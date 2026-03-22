@@ -46,6 +46,9 @@ const SLASH_COMMANDS: SlashCommandOption[] = [
   },
 ];
 
+/** 下端からこの距離以内なら「追従」扱い（上に読んでいるときは自動スクロールしない） */
+const BOTTOM_SCROLL_THRESHOLD_PX = 80;
+
 interface ChatViewProps {
   conversationId?: string;
   initialMessages?: AgentStreamMessage[];
@@ -88,11 +91,22 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   }, [conversationId, initialConversationId, queryClient]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  /** ユーザーが下端付近にいるときだけストリーム更新で追従する */
+  const isNearBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
-  // 新しいメッセージが来たら自動スクロール
+  const updateScrollPin = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    isNearBottomRef.current = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX;
+  }, []);
+
+  // 下端にいるときだけ新着・ストリーム更新で自動スクロール（上にスクロールして読んでいるときは引き戻さない）
   useEffect(() => {
+    if (!isNearBottomRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -161,6 +175,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   const handleSubmit = useCallback(() => {
     if (!input.trim() || isStreaming) return;
+    isNearBottomRef.current = true;
     const parsed = parseMessage(input);
     sendMessage(parsed.text, parsed.agentId);
   }, [input, isStreaming, sendMessage]);
@@ -212,7 +227,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       <PageHeader title="Chat" />
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-8">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-y-auto p-4 md:p-8"
+        onScroll={updateScrollPin}
+      >
         <div className="mx-auto max-w-4xl">
           {walletWarning}
 
