@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { AgentRegistry } from '../agents/types.js';
 import { parseRequest } from '../request/parser.js';
 import { generateResponse } from '../response/generator.js';
+import { settleX402IfNeeded } from '../middleware/x402.js';
 
 export function createAgentRoutes(registry: AgentRegistry): Router {
   const router = Router();
@@ -30,9 +31,14 @@ export function createAgentRoutes(registry: AgentRegistry): Router {
         return;
       }
 
+      const id = (body.id ?? null) as string | number | null;
+      if (!(await settleX402IfNeeded(req, res, id))) {
+        return;
+      }
+
       res.json({
         jsonrpc: '2.0',
-        id: body.id ?? null,
+        id,
         result,
       });
     } catch (err) {

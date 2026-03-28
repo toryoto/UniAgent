@@ -6,6 +6,7 @@ import { createAgentRoutes } from './routes/agent-endpoint.js';
 import { createWellKnownRoutes } from './routes/wellknown.js';
 import { createOpenApiRoutes } from './routes/openapi.js';
 import { createX402Middleware } from './middleware/x402.js';
+import { createX402HttpServer } from './lib/x402-http-server.js';
 import { getPublicBaseUrl } from './lib/public-base-url.js';
 
 const PORT = parseInt(process.env.PORT || '3003', 10);
@@ -51,7 +52,17 @@ async function main() {
   app.use(createWellKnownRoutes(registry));
   app.use(createOpenApiRoutes(registry));
 
-  const x402 = createX402Middleware(registry);
+  const x402HttpServer = createX402HttpServer(registry);
+  if (process.env.X402_DISABLED !== 'true') {
+    try {
+      await x402HttpServer.initialize();
+    } catch (err) {
+      console.error('x402 initialize failed (facilitator / route config):', err);
+      process.exit(1);
+    }
+  }
+
+  const x402 = createX402Middleware(registry, x402HttpServer);
   app.use('/:slug', x402);
 
   app.use(createAgentRoutes(registry));
