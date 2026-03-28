@@ -1,17 +1,39 @@
 /**
  * Blockchain Configuration (Shared)
  *
- * Base Sepolia (Chain ID: 84532) のデプロイ済みアドレス
+ * Base Sepolia (Chain ID: 84532) のデフォルトアドレス。
+ * 再デプロイ後は環境変数で上書きする（コード変更なしで切り替え可能）。
+ *
+ * - サーバー / CLI: AGENT_IDENTITY_REGISTRY, AGENT_STAKING, USDC_ADDRESS
+ * - Next.js クライアント: NEXT_PUBLIC_AGENT_IDENTITY_REGISTRY, NEXT_PUBLIC_AGENT_STAKING, NEXT_PUBLIC_USDC_ADDRESS
  */
 
-export const CONTRACT_ADDRESSES = {
-  /** AgentIdentityRegistry (ERC-8004) - Base Sepolia */
-  // NOTE: Deployed address (see CLAUDE.md / contracts README)
-  AGENT_IDENTITY_REGISTRY: '0x28E0346B623C80Fc425E85339310fe09B79012Cd',
-  /** AgentStaking - Base Sepolia (placeholder until deployed) */
-  AGENT_STAKING: '0xd4ab217a31f475d2f5827A8b760cabb17b44f4aC',
-  /** USDC (Base Sepolia) */
+const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
+
+function contractAddrFromEnv(...keys: string[]): string | undefined {
+  for (const k of keys) {
+    const v = process.env[k]?.trim();
+    if (v && ADDR_RE.test(v)) return v;
+  }
+  return undefined;
+}
+
+const DEFAULT_CONTRACT_ADDRESSES = {
+  AGENT_IDENTITY_REGISTRY: '0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92',
+  AGENT_STAKING: '0xC034e56EDe7FC31579E41095A4e963D499e85d39',
   USDC: '0x036cbd53842c5426634e7929541ec2318f3dcf7e',
+} as const;
+
+export const CONTRACT_ADDRESSES = {
+  AGENT_IDENTITY_REGISTRY:
+    contractAddrFromEnv('AGENT_IDENTITY_REGISTRY', 'NEXT_PUBLIC_AGENT_IDENTITY_REGISTRY') ??
+    DEFAULT_CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY,
+  AGENT_STAKING:
+    contractAddrFromEnv('AGENT_STAKING', 'NEXT_PUBLIC_AGENT_STAKING') ??
+    DEFAULT_CONTRACT_ADDRESSES.AGENT_STAKING,
+  USDC:
+    contractAddrFromEnv('USDC_ADDRESS', 'NEXT_PUBLIC_USDC_ADDRESS') ??
+    DEFAULT_CONTRACT_ADDRESSES.USDC,
 } as const;
 
 export const RPC_URL = process.env.RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || '';

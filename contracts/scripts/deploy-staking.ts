@@ -4,7 +4,7 @@ const KNOWN_ADDRESSES: Record<string, { usdc: string; registry: string }> = {
   // Base Sepolia
   '84532': {
     usdc: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
-    registry: '0x28E0346B623C80Fc425E85339310fe09B79012Cd',
+    registry: '0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92',
   },
 };
 
@@ -45,6 +45,11 @@ async function main() {
   const stakingAddress = await staking.getAddress();
 
   console.log('AgentStaking deployed to:', stakingAddress);
+
+  console.log('\n--- Post-deploy ---');
+  console.log('Set AGENT_STAKING / NEXT_PUBLIC_AGENT_STAKING =', stakingAddress);
+  console.log('If the registry was redeployed, ensure REGISTRY_ADDRESS above matches the new AgentIdentityRegistry.');
+  console.log('---\n');
 
   console.log('\n==================================================');
   console.log('Deployment Summary');

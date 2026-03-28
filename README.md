@@ -365,12 +365,11 @@ npm start
 エージェント identity のオンチェーン管理（ERC-721 ベース）。
 
 - **Network**: [Base Sepolia](https://docs.base.org/docs/tools/network-faucets) Testnet (Chain ID: 84532)
-- **Address**: [`0x28E0346B623C80Fc425E85339310fe09B79012Cd`](https://sepolia.basescan.org/address/0x28E0346B623C80Fc425E85339310fe09B79012Cd)
+- **Address**: [`0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`](https://sepolia.basescan.org/address/0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92)
 
 ### USDC ([Base Sepolia](https://docs.base.org/)) - [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009)対応
 
 - **Address**: [`0x036CbD53842c5426634e7929541eC2318f3dCF7e`](https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e)
-- **Deployer**: `0x25b61126EED206F6470533C073DDC3B4157bb6d1`
 
 ### EAS Agent Evaluation Schema ([Base Sepolia](https://docs.base.org/))
 

@@ -12,7 +12,7 @@ import { ethers } from 'hardhat';
  */
 
 // 必要に応じてここを書き換えるか、.env の AGENT_IDENTITY_REGISTRY_ADDRESS を設定する
-const DEFAULT_REGISTRY_ADDRESS = '0x28E0346B623C80Fc425E85339310fe09B79012Cd';
+const DEFAULT_REGISTRY_ADDRESS = '0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92';
 
 async function main() {
   const REGISTRY_ADDRESS =
