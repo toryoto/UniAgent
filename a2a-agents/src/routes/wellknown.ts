@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { CONTRACT_ADDRESSES } from '@agent-marketplace/shared/config';
 import type { AgentRegistry } from '../agents/types.js';
+import { getPublicBaseUrl } from '../lib/public-base-url.js';
 
 const BASE_SEPOLIA_NETWORK_ID = 'eip155:84532';
 
@@ -14,7 +15,7 @@ export function createWellKnownRoutes(registry: AgentRegistry): Router {
       return;
     }
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getPublicBaseUrl(req);
     const receiverAddress = process.env.AGENT_RECEIVER_ADDRESS || '0x25b61126EED206F6470533C073DDC3B4157bb6d1';
 
     res.json({
