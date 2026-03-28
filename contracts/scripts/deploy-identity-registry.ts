@@ -19,6 +19,14 @@ async function main() {
 
   console.log('AgentIdentityRegistry deployed to:', registryAddress);
 
+  console.log('\n--- Post-deploy cutover (manual) ---');
+  console.log('1. Truncate or clear: agent_cache, agent_stakes, eas_attestations (tokenId-only PK; avoid stale rows).');
+  console.log('2. Set env: AGENT_IDENTITY_REGISTRY / NEXT_PUBLIC_AGENT_IDENTITY_REGISTRY =', registryAddress);
+  console.log('3. Redeploy AgentStaking with REGISTRY_ADDRESS=' + registryAddress + ' (registry is immutable in Staking).');
+  console.log('4. Point Alchemy webhook at the new registry address.');
+  console.log('5. Re-register agents (e.g. a2a-agents: npm run register-bulk).');
+  console.log('---\n');
+
   // Display deployment info
   const network = await ethers.provider.getNetwork();
   console.log('\n==================================================');

@@ -89,7 +89,7 @@ User Message → Web UI → Agent Service → LangChain ReAct Agent
 
 ### Deployed Contracts
 - **AgentRegistry**: `0xe2B64700330af9e408ACb3A04a827045673311C1`
-- **AgentIdentityRegistry** (ERC-8004): `0x28E0346B623C80Fc425E85339310fe09B79012Cd`
+- **AgentIdentityRegistry** (ERC-8004): `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`
 - **USDC**: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
 ## Key Patterns

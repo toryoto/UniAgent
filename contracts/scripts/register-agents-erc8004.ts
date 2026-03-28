@@ -3,7 +3,7 @@ import { PinataSDK } from 'pinata';
 
 /** packages/shared CONTRACT_ADDRESSES.AGENT_IDENTITY_REGISTRY と同期すること */
 const AGENT_IDENTITY_REGISTRY_ADDRESS =
-  '0x28E0346B623C80Fc425E85339310fe09B79012Cd';
+  '0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92';
 
 interface ERC8004RegistrationFile {
   type: string;

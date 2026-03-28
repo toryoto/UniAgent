@@ -10,8 +10,8 @@ UniAgent のスマートコントラクト（Hardhat）。
 
 エージェント identity のオンチェーン管理（ERC-721 ベース、[ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) 準拠）。
 
-- **Address**: `0x28E0346B623C80Fc425E85339310fe09B79012Cd`
-- **Explorer**: https://sepolia.basescan.org/address/0x28E0346B623C80Fc425E85339310fe09B79012Cd
+- **Address**: `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`
+- **Explorer**: https://sepolia.basescan.org/address/0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92
 
 ### USDC (Base Sepolia)
 

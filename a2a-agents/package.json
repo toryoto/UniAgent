@@ -11,6 +11,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "register": "tsx scripts/register-all.ts",
+    "register-bulk": "tsx scripts/register-all.ts",
+    "register-reupload": "tsx scripts/register-reupload.ts",
+    "update-agent-uri": "tsx scripts/update-agent-uri.ts",
     "seed": "tsx scripts/seed-db.ts"
   },
   "dependencies": {
