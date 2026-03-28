@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import type { AgentRegistry } from '../agents/types.js';
+import { getPublicBaseUrl } from '../lib/public-base-url.js';
 
 export function createOpenApiRoutes(registry: AgentRegistry): Router {
   const router = Router();
@@ -11,7 +12,7 @@ export function createOpenApiRoutes(registry: AgentRegistry): Router {
       return;
     }
 
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getPublicBaseUrl(req);
 
     const requestSchema = buildRequestSchema(agent.requestFormat);
     const responseSchema = buildResponseSchema(agent.responseFormat);

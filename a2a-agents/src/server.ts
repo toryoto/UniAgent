@@ -6,6 +6,7 @@ import { createAgentRoutes } from './routes/agent-endpoint.js';
 import { createWellKnownRoutes } from './routes/wellknown.js';
 import { createOpenApiRoutes } from './routes/openapi.js';
 import { createX402Middleware } from './middleware/x402.js';
+import { getPublicBaseUrl } from './lib/public-base-url.js';
 
 const PORT = parseInt(process.env.PORT || '3003', 10);
 
@@ -24,7 +25,7 @@ async function main() {
   });
 
   app.get('/', (req, res) => {
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = getPublicBaseUrl(req);
     res.json({
       name: 'A2A Agents Server',
       agents: slugs.length,
