@@ -20,9 +20,15 @@ declare module 'express-serve-static-core' {
 
 /**
  * Express 用 HTTPAdapter（@x402/core の processHTTPRequest と同契約）
+ *
+ * `app.use('/:slug', ...)` 内ではマウント後に req.url が短くなり、req.path が `/` だけになることがある。
+ * ルートマッチと DynamicPrice の slug 解決のため、実際のリソースパス `/${slug}` を明示する。
  */
 class ExpressHttpAdapter {
-  constructor(private readonly req: Request) {}
+  constructor(
+    private readonly req: Request,
+    private readonly resourcePath: string,
+  ) {}
 
   getHeader(name: string): string | undefined {
     const v = this.req.headers[name.toLowerCase()];
@@ -35,7 +41,7 @@ class ExpressHttpAdapter {
   }
 
   getPath(): string {
-    return this.req.path;
+    return this.resourcePath;
   }
 
   getUrl(): string {
@@ -80,11 +86,25 @@ export async function settleX402IfNeeded(
   const ctx = req.x402;
   if (!ctx) return true;
 
-  const result = await ctx.httpServer.processSettlement(
-    ctx.paymentPayload,
-    ctx.paymentRequirements,
-    ctx.declaredExtensions
-  );
+  let result;
+  try {
+    result = await ctx.httpServer.processSettlement(
+      ctx.paymentPayload,
+      ctx.paymentRequirements,
+      ctx.declaredExtensions
+    );
+  } catch (err) {
+    console.error('x402 processSettlement failed:', err);
+    res.status(500).json({
+      jsonrpc: '2.0',
+      id: jsonRpcId,
+      error: {
+        code: -32603,
+        message: err instanceof Error ? err.message : 'Settlement error',
+      },
+    });
+    return false;
+  }
 
   if (!result.success) {
     res.status(402).json({
@@ -127,12 +147,14 @@ export function createX402Middleware(registry: AgentRegistry, httpServer: x402HT
       return;
     }
 
+    const resourcePath = `/${slug}`;
+
     void (async () => {
       try {
-        const adapter = new ExpressHttpAdapter(req);
+        const adapter = new ExpressHttpAdapter(req, resourcePath);
         const context = {
           adapter,
-          path: req.path,
+          path: resourcePath,
           method: req.method,
           paymentHeader: adapter.getHeader('payment-signature') ?? adapter.getHeader('x-payment'),
         };
@@ -158,6 +180,7 @@ export function createX402Middleware(registry: AgentRegistry, httpServer: x402HT
           }
         }
       } catch (err) {
+        console.error('x402 processHTTPRequest failed:', err);
         next(err);
       }
     })();
