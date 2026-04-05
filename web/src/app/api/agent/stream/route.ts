@@ -11,10 +11,9 @@ import { isToolRoundsArray, type AgentMessageHistoryEntry } from '@agent-marketp
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings } from '@/lib/db/budget-settings';
 import { findUserIdByPrivyId } from '@/lib/db/users';
-import { findConversationHistory, createConversation, touchConversation } from '@/lib/db/conversations';
+import { findConversationHistory, createConversation } from '@/lib/db/conversations';
 import { createMessage } from '@/lib/db/messages';
-import type { Prisma } from '@/lib/db/prisma';
-import { AssistantTurnCollector, createSseEventBuffer } from '@/lib/agent/assistant-turn-collector';
+import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -138,69 +137,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSEストリームをインターセプトして conversationId を注入 & アシスタントメッセージを保存
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    let assistantContent = '';
-    let totalCost = 0;
-    const sseBuffer = createSseEventBuffer();
-    const turnCollector = new AssistantTurnCollector();
-
-    const transformStream = new TransformStream({
-      start(controller) {
-        if (resolvedConversationId) {
-          const metaEvent = JSON.stringify({
-            type: 'meta',
-            data: { conversationId: resolvedConversationId },
-          });
-          controller.enqueue(encoder.encode(`data: ${metaEvent}\n\n`));
-        }
-      },
-      transform(chunk, controller) {
-        controller.enqueue(chunk);
-
-        const text = decoder.decode(chunk, { stream: true });
-        for (const raw of sseBuffer.push(text)) {
-          const event = raw as { type?: string; data?: Record<string, unknown> };
-          if (typeof event.type === 'string') {
-            turnCollector.applyEvent(event);
-          }
-          if (event.type === 'final' && event.data?.message) {
-            assistantContent = String(event.data.message);
-            totalCost = Number(event.data.totalCost) || 0;
-          }
-        }
-      },
-      async flush() {
-        for (const raw of sseBuffer.flushTail()) {
-          const event = raw as { type?: string; data?: Record<string, unknown> };
-          if (typeof event.type === 'string') {
-            turnCollector.applyEvent(event);
-          }
-          if (event.type === 'final' && event.data?.message) {
-            assistantContent = String(event.data.message);
-            totalCost = Number(event.data.totalCost) || 0;
-          }
-        }
-
-        if (resolvedConversationId && assistantContent) {
-          try {
-            const toolRounds = turnCollector.buildToolRounds();
-            await createMessage({
-              conversationId: resolvedConversationId,
-              role: 'assistant',
-              content: assistantContent,
-              ...(toolRounds != null
-                ? { toolRounds: toolRounds as unknown as Prisma.InputJsonValue }
-                : {}),
-              totalCost: totalCost > 0 ? totalCost : null,
-            });
-            await touchConversation(resolvedConversationId);
-          } catch (err) {
-            console.error('[Agent Stream API] Failed to save assistant message:', err);
-          }
-        }
-      },
+    const transformStream = createAgentSsePersistenceTransform({
+      persistAssistantToConversationId: resolvedConversationId,
+      metaConversationId: resolvedConversationId,
+      logPrefix: '[Agent Stream API]',
     });
 
     response.body.pipeThrough(transformStream);

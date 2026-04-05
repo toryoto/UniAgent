@@ -8,10 +8,9 @@
 import { NextRequest } from 'next/server';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings } from '@/lib/db/budget-settings';
-import { createMessage } from '@/lib/db/messages';
-import type { Prisma } from '@/lib/db/prisma';
-import { touchConversation } from '@/lib/db/conversations';
-import { AssistantTurnCollector, createSseEventBuffer } from '@/lib/agent/assistant-turn-collector';
+import { findConversationHistory } from '@/lib/db/conversations';
+import { findUserIdByPrivyId } from '@/lib/db/users';
+import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -56,6 +55,15 @@ export async function POST(request: NextRequest) {
     }
     const { autoApproveThreshold } = budgetSettings;
 
+    const userId = await findUserIdByPrivyId(auth.privyUserId);
+    let saveConversationId: string | null = null;
+    if (conversationId && userId) {
+      const owned = await findConversationHistory(conversationId, userId);
+      if (owned) {
+        saveConversationId = conversationId;
+      }
+    }
+
     console.log('[Agent Resume API] Forwarding to Agent Service (resume)', {
       threadId,
       decisionsCount: decisions.length,
@@ -82,59 +90,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSEストリームをインターセプトしてアシスタントメッセージの更新を保存
-    const decoder = new TextDecoder();
-    let assistantContent = '';
-    let totalCost = 0;
-    const sseBuffer = createSseEventBuffer();
-    const turnCollector = new AssistantTurnCollector();
-
-    const transformStream = new TransformStream({
-      transform(chunk, controller) {
-        controller.enqueue(chunk);
-
-        const text = decoder.decode(chunk, { stream: true });
-        for (const raw of sseBuffer.push(text)) {
-          const event = raw as { type?: string; data?: Record<string, unknown> };
-          if (typeof event.type === 'string') {
-            turnCollector.applyEvent(event);
-          }
-          if (event.type === 'final' && event.data?.message) {
-            assistantContent = String(event.data.message);
-            totalCost = Number(event.data.totalCost) || 0;
-          }
-        }
-      },
-      async flush() {
-        for (const raw of sseBuffer.flushTail()) {
-          const event = raw as { type?: string; data?: Record<string, unknown> };
-          if (typeof event.type === 'string') {
-            turnCollector.applyEvent(event);
-          }
-          if (event.type === 'final' && event.data?.message) {
-            assistantContent = String(event.data.message);
-            totalCost = Number(event.data.totalCost) || 0;
-          }
-        }
-
-        if (conversationId && assistantContent) {
-          try {
-            const toolRounds = turnCollector.buildToolRounds();
-            await createMessage({
-              conversationId,
-              role: 'assistant',
-              content: assistantContent,
-              ...(toolRounds != null
-                ? { toolRounds: toolRounds as unknown as Prisma.InputJsonValue }
-                : {}),
-              totalCost: totalCost > 0 ? totalCost : null,
-            });
-            await touchConversation(conversationId);
-          } catch (err) {
-            console.error('[Agent Resume API] Failed to save assistant message:', err);
-          }
-        }
-      },
+    const transformStream = createAgentSsePersistenceTransform({
+      persistAssistantToConversationId: saveConversationId,
+      logPrefix: '[Agent Resume API]',
     });
 
     response.body.pipeThrough(transformStream);
