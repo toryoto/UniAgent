@@ -3,7 +3,8 @@ import { findConversationWithMessages } from '@/lib/db/conversations';
 import { AppLayout } from '@/components/layout/app-layout';
 import { AuthGuard } from '@/components/auth/auth-guard';
 import { ChatView } from '@/components/chat/ChatView';
-import type { AgentStreamMessage } from '@/lib/types';
+import { isToolRoundsArray } from '@agent-marketplace/shared';
+import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
 
 export default async function ConversationPage({
   params,
@@ -16,13 +17,27 @@ export default async function ConversationPage({
 
   if (!conversation) notFound();
 
-  const initialMessages: AgentStreamMessage[] = conversation.messages.map((m) => ({
-    id: m.id,
-    role: m.role as 'user' | 'assistant',
-    content: m.content,
-    timestamp: m.createdAt,
-    totalCost: m.totalCost ? Number(m.totalCost) : undefined,
-  }));
+  const initialMessages: AgentStreamMessage[] = conversation.messages.map((m) => {
+    let toolCalls: AgentToolCall[] | undefined;
+    if (m.role === 'assistant' && isToolRoundsArray(m.toolRounds)) {
+      toolCalls = m.toolRounds.map((r, i) => ({
+        toolCallId: r.id,
+        name: r.name,
+        args: r.args,
+        result: r.result,
+        status: 'completed' as const,
+        step: i + 1,
+      }));
+    }
+    return {
+      id: m.id,
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+      timestamp: m.createdAt,
+      totalCost: m.totalCost ? Number(m.totalCost) : undefined,
+      ...(toolCalls ? { toolCalls } : {}),
+    };
+  });
 
   return (
     <AppLayout>

@@ -217,6 +217,8 @@ export interface BudgetSettingsFormData {
 export type { StreamEvent } from '@agent-marketplace/shared';
 
 export interface AgentToolCall {
+  /** LangChain / SSE の tool_call_id（並列ツールや同一ツール複数回の区別用） */
+  toolCallId: string;
   name: string;
   args: Record<string, unknown>;
   result?: string;

@@ -9,7 +9,9 @@ import { NextRequest } from 'next/server';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings } from '@/lib/db/budget-settings';
 import { createMessage } from '@/lib/db/messages';
+import type { Prisma } from '@/lib/db/prisma';
 import { touchConversation } from '@/lib/db/conversations';
+import { AssistantTurnCollector, createSseEventBuffer } from '@/lib/agent/assistant-turn-collector';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -84,33 +86,47 @@ export async function POST(request: NextRequest) {
     const decoder = new TextDecoder();
     let assistantContent = '';
     let totalCost = 0;
+    const sseBuffer = createSseEventBuffer();
+    const turnCollector = new AssistantTurnCollector();
 
     const transformStream = new TransformStream({
       transform(chunk, controller) {
         controller.enqueue(chunk);
 
         const text = decoder.decode(chunk, { stream: true });
-        const lines = text.split('\n\n');
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'final' && event.data?.message) {
-              assistantContent = event.data.message;
-              totalCost = event.data.totalCost || 0;
-            }
-          } catch {
-            // パース失敗は無視
+        for (const raw of sseBuffer.push(text)) {
+          const event = raw as { type?: string; data?: Record<string, unknown> };
+          if (typeof event.type === 'string') {
+            turnCollector.applyEvent(event);
+          }
+          if (event.type === 'final' && event.data?.message) {
+            assistantContent = String(event.data.message);
+            totalCost = Number(event.data.totalCost) || 0;
           }
         }
       },
       async flush() {
+        for (const raw of sseBuffer.flushTail()) {
+          const event = raw as { type?: string; data?: Record<string, unknown> };
+          if (typeof event.type === 'string') {
+            turnCollector.applyEvent(event);
+          }
+          if (event.type === 'final' && event.data?.message) {
+            assistantContent = String(event.data.message);
+            totalCost = Number(event.data.totalCost) || 0;
+          }
+        }
+
         if (conversationId && assistantContent) {
           try {
+            const toolRounds = turnCollector.buildToolRounds();
             await createMessage({
               conversationId,
               role: 'assistant',
               content: assistantContent,
+              ...(toolRounds != null
+                ? { toolRounds: toolRounds as unknown as Prisma.InputJsonValue }
+                : {}),
               totalCost: totalCost > 0 ? totalCost : null,
             });
             await touchConversation(conversationId);

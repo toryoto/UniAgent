@@ -82,6 +82,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
           case 'tool_call': {
             const newToolCall: AgentToolCall = {
+              toolCallId: event.data.toolCallId,
               name: event.data.name,
               args: event.data.args,
               status: 'calling',
@@ -95,7 +96,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
 
           case 'tool_result': {
             const updatedToolCalls = (m.toolCalls ?? []).map((tc) =>
-              tc.name === event.data.name && tc.status === 'calling'
+              tc.toolCallId === event.data.toolCallId && tc.status === 'calling'
                 ? { ...tc, result: event.data.result, status: 'completed' as const }
                 : tc,
             );

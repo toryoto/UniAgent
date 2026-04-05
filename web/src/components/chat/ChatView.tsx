@@ -416,8 +416,8 @@ function MessageBubble({
         {/* Tool Calls (ストリーミング中にリアルタイム表示) */}
         {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
           <div className="mb-3 space-y-2">
-            {message.toolCalls.map((tc, index) => (
-              <ToolCallCard key={`${tc.name}-${tc.step}-${index}`} toolCall={tc} />
+            {message.toolCalls.map((tc) => (
+              <ToolCallCard key={tc.toolCallId} toolCall={tc} />
             ))}
           </div>
         )}
