@@ -8,8 +8,9 @@
 import { NextRequest } from 'next/server';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings } from '@/lib/db/budget-settings';
-import { createMessage } from '@/lib/db/messages';
-import { touchConversation } from '@/lib/db/conversations';
+import { findConversationHistory } from '@/lib/db/conversations';
+import { findUserIdByPrivyId } from '@/lib/db/users';
+import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -54,6 +55,15 @@ export async function POST(request: NextRequest) {
     }
     const { autoApproveThreshold } = budgetSettings;
 
+    const userId = await findUserIdByPrivyId(auth.privyUserId);
+    let saveConversationId: string | null = null;
+    if (conversationId && userId) {
+      const owned = await findConversationHistory(conversationId, userId);
+      if (owned) {
+        saveConversationId = conversationId;
+      }
+    }
+
     console.log('[Agent Resume API] Forwarding to Agent Service (resume)', {
       threadId,
       decisionsCount: decisions.length,
@@ -80,45 +90,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSEストリームをインターセプトしてアシスタントメッセージの更新を保存
-    const decoder = new TextDecoder();
-    let assistantContent = '';
-    let totalCost = 0;
-
-    const transformStream = new TransformStream({
-      transform(chunk, controller) {
-        controller.enqueue(chunk);
-
-        const text = decoder.decode(chunk, { stream: true });
-        const lines = text.split('\n\n');
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'final' && event.data?.message) {
-              assistantContent = event.data.message;
-              totalCost = event.data.totalCost || 0;
-            }
-          } catch {
-            // パース失敗は無視
-          }
-        }
-      },
-      async flush() {
-        if (conversationId && assistantContent) {
-          try {
-            await createMessage({
-              conversationId,
-              role: 'assistant',
-              content: assistantContent,
-              totalCost: totalCost > 0 ? totalCost : null,
-            });
-            await touchConversation(conversationId);
-          } catch (err) {
-            console.error('[Agent Resume API] Failed to save assistant message:', err);
-          }
-        }
-      },
+    const transformStream = createAgentSsePersistenceTransform({
+      persistAssistantToConversationId: saveConversationId,
+      logPrefix: '[Agent Resume API]',
     });
 
     response.body.pipeThrough(transformStream);

@@ -7,11 +7,13 @@
  */
 
 import { NextRequest } from 'next/server';
+import { isToolRoundsArray, type AgentMessageHistoryEntry } from '@agent-marketplace/shared';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings } from '@/lib/db/budget-settings';
 import { findUserIdByPrivyId } from '@/lib/db/users';
-import { findConversationHistory, createConversation, touchConversation } from '@/lib/db/conversations';
+import { findConversationHistory, createConversation } from '@/lib/db/conversations';
 import { createMessage } from '@/lib/db/messages';
+import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -61,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     // 会話の解決: 既存 or 新規作成
     let resolvedConversationId: string | null = conversationId || null;
-    let messageHistory: Array<{ role: string; content: string }> = [];
+    let messageHistory: AgentMessageHistoryEntry[] = [];
 
     const userId = await findUserIdByPrivyId(auth.privyUserId);
 
@@ -69,10 +71,16 @@ export async function POST(request: NextRequest) {
       if (resolvedConversationId) {
         const conversation = await findConversationHistory(resolvedConversationId, userId);
         if (conversation) {
-          messageHistory = conversation.messages.map(m => ({
-            role: m.role,
-            content: m.content,
-          }));
+          messageHistory = conversation.messages.map((m) => {
+            if (m.role === 'assistant' && isToolRoundsArray(m.toolRounds)) {
+              return {
+                role: 'assistant' as const,
+                content: m.content,
+                toolRounds: m.toolRounds,
+              };
+            }
+            return { role: m.role as 'user' | 'assistant', content: m.content };
+          });
         }
       } else {
         const title = message.length > 50 ? message.slice(0, 50) + '...' : message;
@@ -129,55 +137,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSEストリームをインターセプトして conversationId を注入 & アシスタントメッセージを保存
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-    let assistantContent = '';
-    let totalCost = 0;
-
-    const transformStream = new TransformStream({
-      start(controller) {
-        if (resolvedConversationId) {
-          const metaEvent = JSON.stringify({
-            type: 'meta',
-            data: { conversationId: resolvedConversationId },
-          });
-          controller.enqueue(encoder.encode(`data: ${metaEvent}\n\n`));
-        }
-      },
-      transform(chunk, controller) {
-        controller.enqueue(chunk);
-
-        const text = decoder.decode(chunk, { stream: true });
-        const lines = text.split('\n\n');
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const event = JSON.parse(line.slice(6));
-            if (event.type === 'final' && event.data?.message) {
-              assistantContent = event.data.message;
-              totalCost = event.data.totalCost || 0;
-            }
-          } catch {
-            // パース失敗は無視
-          }
-        }
-      },
-      async flush() {
-        if (resolvedConversationId && assistantContent) {
-          try {
-            await createMessage({
-              conversationId: resolvedConversationId,
-              role: 'assistant',
-              content: assistantContent,
-              totalCost: totalCost > 0 ? totalCost : null,
-            });
-            await touchConversation(resolvedConversationId);
-          } catch (err) {
-            console.error('[Agent Stream API] Failed to save assistant message:', err);
-          }
-        }
-      },
+    const transformStream = createAgentSsePersistenceTransform({
+      persistAssistantToConversationId: resolvedConversationId,
+      metaConversationId: resolvedConversationId,
+      logPrefix: '[Agent Stream API]',
     });
 
     response.body.pipeThrough(transformStream);

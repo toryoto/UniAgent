@@ -8,8 +8,10 @@
  */
 
 import { initChatModel, createAgent } from 'langchain';
+import { HumanMessage } from '@langchain/core/messages';
 import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool, fetchAgentSpecTool } from '../tools/index.js';
+import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
@@ -66,8 +68,8 @@ ${message}
     logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
 
     const messages = [
-      ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
-      { role: 'user' as const, content: userMessage },
+      ...expandHistoryToLangChainMessages(messageHistory),
+      new HumanMessage(userMessage),
     ];
 
     const result = await agent.invoke(
@@ -205,8 +207,8 @@ ${message}
     };
 
     const streamMessages = [
-      ...(messageHistory || []).map(m => ({ role: m.role, content: m.content })),
-      { role: 'user' as const, content: userMessage },
+      ...expandHistoryToLangChainMessages(messageHistory),
+      new HumanMessage(userMessage),
     ];
 
     const stream = await agent.stream({

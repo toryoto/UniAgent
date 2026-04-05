@@ -1,8 +1,9 @@
 import { initChatModel, createAgent, humanInTheLoopMiddleware } from 'langchain';
 import type { HITLRequest, HITLResponse, Interrupt } from 'langchain';
 import { MemorySaver, Command } from '@langchain/langgraph';
-import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages';
+import { AIMessage, AIMessageChunk, HumanMessage, ToolMessage } from '@langchain/core/messages';
 import type { AgentRequest, StreamEvent, HITLDecision } from '@agent-marketplace/shared';
+import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
@@ -224,10 +225,19 @@ async function* processAgentStream(
           // ツール呼び出し: isAIMessage の tool_calls プロパティを使用（.kwargs 不要）
           for (const tc of msg.tool_calls ?? []) {
             ctx.stepCounter++;
+            const toolCallId =
+              typeof tc.id === 'string' && tc.id.length > 0
+                ? tc.id
+                : `call_${tc.name}_${ctx.stepCounter}`;
 
             yield {
               type: 'tool_call',
-              data: { name: tc.name, args: tc.args, step: ctx.stepCounter },
+              data: {
+                toolCallId,
+                name: tc.name,
+                args: tc.args as Record<string, unknown>,
+                step: ctx.stepCounter,
+              },
             };
 
             logger.agent.info(
@@ -249,10 +259,19 @@ async function* processAgentStream(
               : JSON.stringify(msg.content);
 
           ctx.stepCounter++;
+          const toolCallId =
+            typeof msg.tool_call_id === 'string' && msg.tool_call_id.length > 0
+              ? msg.tool_call_id
+              : `call_${toolName}_${ctx.stepCounter}`;
 
           yield {
             type: 'tool_result',
-            data: { name: toolName, result: resultContent, step: ctx.stepCounter },
+            data: {
+              toolCallId,
+              name: toolName,
+              result: resultContent,
+              step: ctx.stepCounter,
+            },
           };
 
           logger.agent.info(
@@ -321,8 +340,8 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       : `${message}\n\n[Context: requestTime=${requestTimeIso}, timeZone=${requestTimeZone}, walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
 
     const messages = [
-      ...(messageHistory ?? []).map((m) => ({ role: m.role, content: m.content })),
-      { role: 'user' as const, content: userMessage },
+      ...expandHistoryToLangChainMessages(messageHistory),
+      new HumanMessage(userMessage),
     ];
 
     const threadId = crypto.randomUUID();

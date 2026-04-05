@@ -44,7 +44,14 @@ export async function findConversationWithMessages(conversationId: string) {
     include: {
       messages: {
         orderBy: { createdAt: 'asc' as const },
-        select: { id: true, role: true, content: true, totalCost: true, createdAt: true },
+        select: {
+          id: true,
+          role: true,
+          content: true,
+          toolRounds: true,
+          totalCost: true,
+          createdAt: true,
+        },
       },
     },
   });
@@ -59,7 +66,7 @@ export async function findConversationHistory(
     include: {
       messages: {
         orderBy: { createdAt: 'asc' as const },
-        select: { role: true, content: true },
+        select: { role: true, content: true, toolRounds: true },
       },
     },
   });

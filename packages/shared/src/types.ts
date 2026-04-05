@@ -97,13 +97,41 @@ export interface SelectedAgent extends ScoredAgent {
 // Agent Request Types
 // ============================================================================
 
+/** アシスタント1ターン分のツール呼び出し（DB tool_rounds / API 履歴用） */
+export interface AssistantToolRoundPersisted {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  result: string;
+}
+
+export type AgentMessageHistoryEntry =
+  | { role: 'user'; content: string }
+  | { role: 'assistant'; content: string; toolRounds?: AssistantToolRoundPersisted[] };
+
+/** Prisma Json（tool_rounds 列）の検証 */
+export function isToolRoundsArray(value: unknown): value is AssistantToolRoundPersisted[] {
+  if (!Array.isArray(value)) return false;
+  return value.every((item) => {
+    if (item === null || typeof item !== 'object') return false;
+    const r = item as Record<string, unknown>;
+    return (
+      typeof r.id === 'string' &&
+      typeof r.name === 'string' &&
+      typeof r.result === 'string' &&
+      typeof r.args === 'object' &&
+      r.args !== null
+    );
+  });
+}
+
 export interface AgentRequest {
   message: string;
   walletId: string;
   walletAddress: string;
   autoApproveThreshold: number;
   agentId?: string;
-  messageHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
+  messageHistory?: AgentMessageHistoryEntry[];
 }
 
 export interface AgentResponse {
@@ -121,8 +149,24 @@ export type StreamEvent =
   | { type: 'start'; data: { message: string } }
   | { type: 'llm_token'; data: { token: string; step: number } }
   | { type: 'llm_thinking'; data: { content: string; step: number } }
-  | { type: 'tool_call'; data: { name: string; args: Record<string, unknown>; step: number } }
-  | { type: 'tool_result'; data: { name: string; result: string; step: number } }
+  | {
+      type: 'tool_call';
+      data: {
+        toolCallId: string;
+        name: string;
+        args: Record<string, unknown>;
+        step: number;
+      };
+    }
+  | {
+      type: 'tool_result';
+      data: {
+        toolCallId: string;
+        name: string;
+        result: string;
+        step: number;
+      };
+    }
   | { type: 'payment'; data: { amount: number; totalCost: number; remainingBudget: number } }
   | {
       type: 'final';

@@ -35,6 +35,8 @@ export type {
   DiscoveredAgent,
   AgentRequest,
   AgentResponse,
+  AgentMessageHistoryEntry,
+  AssistantToolRoundPersisted,
   StreamEvent,
   X402PaymentInfo,
   JsonRpcRequest,
@@ -50,6 +52,8 @@ export type {
   ScoredAgent,
   SelectedAgent,
 } from './types.js';
+
+export { isToolRoundsArray } from './types.js';
 
 // Services
 export {
