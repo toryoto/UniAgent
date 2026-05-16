@@ -1,20 +1,24 @@
 /**
- * Error Handlers
- *
- * x402決済エラーのハンドリング
+ * @module lib/payment/error-handlers
+ * x402 決済エラーのハンドリングと人間可読なエラーメッセージの生成。
  */
 
-import type { PaymentRequiredData } from './types.js';
-import { convertAmountToUSDC, validatePaymentAmount } from './payment-utils.js';
-import { logger } from '../utils/logger.js';
+import type { PaymentRequiredData } from '../../types/index.js';
+import { convertAmountToUSDC, validatePaymentAmount } from './decode.js';
+import { logger } from '../../utils/logger.js';
 
 /**
- * 402エラーを処理
+ * 402 Payment Required エラーを処理し、ユーザー向けのエラーメッセージを生成する。
+ *
+ * @param response - HTTP レスポンスオブジェクト
+ * @param paymentRequiredDecoded - デコード済み PAYMENT-REQUIRED データ
+ * @param maxPrice - ユーザーが許容する最大価格 (USDC)
+ * @returns エラーメッセージと詳細情報
  */
 export function handle402Error(
   response: Response,
   paymentRequiredDecoded: PaymentRequiredData | null,
-  maxPrice: number
+  maxPrice: number,
 ): { errorMessage: string; errorDetails: Record<string, unknown> } {
   const paymentError = paymentRequiredDecoded?.error;
   const paymentAmount = paymentRequiredDecoded?.accepts?.[0]?.amount;
@@ -41,7 +45,6 @@ export function handle402Error(
     Object.assign(errorDetails, errorInfo.details);
   }
 
-  // 決済金額とmaxPriceの比較
   if (paymentAmount) {
     const validation = validatePaymentAmount(paymentAmount, maxPrice);
     if (!validation.isValid && validation.errorMessage) {
@@ -59,8 +62,44 @@ export function handle402Error(
 }
 
 /**
- * 決済エラーメッセージを生成
+ * 決済 settlement 失敗エラーを処理する。
+ *
+ * @param errorReason - 失敗理由の文字列
+ * @param payer - 支払い者アドレス
+ * @param network - ネットワーク識別子
+ * @returns エラーメッセージと詳細情報
  */
+export function handlePaymentSettlementError(
+  errorReason: string,
+  payer: string | undefined,
+  network: string | undefined,
+): { errorMessage: string; errorDetails: Record<string, unknown> } {
+  const errorDetails: Record<string, unknown> = { errorReason, payer, network };
+  let errorMessage = `Payment settlement failed: ${errorReason}`;
+
+  if (errorReason.includes('insufficient') || errorReason.includes('balance')) {
+    errorMessage =
+      'Payment failed due to insufficient USDC balance. Please ensure your wallet has enough USDC.';
+    errorDetails.suggestion =
+      'Please add USDC to your wallet using the faucet or transfer from another wallet.';
+  } else if (errorReason.includes('signature') || errorReason.includes('authorization')) {
+    errorMessage = 'Payment failed due to invalid signature or authorization. Please try again.';
+    errorDetails.suggestion =
+      'The payment signature may be invalid or expired. A new request will be created automatically.';
+  } else if (errorReason.includes('network') || errorReason.includes('chain')) {
+    errorMessage =
+      'Payment failed due to network mismatch. Please ensure you are using Base Sepolia.';
+    errorDetails.suggestion =
+      'Please check your network configuration and ensure you are connected to Base Sepolia.';
+  }
+
+  logger.payment.error('Payment settlement failed', errorDetails);
+
+  return { errorMessage, errorDetails };
+}
+
+// ── Private ───────────────────────────────────────────────────────────────
+
 function getPaymentErrorMessage(
   error: string,
   context: {
@@ -68,7 +107,7 @@ function getPaymentErrorMessage(
     paymentNetwork?: string;
     paymentAsset?: string;
     paymentPayTo?: string;
-  }
+  },
 ): { message: string; details: Record<string, unknown> } {
   const { paymentAmount, paymentNetwork, paymentAsset, paymentPayTo } = context;
 
@@ -120,41 +159,4 @@ function getPaymentErrorMessage(
         },
       };
   }
-}
-
-/**
- * 決済決済失敗エラーを処理
- */
-export function handlePaymentSettlementError(
-  errorReason: string,
-  payer: string | undefined,
-  network: string | undefined
-): { errorMessage: string; errorDetails: Record<string, unknown> } {
-  const errorDetails: Record<string, unknown> = {
-    errorReason,
-    payer,
-    network,
-  };
-
-  let errorMessage = `Payment settlement failed: ${errorReason}`;
-
-  if (errorReason.includes('insufficient') || errorReason.includes('balance')) {
-    errorMessage =
-      'Payment failed due to insufficient USDC balance. Please ensure your wallet has enough USDC.';
-    errorDetails.suggestion =
-      'Please add USDC to your wallet using the faucet or transfer from another wallet.';
-  } else if (errorReason.includes('signature') || errorReason.includes('authorization')) {
-    errorMessage = 'Payment failed due to invalid signature or authorization. Please try again.';
-    errorDetails.suggestion =
-      'The payment signature may be invalid or expired. A new request will be created automatically.';
-  } else if (errorReason.includes('network') || errorReason.includes('chain')) {
-    errorMessage =
-      'Payment failed due to network mismatch. Please ensure you are using Base Sepolia.';
-    errorDetails.suggestion =
-      'Please check your network configuration and ensure you are connected to Base Sepolia.';
-  }
-
-  logger.payment.error('Payment settlement failed', errorDetails);
-
-  return { errorMessage, errorDetails };
 }

@@ -1,10 +1,7 @@
 /**
- * Paygent X - LangChain v1 Implementation
- *
- * LangChain v1を使用したシンプルなReActエージェント実装
- * - discover_agents: MCPサーバー経由でエージェントを検索
- * - execute_agent: x402決済付きでエージェントを実行
- * - ストリーミング対応
+ * @module core/agent
+ * LangChain ReAct エージェントの非ストリーミング実行。
+ * 単一リクエスト → 完了結果を返すシンプルなインターフェース。
  */
 
 import { initChatModel, createAgent } from 'langchain';
@@ -12,11 +9,16 @@ import { HumanMessage } from '@langchain/core/messages';
 import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { expandHistoryToLangChainMessages } from './history-to-messages.js';
+import { buildNonStreamingUserMessage } from './message-builder.js';
 import { logger, logStep, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
 /**
- * エージェントを実行（非ストリーミング）
+ * エージェントを非ストリーミングモードで実行する。
+ * ReAct ループが完了するまでブロッキングし、最終結果を返す。
+ *
+ * @param request - エージェント実行リクエスト
+ * @returns 実行結果（成功/失敗、メッセージ、合計コスト）
  */
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
@@ -36,34 +38,14 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
       systemPrompt: SYSTEM_PROMPT,
     });
 
-    // ユーザーメッセージにコンテキストを追加
-    const userMessage = `
-## ユーザーのリクエスト
-${message}
-
-## コンテキスト
-- wallet_id: ${walletId}
-- wallet_address: ${walletAddress}
-- auto_approve_threshold: $${autoApproveThreshold} USDC
-- 現在の予算使用額: $${totalCost} USDC${
-      agentId
-        ? `
-- 指定エージェントID: ${agentId}
-  ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
-  ※そのエージェントがタスクに適している場合のみ execute_agent で実行してください
-  ※タスクに合わない場合やタスク遂行するために追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
-        : ''
-    }
-
-## 重要な指示
-- discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
-- execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
-- エージェントを実行する場合は execute_agent に以下を指定:
-  - agentId: discover_agents の結果の agentId（Base URL はサーバーが解決）
-  - walletId: "${walletId}"
-  - walletAddress: "${walletAddress}"
-  - maxPrice: auto_approve_threshold以下に設定
-`;
+    const userMessage = buildNonStreamingUserMessage({
+      message,
+      walletId,
+      walletAddress,
+      autoApproveThreshold,
+      totalCost,
+      agentId,
+    });
 
     logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
 
@@ -74,46 +56,11 @@ ${message}
 
     const result = await agent.invoke(
       { messages },
-      {
-        context: { agentId },
-      }
+      { context: { agentId } },
     );
 
-    // メッセージからログを抽出
-    for (const msg of result.messages) {
-      if (msg._getType() === 'ai') {
-        const aiMsg = msg as {
-          tool_calls?: Array<{ name: string; args: Record<string, unknown> }>;
-        };
+    totalCost = extractTotalCost(result.messages, totalCost, () => ++stepCounter);
 
-        // ツール呼び出しをログ
-        if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
-          for (const toolCall of aiMsg.tool_calls) {
-            stepCounter++;
-            logStep(stepCounter, 'mcp', `Tool call: ${toolCall.name}`);
-            logger.mcp.info('Tool arguments', toolCall.args);
-
-          }
-        }
-      }
-
-      if (msg._getType() === 'tool') {
-        const toolMsg = msg as { content: string };
-        try {
-          const parsed = JSON.parse(toolMsg.content) as { paymentAmount?: number };
-          if (parsed.paymentAmount) {
-            totalCost += parsed.paymentAmount;
-            logger.payment.success(`Payment: $${parsed.paymentAmount} USDC`, {
-              totalCost,
-            });
-          }
-        } catch {
-          // JSON解析失敗は無視
-        }
-      }
-    }
-
-    // 最終レスポンスを取得
     const lastMessage = result.messages[result.messages.length - 1];
     const finalResponse =
       lastMessage._getType() === 'ai'
@@ -122,7 +69,6 @@ ${message}
 
     stepCounter++;
     logStep(stepCounter, 'llm', 'Agent execution completed');
-
     logSeparator('Agent Execution End');
     logger.agent.success('Total cost', { totalCost });
 
@@ -134,7 +80,6 @@ ${message}
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Agent execution failed', { error: errorMessage });
-
     logSeparator('Agent Execution End (Error)');
 
     return {
@@ -146,152 +91,43 @@ ${message}
   }
 }
 
+// ── Private ───────────────────────────────────────────────────────────────
+
 /**
- * エージェントを実行（ストリーミング）
+ * 結果メッセージから決済情報を抽出し、合計コストを計算する。
  */
-export async function* runAgentStream(
-  request: AgentRequest
-): AsyncGenerator<{ type: string; data: unknown }, void, unknown> {
-  const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
-  let totalCost = 0;
-  let stepCounter = 0;
+function extractTotalCost(
+  messages: unknown[],
+  initialCost: number,
+  incrementStep: () => number,
+): number {
+  let totalCost = initialCost;
 
-  yield { type: 'start', data: { message } };
+  for (const msg of messages) {
+    const typedMsg = msg as { _getType: () => string; tool_calls?: Array<{ name: string; args: Record<string, unknown> }>; content?: string };
 
-  try {
-    const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
-
-    // @ts-ignore - Type instantiation is excessively deep (TS2589)
-    const agent = createAgent({
-      model,
-      tools: [discoverAgentsTool, fetchAgentSpecTool, executeAgentTool],
-      systemPrompt: SYSTEM_PROMPT,
-    });
-
-    const userMessage = `
-## ユーザーのリクエスト
-${message}
-
-## コンテキスト
-- wallet_id: ${walletId}
-- wallet_address: ${walletAddress}
-- auto_approve_threshold: $${autoApproveThreshold} USDC
-- 現在の予算使用額: $${totalCost} USDC${
-      agentId
-        ? `
-- 指定エージェントID: ${agentId}
-  ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
-  ※そのエージェントがタスクに適している場合のみ execute_agent で実行してください
-  ※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
-        : ''
-    }
-
-## 重要な指示
-- discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
-- execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
-- エージェントを実行する場合は execute_agent に以下を指定:
-  - agentId: discover_agents の結果の agentId（Base URL はサーバーが解決）
-  - walletId: "${walletId}"
-  - walletAddress: "${walletAddress}"
-  - maxPrice: auto_approve_threshold以下に設定
-`;
-
-    yield {
-      type: 'log',
-      data: {
-        step: ++stepCounter,
-        type: 'llm',
-        action: 'Starting agent',
-        timestamp: new Date(),
-      },
-    };
-
-    const streamMessages = [
-      ...expandHistoryToLangChainMessages(messageHistory),
-      new HumanMessage(userMessage),
-    ];
-
-    const stream = await agent.stream({
-      messages: streamMessages,
-      ...(agentId ? { agentId } : {}),
-    });
-
-    for await (const chunk of stream) {
-      // ストリームチャンクを処理
-      if (typeof chunk === 'object' && chunk !== null && 'messages' in chunk) {
-        const chunkRecord = chunk as Record<string, unknown>;
-        const messages = Array.isArray(chunkRecord.messages) ? chunkRecord.messages : [];
-        for (const msg of messages) {
-          if (typeof msg === 'object' && msg !== null && '_getType' in msg) {
-            const msgType = (msg as { _getType: () => string })._getType();
-
-            if (msgType === 'ai') {
-              const aiMsg = msg as {
-                content?: string;
-                tool_calls?: Array<{ name: string; args: Record<string, unknown> }>;
-              };
-
-              // テキストコンテンツをストリーミング
-              if (aiMsg.content) {
-                yield { type: 'content', data: { text: aiMsg.content } };
-              }
-
-              // ツール呼び出しを通知
-              if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
-                for (const toolCall of aiMsg.tool_calls) {
-                  stepCounter++;
-                  yield {
-                    type: 'tool_call',
-                    data: {
-                      step: stepCounter,
-                      tool: toolCall.name,
-                      args: toolCall.args,
-                    },
-                  };
-                }
-              }
-            }
-
-            if (msgType === 'tool') {
-              const toolMsg = msg as unknown as { content: string };
-              try {
-                const parsed = JSON.parse(toolMsg.content) as {
-                  paymentAmount?: number;
-                  success?: boolean;
-                };
-
-                // 決済情報を処理
-                if (parsed.paymentAmount) {
-                  totalCost += parsed.paymentAmount;
-                  yield {
-                    type: 'payment',
-                    data: {
-                      amount: parsed.paymentAmount,
-                      totalCost,
-                      remainingBudget: autoApproveThreshold - totalCost,
-                    },
-                  };
-                }
-              } catch {
-                // JSON解析失敗は無視
-              }
-            }
-          }
+    if (typedMsg._getType() === 'ai') {
+      if (typedMsg.tool_calls && typedMsg.tool_calls.length > 0) {
+        for (const toolCall of typedMsg.tool_calls) {
+          incrementStep();
+          logStep(incrementStep() - 1, 'mcp', `Tool call: ${toolCall.name}`);
+          logger.mcp.info('Tool arguments', toolCall.args);
         }
       }
     }
 
-    yield {
-      type: 'end',
-      data: {
-        success: true,
-        totalCost,
-        remainingBudget: autoApproveThreshold - totalCost,
-      },
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Streaming execution failed', { error: errorMessage });
-    yield { type: 'error', data: { error: errorMessage } };
+    if (typedMsg._getType() === 'tool') {
+      try {
+        const parsed = JSON.parse(typedMsg.content ?? '{}') as { paymentAmount?: number };
+        if (parsed.paymentAmount) {
+          totalCost += parsed.paymentAmount;
+          logger.payment.success(`Payment: $${parsed.paymentAmount} USDC`, { totalCost });
+        }
+      } catch {
+        // JSON parse failure is non-critical
+      }
+    }
   }
+
+  return totalCost;
 }

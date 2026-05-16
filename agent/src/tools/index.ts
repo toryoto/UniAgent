@@ -1,7 +1,6 @@
 /**
- * Agent Tools
- *
- * LangChainエージェントで使用するツール群
+ * @module tools
+ * LangChain エージェントで使用するツール群のバレルエクスポート。
  */
 
 export { discoverAgentsTool } from './discover-agents.js';

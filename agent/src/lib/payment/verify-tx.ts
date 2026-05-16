@@ -1,30 +1,24 @@
 /**
- * x402 Transaction Hash 検証ユーティリティ
- *
- * シビル・リプレイ攻撃対策:
- * - オンチェーンで有効か検証
- * - Transaction テーブルでリプレイ検出（二重使用を防止）
+ * @module lib/payment/verify-tx
+ * x402 決済トランザクションのオンチェーン検証とリプレイ攻撃防止。
+ * シビル攻撃対策として、tx が有効かつ未使用であることを保証する。
  */
 
 import { ethers } from 'ethers';
 import { prisma } from '@agent-marketplace/database';
-import { CHAIN_ID } from '../tools/constants.js';
-import { logger } from './logger.js';
+import { CHAIN_ID } from '../../config/constants.js';
+import { logger } from '../../utils/logger.js';
+import type { VerifyX402TxInput } from '../../types/index.js';
 
 /** 0x + 64文字の16進数 (32バイトハッシュ) */
 const TX_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 
-export interface VerifyX402TxInput {
-  txHash: string;
-  agentId: string;
-  amount: number;
-  walletId: string;
-}
-
 /**
- * x402決済のtxHashを検証する（オンチェーン + リプレイチェック）
+ * x402 決済の txHash をオンチェーン + リプレイチェックで検証する。
+ * 検証通過時は Transaction テーブルに保存し、二重使用を防止する。
  *
- * 検証通過時は Transaction に保存して二重使用を防止する。
+ * @param input - 検証に必要な txHash, agentId, amount, walletId
+ * @returns 検証成功なら true、失敗またはスキップなら false
  */
 export async function verifyX402TransactionHash(input: VerifyX402TxInput): Promise<boolean> {
   const { txHash, agentId, amount, walletId } = input;
@@ -35,9 +29,7 @@ export async function verifyX402TransactionHash(input: VerifyX402TxInput): Promi
 
   const normalizedHash = txHash.startsWith('0x') ? txHash : `0x${txHash}`;
   if (!TX_HASH_REGEX.test(normalizedHash)) {
-    logger.eval.warn('TxHash verification failed: invalid format', {
-      txHash: normalizedHash,
-    });
+    logger.eval.warn('TxHash verification failed: invalid format', { txHash: normalizedHash });
     return false;
   }
 
@@ -48,7 +40,6 @@ export async function verifyX402TransactionHash(input: VerifyX402TxInput): Promi
   }
 
   try {
-    // 1. オンチェーン検証
     const provider = new ethers.JsonRpcProvider(rpcUrl);
     const receipt = await provider.getTransactionReceipt(normalizedHash);
 
@@ -75,7 +66,6 @@ export async function verifyX402TransactionHash(input: VerifyX402TxInput): Promi
       return false;
     }
 
-    // 2. リプレイ検出: 既に保存済みなら二重使用
     const existing = await prisma.transaction.findUnique({
       where: { txHash: normalizedHash },
     });
@@ -86,7 +76,6 @@ export async function verifyX402TransactionHash(input: VerifyX402TxInput): Promi
       return false;
     }
 
-    // 3. Transaction に保存して二重使用を防止
     await prisma.transaction.create({
       data: {
         txHash: normalizedHash,

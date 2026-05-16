@@ -1,9 +1,8 @@
 /**
- * EAS Offchain Attestation Service
- *
- * エージェント評価結果を EAS オフチェーンアテステーションとして署名し DB に保存する
+ * @module services/eas-attestation
+ * EAS オフチェーンアテステーション署名サービス。
+ * エージェント評価結果を EIP-712 で署名し、DB に保存する。
  */
-
 
 import { createRequire } from 'node:module';
 
@@ -14,25 +13,24 @@ import { ethers } from 'ethers';
 import type { Prisma } from '@agent-marketplace/database';
 import { createAttestation } from './attestation-db.js';
 import { logger } from '../utils/logger.js';
+import { EAS_CONTRACT_ADDRESS, EAS_SCHEMA, CHAIN_ID } from '../config/constants.js';
+import type { AttestationInput } from '../types/index.js';
 
-/** Base Sepolia EAS contract */
-const EAS_CONTRACT_ADDRESS = '0x4200000000000000000000000000000000000021';
-const CHAIN_ID = 84532;
+// ── Public ────────────────────────────────────────────────────────────────
 
-/** デプロイ済みスキーマ */
-const SCHEMA =
-  'uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags';
-
-export interface AttestationInput {
-  agentId: string;
-  paymentTx?: string;
-  quality: number;
-  reliability: number;
-  latency: number;
-  tags: string[];
-  reasoning?: string;
-}
-
+/**
+ * EAS オフチェーンアテステーションに署名し、DB に保存する。
+ *
+ * フロー:
+ * 1. 環境変数からプライベートキーで署名者を作成
+ * 2. EAS SDK でスキーマエンコード
+ * 3. オフチェーン署名（ガスレス）
+ * 4. DB に保存
+ *
+ * @param input - アテステーション入力（agentId, スコア, タグなど）
+ * @returns 署名済みアテステーションと DB レコード
+ * @throws EAS_SIGNER_PRIVATE_KEY / EAS_SCHEMA_UID / RPC_URL 未設定時
+ */
 export async function signAndStoreAttestation(input: AttestationInput) {
   const signerPrivateKey = process.env.EAS_SIGNER_PRIVATE_KEY;
   const schemaUid = process.env.EAS_SCHEMA_UID;
@@ -46,18 +44,15 @@ export async function signAndStoreAttestation(input: AttestationInput) {
     throw new Error('RPC_URL environment variable must be set');
   }
 
-  // 1. Signer
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer = new ethers.Wallet(signerPrivateKey, provider);
 
-  // 2. EAS Offchain インスタンス
   const eas = new EAS(EAS_CONTRACT_ADDRESS);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   eas.connect(signer as any);
   const offchain = await eas.getOffchain();
 
-  // 3. スキーマエンコード
-  const schemaEncoder = new SchemaEncoder(SCHEMA);
+  const schemaEncoder = new SchemaEncoder(EAS_SCHEMA);
 
   const agentIdBigInt = BigInt(input.agentId.startsWith('0x') ? input.agentId : `0x${input.agentId}`);
   const paymentTxBytes32 = input.paymentTx
@@ -76,7 +71,6 @@ export async function signAndStoreAttestation(input: AttestationInput) {
     { name: 'tags', value: input.tags, type: 'string[]' },
   ]);
 
-  // 4. オフチェーン署名（ガスレス）
   const attestation = await offchain.signOffchainAttestation(
     {
       recipient: ethers.ZeroAddress,
@@ -87,14 +81,10 @@ export async function signAndStoreAttestation(input: AttestationInput) {
       schema: schemaUid,
       data: encodedData,
     },
-    signer
+    signer,
   );
 
-  // EAS Scan で読み込める形式（sig + signer）に整形
-  const easScanFormat = {
-    sig: attestation,
-    signer: signer.address,
-  };
+  const easScanFormat = { sig: attestation, signer: signer.address };
 
   logger.logic.success('EAS offchain attestation signed', {
     agentId: input.agentId,
@@ -103,14 +93,12 @@ export async function signAndStoreAttestation(input: AttestationInput) {
     attester: signer.address,
   });
 
-  // 5. BigInt を string に変換して JSON シリアライズ可能にする
   const serializable = JSON.parse(
     JSON.stringify(easScanFormat, (_key, value) =>
-      typeof value === 'bigint' ? value.toString() : value
-    )
+      typeof value === 'bigint' ? value.toString() : value,
+    ),
   ) as Prisma.InputJsonValue;
 
-  // 6. DB 保存
   const record = await createAttestation({
     agentId: input.agentId,
     schemaUid,

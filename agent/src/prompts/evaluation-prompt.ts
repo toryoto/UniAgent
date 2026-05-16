@@ -1,27 +1,73 @@
 /**
- * LLM-as-a-Judge 評価プロンプト
- *
- * カテゴリ別ルブリック + Chain of Thought 強制による定量評価
+ * @module prompts/evaluation-prompt
+ * LLM-as-a-Judge 評価プロンプト生成。
+ * カテゴリ別ルブリック + Chain of Thought 強制による定量評価の仕組みを提供する。
  */
 
-export type AgentCategory = 'research' | 'travel' | 'general';
+import type { AgentCategory } from '../types/index.js';
 
-export interface EvaluationResult {
-  reasoning: string;
-  qualityRaw: number; // 1-5 (LLM出力)
-  reliabilityRaw: number; // 1-5 (LLM出力)
-  quality: number; // 0-100 (qualityRaw * 20、アプリ側で算出)
-  reliability: number; // 0-100 (reliabilityRaw * 20、アプリ側で算出)
-  tags: string[];
-}
+// Re-export for backward compatibility
+export type { AgentCategory } from '../types/index.js';
+export type { EvaluationResult } from '../types/index.js';
 
-/** 1-5 スコアを 0-100 に変換 */
+/** 1-5 スコアを 0-100 に変換する係数 */
 export const RAW_SCORE_TO_100 = 20;
 
-/** 0-100 → uint8 (0-255) 変換 */
+// ── Public ────────────────────────────────────────────────────────────────
+
+/**
+ * 0-100 スケールのスコアを EAS スキーマ用の uint8 (0-255) に変換する。
+ *
+ * @param score - 0-100 スケールのスコア
+ * @returns 0-255 に丸めた整数
+ */
 export function scaleToUint8(score: number): number {
   return Math.min(255, Math.max(0, Math.round((score / 100) * 255)));
 }
+
+/**
+ * カテゴリに応じた評価プロンプト（システムプロンプト）を生成する。
+ *
+ * @param category - エージェントカテゴリ（research / travel / general）
+ * @returns LLM Judge 用のシステムプロンプト文字列
+ */
+export function getEvaluationPrompt(category: AgentCategory): string {
+  const rubric = CATEGORY_RUBRICS[category] ?? CATEGORY_RUBRICS.general;
+
+  return `あなたはAIエージェントの応答品質を評価する専門家ジャッジです。
+
+## 評価対象
+- ユーザーのリクエスト（タスク）
+- エージェントの応答（結果）
+- エージェントのカテゴリ: ${category}
+
+## 評価ルブリック
+### Quality（品質）スコア: 1-5
+${rubric.quality}
+
+### Reliability（信頼性）スコア: 1-5
+${rubric.reliability}
+
+## 評価手順（Chain of Thought）
+必ず以下のステップを順番に実行してください。スコアを先に決めてから理由を後付けすることは禁止です。
+
+ステップ1: タスクの要件を整理する
+ステップ2: 応答が各要件をどの程度満たしているか分析する
+ステップ3: Quality ルブリックの各アンカーと比較し、最も近いスコアを選択する
+ステップ4: Reliability ルブリックの各アンカーと比較し、最も近いスコアを選択する
+ステップ5: 特筆すべき特徴をタグとして付与する
+
+## タグの候補
+"accurate", "comprehensive", "hallucinated", "incomplete", "well-structured", "budget-aware", "creative", "outdated", "practical", "verified-sources"
+
+## 出力形式
+- qualityRaw: Quality ルブリックに基づく 1-5 の整数
+- reliabilityRaw: Reliability ルブリックに基づく 1-5 の整数
+- 必ず reasoning を先に記述し、その後にスコアを決定すること
+- 0-100 への変換はアプリ側で行うため、1-5 の離散値のみを出力すること`;
+}
+
+// ── Private ───────────────────────────────────────────────────────────────
 
 const CATEGORY_RUBRICS: Record<AgentCategory, { quality: string; reliability: string }> = {
   research: {
@@ -67,39 +113,3 @@ const CATEGORY_RUBRICS: Record<AgentCategory, { quality: string; reliability: st
 5 (非常に高い): 全ての情報が検証可能で正確`,
   },
 };
-
-export function getEvaluationPrompt(category: AgentCategory): string {
-  const rubric = CATEGORY_RUBRICS[category] ?? CATEGORY_RUBRICS.general;
-
-  return `あなたはAIエージェントの応答品質を評価する専門家ジャッジです。
-
-## 評価対象
-- ユーザーのリクエスト（タスク）
-- エージェントの応答（結果）
-- エージェントのカテゴリ: ${category}
-
-## 評価ルブリック
-### Quality（品質）スコア: 1-5
-${rubric.quality}
-
-### Reliability（信頼性）スコア: 1-5
-${rubric.reliability}
-
-## 評価手順（Chain of Thought）
-必ず以下のステップを順番に実行してください。スコアを先に決めてから理由を後付けすることは禁止です。
-
-ステップ1: タスクの要件を整理する
-ステップ2: 応答が各要件をどの程度満たしているか分析する
-ステップ3: Quality ルブリックの各アンカーと比較し、最も近いスコアを選択する
-ステップ4: Reliability ルブリックの各アンカーと比較し、最も近いスコアを選択する
-ステップ5: 特筆すべき特徴をタグとして付与する
-
-## タグの候補
-"accurate", "comprehensive", "hallucinated", "incomplete", "well-structured", "budget-aware", "creative", "outdated", "practical", "verified-sources"
-
-## 出力形式
-- qualityRaw: Quality ルブリックに基づく 1-5 の整数
-- reliabilityRaw: Reliability ルブリックに基づく 1-5 の整数
-- 必ず reasoning を先に記述し、その後にスコアを決定すること
-- 0-100 への変換はアプリ側で行うため、1-5 の離散値のみを出力すること`;
-}

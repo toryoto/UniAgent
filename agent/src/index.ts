@@ -1,8 +1,6 @@
 /**
- * @agent-marketplace/agent
- *
- * UniAgent Agent Service
- * LangChain.jsを使用したAIエージェントによるタスク実行
+ * @module @agent-marketplace/agent
+ * UniAgent Agent Service のライブラリ向け公開 API。
  */
 
 export { runAgent } from './core/agent.js';

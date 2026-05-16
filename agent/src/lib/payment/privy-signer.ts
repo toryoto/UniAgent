@@ -1,22 +1,19 @@
 /**
- * Privy EIP-712 Signer
- *
- * Privy delegated walletを使用してEIP-712署名を行うアダプター
- * @x402/evmが期待するClientEvmSigner型に適合
+ * @module lib/payment/privy-signer
+ * Privy delegated wallet を使用した EIP-712 署名アダプター。
+ * x402/evm が期待する ClientEvmSigner インターフェースに適合する。
  */
 
 import type { Hex, TypedDataDefinition } from 'viem';
 import { PrivyClient } from '@privy-io/server-auth';
-import { logger } from '../utils/logger.js';
-
-const authorizationKey = process.env.PRIVY_AUTHORIZATION_KEY || '';
+import { logger } from '../../utils/logger.js';
 
 /**
- * PrivyベースのEIP-712署名アダプター
+ * Privy ベースの EIP-712 署名アダプター。
  *
  * 前提条件:
- * 1. ユーザーがクライアント側でウォレットを委譲している (delegateWallet)
- * 2. サーバーにauthorization keyが設定されている
+ * 1. ユーザーがクライアント側でウォレットを委譲済み (delegateWallet)
+ * 2. サーバーに PRIVY_AUTHORIZATION_KEY が設定済み
  */
 export class PrivyEIP712Signer {
   public address: `0x${string}`;
@@ -24,36 +21,24 @@ export class PrivyEIP712Signer {
   constructor(
     private privyClient: PrivyClient,
     private walletId: string,
-    walletAddress: string
+    walletAddress: string,
   ) {
     this.address = walletAddress as `0x${string}`;
   }
 
   /**
-   * TypedDataDefinitionをPrivy API用にシリアライズ
-   * BigInt値を文字列に変換してJSON化可能にする
-   */
-  private serializeTypedData(typedData: TypedDataDefinition): unknown {
-    return JSON.parse(
-      JSON.stringify(typedData, (_, value) => {
-        if (typeof value === 'bigint') {
-          return value.toString();
-        }
-        return value;
-      })
-    );
-  }
-
-  /**
-   * EIP-712署名（x402で使用）
-   * @x402/evmはこのメソッドを呼び出して決済署名を作成
+   * EIP-712 署名を作成する。
+   * x402/evm はこのメソッドを呼び出して決済署名を生成する。
+   *
+   * @param typedData - EIP-712 TypedData 定義
+   * @returns 署名済みの Hex 文字列
+   * @throws Privy API エラー（認証失敗、委譲未完了など）
    */
   async signTypedData(typedData: TypedDataDefinition): Promise<Hex> {
     logger.payment.info('Signing EIP-712 typed data via Privy delegated wallet', {
       walletId: this.walletId,
       walletAddress: this.address,
       primaryType: typedData.primaryType,
-      hasAuthorizationKey: !!authorizationKey,
     });
 
     try {
@@ -76,8 +61,25 @@ export class PrivyEIP712Signer {
     }
   }
 
+  // ── Private ─────────────────────────────────────────────────────────────
+
   /**
-   * 署名エラーのハンドリング
+   * TypedDataDefinition を Privy API 用にシリアライズする。
+   * BigInt 値を文字列に変換して JSON 化可能にする。
+   */
+  private serializeTypedData(typedData: TypedDataDefinition): unknown {
+    return JSON.parse(
+      JSON.stringify(typedData, (_, value) => {
+        if (typeof value === 'bigint') {
+          return value.toString();
+        }
+        return value;
+      }),
+    );
+  }
+
+  /**
+   * 署名エラーを種別ごとにログ出力する。
    */
   private handleSignError(error: unknown): void {
     const errorMessage = error instanceof Error ? error.message : 'Unknown';
@@ -85,10 +87,7 @@ export class PrivyEIP712Signer {
     if (errorMessage.includes('authorization')) {
       logger.payment.error(
         'Authorization key error - check if PRIVY_AUTHORIZATION_KEY is set correctly',
-        {
-          error: errorMessage,
-          walletId: this.walletId,
-        }
+        { error: errorMessage, walletId: this.walletId },
       );
     } else if (errorMessage.includes('delegated') || errorMessage.includes('permission')) {
       logger.payment.error('Wallet not delegated - user must delegate wallet from client first', {

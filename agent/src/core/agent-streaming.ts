@@ -1,46 +1,25 @@
+/**
+ * @module core/agent-streaming
+ * SSE ストリーミングエージェント実行の公開 API。
+ * LangGraph + HITL ミドルウェアを使用し、リアルタイムイベントを yield する。
+ */
+
 import { initChatModel, createAgent, humanInTheLoopMiddleware } from 'langchain';
-import type { HITLRequest, HITLResponse, Interrupt } from 'langchain';
+import type { HITLResponse } from 'langchain';
 import { MemorySaver, Command } from '@langchain/langgraph';
-import { AIMessage, AIMessageChunk, HumanMessage, ToolMessage } from '@langchain/core/messages';
-import type { AgentRequest, StreamEvent, HITLDecision } from '@agent-marketplace/shared';
+import { HumanMessage } from '@langchain/core/messages';
+import type { AgentRequest, StreamEvent } from '@agent-marketplace/shared';
 import { expandHistoryToLangChainMessages } from './history-to-messages.js';
+import { buildStreamingUserMessage } from './message-builder.js';
+import { processAgentStream } from './stream-processor.js';
 import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { logger, logSeparator } from '../utils/logger.js';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
+import type { StreamProcessingContext } from '../types/index.js';
 
 export type { StreamEvent };
 
-// ── Helper ───────────────────────────────────────────────────────────────
-
-/**
- * AIMessage.content（string | ContentBlock[]）からテキストを抽出する
- * .kwargs などの内部構造には依存しない
- */
-function extractTextContent(
-  content: string | Array<{ type: string; text?: string }>,
-): string {
-  if (typeof content === 'string') return content;
-  return content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text ?? '')
-    .join('');
-}
-
-/** 「今週」「明日」など相対日付を解釈するため、リクエスト時点の日時を付与する */
-function getRequestTimeContext(): { iso: string; timeZone: string } {
-  const now = new Date();
-  let timeZone = 'UTC';
-  try {
-    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch (err) {
-    logger.agent.warn('Intl timezone resolution failed; falling back to UTC', {
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-  return { iso: now.toISOString(), timeZone };
-}
-
-// ── Module-level singletons (shared between run & resume) ────────────────
+// ── Module-level singletons ───────────────────────────────────────────────
 
 const checkpointer = new MemorySaver();
 
@@ -78,266 +57,31 @@ async function getAgent() {
   return _agent;
 }
 
-// ── Stream processing helper ─────────────────────────────────────────────
-
-interface StreamProcessingContext {
-  stepCounter: number;
-  totalCost: number;
-  autoApproveThreshold: number;
-  finalResponse: string;
-}
-
-/**
- * Auto-approve 判定:
- *  - いずれかの action で requireUserApproval === true → HITL
- *  - 合計 maxPrice が autoApproveThreshold を超過 → HITL
- *  - それ以外 → 自動承認
- */
-function shouldAutoApprove(
-  hitlRequest: HITLRequest,
-  ctx: StreamProcessingContext,
-): boolean {
-  const actions = hitlRequest.actionRequests as Array<{ name: string; args: Record<string, unknown> }>;
-
-  if (actions.some((a) => a.args?.requireUserApproval === true)) {
-    logger.agent.info('HITL required: agent set requireUserApproval');
-    return false;
-  }
-
-  const totalMaxPrice = actions.reduce(
-    (sum, a) => sum + (Number(a.args?.maxPrice) || 0),
-    0,
-  );
-
-  if (totalMaxPrice <= 0) {
-    logger.agent.info('HITL required: no valid maxPrice found');
-    return false;
-  }
-
-  if (totalMaxPrice > ctx.autoApproveThreshold) {
-    logger.agent.info('HITL required: totalMaxPrice exceeds threshold', {
-      totalMaxPrice,
-      autoApproveThreshold: ctx.autoApproveThreshold,
-    });
-    return false;
-  }
-
-  logger.agent.info('Auto-approving: within threshold', {
-    totalMaxPrice,
-    autoApproveThreshold: ctx.autoApproveThreshold,
-  });
-  return true;
-}
-
-async function* processAgentStream(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  agent: any,
-  stream: AsyncIterable<[string, unknown]>,
-  ctx: StreamProcessingContext,
-  threadId: string,
-): AsyncGenerator<StreamEvent> {
-  for await (const [mode, chunk] of stream) {
-
-    // ── 1. messages: LLMトークンのリアルタイムストリーミング ────────────
-    if (mode === 'messages') {
-      const [msg, metadata] = chunk as [unknown, { langgraph_node?: string }];
-
-      // tools ノードのメッセージは updates モードで処理するためスキップ
-      if (metadata?.langgraph_node === 'tools') continue;
-
-      if (AIMessageChunk.isInstance(msg)) {
-        const text = extractTextContent(msg.content as string | Array<{ type: string; text?: string }>);
-        if (text) {
-          ctx.finalResponse += text;
-          yield {
-            type: 'llm_token',
-            data: { token: text, step: ctx.stepCounter + 1 },
-          };
-        }
-      }
-
-    // ── 2. updates: interrupt / ツール呼び出し / ツール結果 ─────────────
-    } else if (mode === 'updates') {
-      const updateChunk = chunk as Record<string, { messages?: unknown[] }>;
-
-      // ---- 2-a. Interrupt 検出 ----
-      if ('__interrupt__' in updateChunk) {
-        const interrupts = (
-          updateChunk as unknown as { __interrupt__: Interrupt<HITLRequest>[] }
-        ).__interrupt__;
-        if (interrupts.length > 0) {
-          const hitlRequest = interrupts[0].value;
-          logger.agent.info('HITL interrupt detected', {
-            actions: hitlRequest.actionRequests.map((a: { name: string }) => a.name),
-          });
-
-          // ── Auto-approve: requireUserApproval なし & 閾値以下 → 自動承認 ──
-          if (shouldAutoApprove(hitlRequest, ctx)) {
-            const decisions: HITLDecision[] = hitlRequest.actionRequests.map(
-              () => ({ type: 'approve' as const }),
-            );
-            const resumeStream = await agent.stream(
-              new Command({ resume: { decisions } }),
-              {
-                streamMode: ['messages', 'updates'],
-                configurable: { thread_id: threadId },
-              },
-            );
-            // 再帰的にストリームを処理（連鎖する auto-approve にも対応）
-            yield* processAgentStream(
-              agent,
-              resumeStream as AsyncIterable<[string, unknown]>,
-              ctx,
-              threadId,
-            );
-            return;
-          }
-
-          // ── Auto-approve 対象外 → クライアントに interrupt を送信 ──
-          yield {
-            type: 'interrupt',
-            data: {
-              threadId,
-              actionRequests: hitlRequest.actionRequests,
-              reviewConfigs: hitlRequest.reviewConfigs,
-            },
-          };
-          return;
-        }
-      }
-
-      const entries = Object.entries(updateChunk);
-      if (entries.length === 0) continue;
-      const [nodeName, state] = entries[0];
-      const msgs = (state?.messages ?? []) as unknown[];
-
-      // ---- 2-b. model ノード: LLMテキスト記録 + ツール呼び出し検出 ----
-      if (nodeName === 'model' || nodeName === 'model_request') {
-        for (const msg of msgs) {
-          if (!AIMessage.isInstance(msg)) continue;
-
-          const text = extractTextContent(msg.content as string | Array<{ type: string; text?: string }>);
-          if (text) {
-            ctx.stepCounter++;
-            logger.agent.info(`[model] text: ${text.slice(0, 120)}...`);
-          }
-
-          // ツール呼び出し: isAIMessage の tool_calls プロパティを使用（.kwargs 不要）
-          for (const tc of msg.tool_calls ?? []) {
-            ctx.stepCounter++;
-            const toolCallId =
-              typeof tc.id === 'string' && tc.id.length > 0
-                ? tc.id
-                : `call_${tc.name}_${ctx.stepCounter}`;
-
-            yield {
-              type: 'tool_call',
-              data: {
-                toolCallId,
-                name: tc.name,
-                args: tc.args as Record<string, unknown>,
-                step: ctx.stepCounter,
-              },
-            };
-
-            logger.agent.info(
-              `[model] tool_call: ${tc.name}(${JSON.stringify(tc.args)})`,
-            );
-          }
-        }
-
-      // ---- 2-c. tools ノード: ツール結果検出 ----
-      } else if (nodeName === 'tools') {
-        for (const msg of msgs) {
-          if (!ToolMessage.isInstance(msg)) continue;
-
-          // isToolMessage で型安全にアクセス（.kwargs 不要）
-          const toolName = msg.name ?? 'unknown';
-          const resultContent =
-            typeof msg.content === 'string'
-              ? msg.content
-              : JSON.stringify(msg.content);
-
-          ctx.stepCounter++;
-          const toolCallId =
-            typeof msg.tool_call_id === 'string' && msg.tool_call_id.length > 0
-              ? msg.tool_call_id
-              : `call_${toolName}_${ctx.stepCounter}`;
-
-          yield {
-            type: 'tool_result',
-            data: {
-              toolCallId,
-              name: toolName,
-              result: resultContent,
-              step: ctx.stepCounter,
-            },
-          };
-
-          logger.agent.info(
-            `[tools] ${toolName} => ${resultContent.slice(0, 120)}`,
-          );
-
-          // execute_and_evaluate_agent の支払い情報抽出
-          if (toolName === 'execute_and_evaluate_agent') {
-            try {
-              const parsed = JSON.parse(resultContent) as { paymentAmount?: number };
-              if (parsed?.paymentAmount) {
-                ctx.totalCost += parsed.paymentAmount;
-                yield {
-                  type: 'payment',
-                  data: {
-                    amount: parsed.paymentAmount,
-                    totalCost: ctx.totalCost,
-                    remainingBudget: ctx.autoApproveThreshold - ctx.totalCost,
-                  },
-                };
-              }
-            } catch (err) {
-              logger.payment.warn(
-                'execute_and_evaluate_agent result was not valid JSON; payment amount not extracted',
-                {
-                  error: err instanceof Error ? err.message : String(err),
-                  preview: resultContent.slice(0, 240),
-                },
-              );
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
 // ── Public API ────────────────────────────────────────────────────────────
 
+/**
+ * エージェントをストリーミングモードで実行する。
+ * LLM トークン、ツール呼び出し、決済情報、HITL 割り込みなどをリアルタイムで yield する。
+ *
+ * @param request - エージェント実行リクエスト（メッセージ、ウォレット情報、閾値など）
+ * @yields StreamEvent - クライアントに送信するイベント
+ */
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
   const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
-  let totalCost = 0;
-  let stepCounter = 0;
 
   logSeparator('Agent Execution Start (Streaming)');
-
   yield { type: 'start', data: { message } };
 
   try {
     const agent = await getAgent();
-    const { iso: requestTimeIso, timeZone: requestTimeZone } = getRequestTimeContext();
 
-    const userMessage = agentId
-      ? `${message}
-## コンテキスト
-- 現在の日時（サーバー）: ${requestTimeIso}（タイムゾーン: ${requestTimeZone}）
-- wallet_id: ${walletId}
-- wallet_address: ${walletAddress}
-- auto_approve_threshold: $${autoApproveThreshold} USDC
-- 指定エージェントID: ${agentId}
-
-## 重要な指示（指定エージェントの場合）
-※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
-※そのエージェントがタスクに適している場合のみ execute_and_evaluate_agent で実行してください
-※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
-      : `${message}\n\n[Context: requestTime=${requestTimeIso}, timeZone=${requestTimeZone}, walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
+    const userMessage = buildStreamingUserMessage({
+      message,
+      walletId,
+      walletAddress,
+      autoApproveThreshold,
+      agentId,
+    });
 
     const messages = [
       ...expandHistoryToLangChainMessages(messageHistory),
@@ -349,15 +93,14 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
     const stream = await agent.stream(
       { messages },
       {
-        // 'tools' は createAgent 未サポートのため使用しない
         streamMode: ['messages', 'updates'],
         configurable: { thread_id: threadId },
       },
     );
 
     const ctx: StreamProcessingContext = {
-      stepCounter,
-      totalCost,
+      stepCounter: 0,
+      totalCost: 0,
       autoApproveThreshold,
       finalResponse: '',
     };
@@ -372,39 +115,35 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       if (event.type === 'interrupt') return;
     }
 
-    stepCounter = ctx.stepCounter;
-    totalCost = ctx.totalCost;
-
     logSeparator('Agent Execution End');
 
     yield {
       type: 'final',
       data: {
         message: ctx.finalResponse,
-        totalCost,
+        totalCost: ctx.totalCost,
       },
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    yield {
-      type: 'error',
-      data: { error: errorMessage },
-    };
+    yield { type: 'error', data: { error: errorMessage } };
   }
 }
 
 /**
- * HITL の判断を受けてエージェントを再開する
+ * HITL 判断を受けてエージェント実行を再開する。
+ * ユーザーの approve / edit / reject に基づいて処理を続行する。
+ *
+ * @param threadId - 中断されたスレッドの ID
+ * @param decisions - ユーザーの HITL 判断
+ * @param autoApproveThreshold - 自動承認閾値（再帰的 auto-approve 用）
+ * @yields StreamEvent - クライアントに送信するイベント
  */
 export async function* resumeAgentStream(
   threadId: string,
   decisions: HITLResponse,
   autoApproveThreshold: number,
 ): AsyncGenerator<StreamEvent> {
-  let stepCounter = 0;
-  let totalCost = 0;
-
   logSeparator('Agent Resume (Streaming)');
   logger.agent.info('Resuming agent', { threadId, decisions });
 
@@ -420,8 +159,8 @@ export async function* resumeAgentStream(
     );
 
     const ctx: StreamProcessingContext = {
-      stepCounter,
-      totalCost,
+      stepCounter: 0,
+      totalCost: 0,
       autoApproveThreshold,
       finalResponse: '',
     };
@@ -436,24 +175,17 @@ export async function* resumeAgentStream(
       if (event.type === 'interrupt') return;
     }
 
-    stepCounter = ctx.stepCounter;
-    totalCost = ctx.totalCost;
-
     logSeparator('Agent Resume End');
 
     yield {
       type: 'final',
       data: {
         message: ctx.finalResponse,
-        totalCost,
+        totalCost: ctx.totalCost,
       },
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-    yield {
-      type: 'error',
-      data: { error: errorMessage },
-    };
+    yield { type: 'error', data: { error: errorMessage } };
   }
 }

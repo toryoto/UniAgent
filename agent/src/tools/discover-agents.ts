@@ -1,8 +1,8 @@
 /**
- * Discover Agents Tool
- *
- * DB(AgentCache)からエージェントを検索し、
- * Bayesian ε-Greedy アルゴリズムでランキング済み Top 3 を返す LangChain ツール
+ * @module tools/discover-agents
+ * LangChain discover_agents ツール定義。
+ * DB (AgentCache) からエージェントを検索し、
+ * Bayesian epsilon-Greedy アルゴリズムでランキングした Top 3 を返す。
  */
 
 import { tool } from 'langchain';
@@ -20,43 +20,8 @@ import {
 } from '@agent-marketplace/shared';
 import { logger } from '../utils/logger.js';
 
-/**
- * AgentStatsRow → AgentCacheRow 変換
- * shared の汎用フィルタロジックを再利用するために使用
- */
-function toAgentCacheRow(row: AgentStatsRow): AgentCacheRow {
-  return {
-    agentId: row.agentId,
-    owner: row.owner,
-    category: row.category,
-    isActive: row.isActive,
-    agentCard: row.agentCard,
-    rating: 0,
-    ratingCount: row.ratingCount,
-    stakedAmount: row.stakedAmount,
-  };
-}
+// ── Public ────────────────────────────────────────────────────────────────
 
-/**
- * AgentStatsRow → AgentWithStats 変換
- * DB 行を DiscoveredAgent に変換し、ランキング用の統計データを付与
- */
-function toAgentWithStats(row: AgentStatsRow): AgentWithStats | null {
-  const cacheRow = toAgentCacheRow(row);
-  const agent = agentCardRowToDiscoveredAgent(cacheRow);
-  if (!agent) return null;
-
-  return {
-    ...agent,
-    avgQuality: row.avgQuality,
-    avgReliability: row.avgReliability,
-    createdAt: row.createdAt,
-  };
-}
-
-/**
- * discover_agents ツール定義
- */
 const discoverAgentsSchema = z.object({
   agentId: z.string().optional().describe('特定のエージェントID (16進数文字列)'),
   q: z
@@ -71,6 +36,10 @@ const discoverAgentsSchema = z.object({
   maxPrice: z.number().optional().describe('最大価格 (USDC)'),
 });
 
+/**
+ * discover_agents ツール。
+ * AgentCache (DB) からエージェントを検索し、ランキング済みの最大 3 体を返す。
+ */
 export const discoverAgentsTool = tool(
   async (input: z.infer<typeof discoverAgentsSchema>) => {
     try {
@@ -82,7 +51,6 @@ export const discoverAgentsTool = tool(
         maxPrice: input.maxPrice,
       });
 
-      // 1. DB から生データ取得
       const dbInput: DiscoverAgentsInput = {
         agentId: input.agentId,
         q: input.q,
@@ -92,22 +60,19 @@ export const discoverAgentsTool = tool(
       };
       const rows = await discoverAgentsWithStats(dbInput);
 
-      // 2. shared の discovery フィルタを流用し、検索条件を一元化する
       const cacheRows = rows.map(toAgentCacheRow);
       const filteredAgentIds = new Set(
-        discoverAgentsFromCache(cacheRows, dbInput).map((agent) => agent.agentId)
+        discoverAgentsFromCache(cacheRows, dbInput).map((agent) => agent.agentId),
       );
       const agents = rows
         .filter((row) => filteredAgentIds.has(row.agentId))
         .map(toAgentWithStats)
         .filter((a): a is AgentWithStats => a !== null);
 
-      // 3. Bayesian ε-Greedy ランキング
       const means = computeGlobalMeans(agents);
       const scored = scoreAgents(agents, means);
       const selected = selectAgents(scored);
 
-      // 4. LLM が理解しやすい形式に変換
       const summary = selected.map((agent) => ({
         agentId: agent.agentId,
         name: agent.name,
@@ -121,23 +86,13 @@ export const discoverAgentsTool = tool(
         skills: agent.skills.map((s) => s.name),
       }));
 
-      logger.logic.success(
-        `Ranked ${selected.length} agents from ${agents.length} candidates`
-      );
+      logger.logic.success(`Ranked ${selected.length} agents from ${agents.length} candidates`);
 
-      return JSON.stringify({
-        success: true,
-        total: selected.length,
-        agents: summary,
-      });
+      return JSON.stringify({ success: true, total: selected.length, agents: summary });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       logger.logic.error('discover_agents failed', { error: message });
-      return JSON.stringify({
-        success: false,
-        error: message,
-        agents: [],
-      });
+      return JSON.stringify({ success: false, error: message, agents: [] });
     }
   },
   {
@@ -147,5 +102,33 @@ export const discoverAgentsTool = tool(
 結果にはエージェントのID、名前、説明、URL、価格（USDC）、composite score、選出理由が含まれます。
 注意: 1回の呼び出しで返るのは最大3体のみ。フライト+ホテルなど複数の異なる能力が必要な場合は、skillNameやqを変えて役割ごとに検索を分けると、各役割で複数候補を得やすい。`,
     schema: discoverAgentsSchema,
-  }
+  },
 );
+
+// ── Private ───────────────────────────────────────────────────────────────
+
+function toAgentCacheRow(row: AgentStatsRow): AgentCacheRow {
+  return {
+    agentId: row.agentId,
+    owner: row.owner,
+    category: row.category,
+    isActive: row.isActive,
+    agentCard: row.agentCard,
+    rating: 0,
+    ratingCount: row.ratingCount,
+    stakedAmount: row.stakedAmount,
+  };
+}
+
+function toAgentWithStats(row: AgentStatsRow): AgentWithStats | null {
+  const cacheRow = toAgentCacheRow(row);
+  const agent = agentCardRowToDiscoveredAgent(cacheRow);
+  if (!agent) return null;
+
+  return {
+    ...agent,
+    avgQuality: row.avgQuality,
+    avgReliability: row.avgReliability,
+    createdAt: row.createdAt,
+  };
+}

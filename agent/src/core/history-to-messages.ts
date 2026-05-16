@@ -1,3 +1,8 @@
+/**
+ * @module core/history-to-messages
+ * DB / API の会話履歴を LangChain のメッセージ列に変換する。
+ */
+
 import {
   AIMessage,
   HumanMessage,
@@ -7,8 +12,13 @@ import {
 import type { AgentMessageHistoryEntry } from '@agent-marketplace/shared';
 
 /**
- * DB / API の会話履歴を LangChain のメッセージ列に展開する。
- * ツール付きアシスタントターンは: AIMessage(tool_calls) → ToolMessage[] → AIMessage(最終テキスト)
+ * DB / API 由来の会話履歴を LangChain メッセージ配列に展開する。
+ * ツール付きアシスタントターンは:
+ *   AIMessage(tool_calls) → ToolMessage[] → AIMessage(最終テキスト)
+ * の形式に変換される。
+ *
+ * @param entries - 会話履歴エントリの配列（undefined 許容）
+ * @returns LangChain BaseMessage の配列
  */
 export function expandHistoryToLangChainMessages(
   entries: AgentMessageHistoryEntry[] | undefined,
