@@ -1,6 +1,6 @@
 # Agent Service
 
-LangChain.jsを使用したAIエージェント実行サービス（Paygent X）。
+LangChain.jsを使用したAIエージェント実行サービス。
 
 ## 概要
 

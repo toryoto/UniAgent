@@ -348,7 +348,7 @@ function WelcomeMessage() {
     <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 md:p-6">
       <h2 className="mb-2 text-base font-bold text-purple-300 md:text-lg">Welcome to UniAgent!</h2>
       <p className="mb-3 text-sm text-purple-200/80 md:text-base">
-        Paygent X will discover and execute external agents from the marketplace:
+        UniAgent X will discover and execute external agents from the marketplace:
       </p>
       <ul className="space-y-2 text-xs text-purple-200/70 md:text-sm">
         <li>1. Search for agents using discover_agents</li>
