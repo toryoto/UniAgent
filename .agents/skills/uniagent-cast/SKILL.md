@@ -6,7 +6,7 @@ description: |
   Use this skill proactively whenever the user wants to inspect on-chain state for the UniAgent project. Trigger on any of these:
   - "コントラクトを調べて", "残高確認", "イベントログ見て", "トランザクション確認", "tx 見て", "確認して"
   - Any 0x address or tx hash pasted in context with a question about what it does or what it contains
-  - Questions about AgentRegistry, AgentIdentityRegistry, USDC on Base chains
+  - Questions about AgentIdentityRegistry (ERC-8004), USDC on Base chains
   - Checking if a contract is deployed, what functions it has, or who owns it
   - Decoding calldata, ABI output, function selectors, or event topics
   - After a deployment or transaction to verify on-chain state
@@ -33,7 +33,6 @@ Default to `--rpc-url https://sepolia.base.org` unless the user says "mainnet".
 
 | Name | Address |
 |------|---------|
-| AgentRegistry | `0xe2B64700330af9e408ACb3A04a827045673311C1` |
 | AgentIdentityRegistry (ERC-8004) | `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92` |
 | USDC | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` |
 
@@ -129,21 +128,8 @@ Return type syntax: `"funcName(argType)(retType1,retType2)"` — input types in 
 
 ```bash
 RPC=https://sepolia.base.org
-REGISTRY=0xe2B64700330af9e408ACb3A04a827045673311C1
 IDENTITY=0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92
 USDC=0x036CbD53842c5426634e7929541eC2318f3dCF7e
-
-# Number of registered agents
-cast call $REGISTRY "getTotalAgentCount()(uint256)" --rpc-url $RPC
-
-# List all agent IDs (bytes32[])
-cast call $REGISTRY "getAllAgentIds()(bytes32[])" --rpc-url $RPC
-
-# Get full agent card by bytes32 ID
-cast call $REGISTRY "getAgentCard(bytes32)" <agentId_bytes32> --rpc-url $RPC
-
-# Get active agents by category (e.g. "travel", "finance")
-cast call $REGISTRY "getActiveAgentsByCategory(string)(bytes32[])" "<category>" --rpc-url $RPC
 
 # AgentIdentityRegistry: total NFTs minted
 cast call $IDENTITY "totalSupply()(uint256)" --rpc-url $RPC
@@ -167,7 +153,7 @@ cast call $USDC "balanceOf(address)(uint256)" <wallet> --rpc-url $RPC
 
 # Recent events (last 1000 blocks)
 LATEST=$(cast block latest --rpc-url $RPC --field number)
-cast logs --address $REGISTRY --from-block $((LATEST - 1000)) --rpc-url $RPC
+cast logs --address $IDENTITY --from-block $((LATEST - 1000)) --rpc-url $RPC
 ```
 
 ## Output Format

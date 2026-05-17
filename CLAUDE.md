@@ -59,7 +59,6 @@ npm run db:studio --workspace=web
 
 ## Deployed Contracts
 
-- `AgentRegistry`: `0xe2B64700330af9e408ACb3A04a827045673311C1`
 - `AgentIdentityRegistry` (ERC-8004): `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`
 - `USDC` (Base Sepolia): `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
