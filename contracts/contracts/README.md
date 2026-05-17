@@ -85,8 +85,8 @@ string[] memory outputModes = new string[](1);
 outputModes[0] = "application/json";
 
 registry.registerAgent(
-    keccak256("FlightFinderPro"),
-    "FlightFinderPro",
+    keccak256("ExampleFlightAgent"),
+    "ExampleFlightAgent",
     "最安値フライト検索エージェント",
     "https://flight-agent.example.com",
     "1.0.0",

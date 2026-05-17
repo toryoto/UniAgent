@@ -106,10 +106,8 @@ import { discoverAgents } from '@agent-marketplace/database';
 import { getBudgetSettings } from '@/lib/db/budget-settings';  // web の DB アクセス
 ```
 
-### A2A Endpoints (hosted in web/)
-- `/api/agents/flight/.well-known/agent.json`
-- `/api/agents/hotel/.well-known/agent.json`
-- `/api/agents/tourism/.well-known/agent.json`
+### A2A dummy HTTP agents
+- Web の `/api/agents/*` ダミールートは削除済み。ホテル系などは **`a2a-agents`**（別ポート/Railway）、それ以外はデプロイ先の `.well-known/agent.json` をレジストリに載せる。
 
 ### Agent Tools (in agent/src/tools/)
 - `discover-agents.ts`: Queries MCP server for available agents

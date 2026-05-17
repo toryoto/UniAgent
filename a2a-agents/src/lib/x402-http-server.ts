@@ -16,7 +16,7 @@ function slugFromContext(context: HTTPRequestContext): string {
 }
 
 /**
- * web の hotel / flight ルートと同じ構成（HTTPFacilitator + exact EVM + x402HTTPResourceServer）。
+ * HTTPFacilitator + exact EVM + x402HTTPResourceServer。
  * エージェントごとの価格は DynamicPrice で slug から解決する。
  */
 export function createX402HttpServer(registry: AgentRegistry): x402HTTPResourceServer {

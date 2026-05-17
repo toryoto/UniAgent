@@ -34,12 +34,6 @@ async function uploadToIPFS(
 async function main() {
   const REGISTRY_ADDRESS = AGENT_IDENTITY_REGISTRY_ADDRESS;
 
-  const PINATA_JWT = process.env.PINATA_JWT;
-  if (!PINATA_JWT) {
-    throw new Error('PINATA_JWT is required');
-  }
-
-  const PINATA_GATEWAY_URL = process.env.PINATA_GATEWAY_URL || '';
   const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
   console.log('Registering sample agents (ERC-8004)...');
@@ -48,6 +42,27 @@ async function main() {
 
   const [deployer] = await ethers.getSigners();
   console.log('Using account:', deployer.address);
+
+  // Agent definitions（Web の /api/agents/* ダミーは削除済み。必要ならここに IPFS メタと endpoint を追加）
+  const agents: Array<{
+    name: string;
+    metadata: ERC8004RegistrationFile;
+    walletAddress: string;
+  }> = [];
+
+  if (agents.length === 0) {
+    console.log(
+      'No agents configured — skipping Pinata/IPFS and on-chain registration (web dummy routes removed).',
+    );
+    return;
+  }
+
+  const PINATA_JWT = process.env.PINATA_JWT;
+  if (!PINATA_JWT) {
+    throw new Error('PINATA_JWT is required');
+  }
+
+  const PINATA_GATEWAY_URL = process.env.PINATA_GATEWAY_URL || '';
 
   // Initialize Pinata client
   const pinata = new PinataSDK({
@@ -58,89 +73,6 @@ async function main() {
   // Get contract instance
   const Factory = await ethers.getContractFactory('AgentIdentityRegistry');
   const registry = Factory.attach(REGISTRY_ADDRESS);
-
-  // Agent definitions
-  const agents: Array<{
-    name: string;
-    metadata: ERC8004RegistrationFile;
-    walletAddress: string;
-  }> = [
-    {
-      name: 'FlightFinderPro',
-      walletAddress: deployer.address,
-      metadata: {
-        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-        name: 'FlightFinderPro',
-        description: '最安値フライト検索エージェント',
-        image: 'https://via.placeholder.com/150/3498db/ffffff?text=Flight',
-        services: [
-          {
-            name: 'A2A',
-            endpoint: `${BASE_URL}/api/agents/flight/.well-known/agent.json`,
-            version: '1.0.0',
-            skills: [
-              { id: 'search-flights', name: 'Flight Search', description: '2地点間のフライトを検索' },
-              { id: 'compare-prices', name: 'Price Comparison', description: '複数航空会社の価格比較' },
-            ],
-            domains: ['travel'],
-          },
-        ],
-        x402Support: true,
-        active: true,
-        category: 'travel',
-      },
-    },
-    {
-      name: 'HotelBookerPro',
-      walletAddress: deployer.address,
-      metadata: {
-        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-        name: 'HotelBookerPro',
-        description: 'ホテル予約エージェント',
-        image: 'https://via.placeholder.com/150/e74c3c/ffffff?text=Hotel',
-        services: [
-          {
-            name: 'A2A',
-            endpoint: `${BASE_URL}/api/agents/hotel/.well-known/agent.json`,
-            version: '1.0.0',
-            skills: [
-              { id: 'search-hotels', name: 'Hotel Search', description: '宿泊施設を検索' },
-              { id: 'check-availability', name: 'Availability Check', description: '空室確認' },
-            ],
-            domains: ['travel'],
-          },
-        ],
-        x402Support: true,
-        active: true,
-        category: 'travel',
-      },
-    },
-    {
-      name: 'TourismGuide',
-      walletAddress: deployer.address,
-      metadata: {
-        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
-        name: 'TourismGuide',
-        description: '観光ガイドエージェント',
-        image: 'https://via.placeholder.com/150/2ecc71/ffffff?text=Tourism',
-        services: [
-          {
-            name: 'A2A',
-            endpoint: `${BASE_URL}/api/agents/tourism/.well-known/agent.json`,
-            version: '1.0.0',
-            skills: [
-              { id: 'recommend-spots', name: 'Spot Recommendation', description: '観光スポット推薦' },
-              { id: 'create-itinerary', name: 'Itinerary Creation', description: '旅行プラン作成' },
-            ],
-            domains: ['travel'],
-          },
-        ],
-        x402Support: true,
-        active: true,
-        category: 'travel',
-      },
-    },
-  ];
 
   const registeredAgents: Array<{ name: string; agentId: string; ipfsUri: string }> = [];
 

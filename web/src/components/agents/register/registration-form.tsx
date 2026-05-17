@@ -67,7 +67,7 @@ export function RegistrationForm({ reg, disabled }: RegistrationFormProps) {
               value={formData.name}
               onChange={(e) => updateFormData({ name: e.target.value })}
               disabled={disabled}
-              placeholder="e.g. FlightFinderPro"
+              placeholder="e.g. QuickHotelBot"
               className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-purple-500 focus:outline-none disabled:opacity-50"
             />
           </div>

@@ -26,7 +26,7 @@ mcpServer.addTool({
     q: z
       .string()
       .optional()
-      .describe('自由検索キーワード。名前検索に推奨 (例: "FlightFinderPro")'),
+      .describe('自由検索キーワード。名前検索に推奨 (例: "quickhotelbot")'),
     category: z
       .string()
       .optional()

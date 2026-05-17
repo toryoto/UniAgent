@@ -379,14 +379,6 @@ npm start
 - **View**: [base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748](https://base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748)
 - **Schema**: `uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags`
 
-### 登録済みDummy AI Agent
-
-| エージェント名  | Agent ID                                                             | カテゴリ | 価格       |
-| --------------- | -------------------------------------------------------------------- | -------- | ---------- |
-| FlightFinderPro | `0x0bddd164b1ba44c2b7bd2960cce576de2de93bd1da0b5621d6b8ffcffa91b75e` | travel   | 0.01 USDC  |
-| HotelBookerPro  | `0x70fc477d5b587eed5078b44c890bae89e6497d5b1b9e115074eddbb3eb46dd0e` | travel   | 0.015 USDC |
-| TourismGuide    | `0xc1de1b2fcec91001afacbf4acc007ff0b96e84c2f9c7ca785cba05102234b0fc` | travel   | 0.02 USDC  |
-
 ## ライセンス
 
 このプロジェクトは [MIT License](LICENSE) の下で公開されています。
