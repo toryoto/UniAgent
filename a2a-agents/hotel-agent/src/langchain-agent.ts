@@ -57,13 +57,19 @@ export async function runHotelAgent(userText: string): Promise<HotelAgentResult>
   clearLastSearchResult();
 
   const agent = getAgent();
+  const preview = userText.slice(0, 80).replace(/\n/g, ' ');
+  const model = process.env.HOTEL_AGENT_MODEL ?? 'claude-haiku-4-5-20251001';
+  console.log(`[hotel-agent] agent start model=${model} input="${preview}${userText.length > 80 ? '...' : ''}"`);
 
+  const start = Date.now();
   const result = await agent.invoke({
     messages: [new HumanMessage(userText)],
   });
+  const ms = Date.now() - start;
 
   const messages = result.messages as Array<{ content: unknown }>;
-  const lastMessage = messages[messages.length - 1];
+  const steps = messages.length;
+  const lastMessage = messages[steps - 1];
   const text =
     typeof lastMessage.content === 'string'
       ? lastMessage.content
@@ -76,6 +82,8 @@ export async function runHotelAgent(userText: string): Promise<HotelAgentResult>
         : String(lastMessage.content);
 
   const searchResult = getLastSearchResult() ?? undefined;
+  const hotelsFound = searchResult ? searchResult.hotels.length : 0;
+  console.log(`[hotel-agent] agent done steps=${steps} hotelsFound=${hotelsFound} (${ms}ms)`);
 
   return { text, searchResult };
 }

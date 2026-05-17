@@ -29,9 +29,23 @@ app.get('/hotel-agent/openapi.json', (req, res) => {
 app.post('/hotel-agent', async (req, res) => {
   const body = req.body as Record<string, unknown>;
   const id = (body.id ?? null) as string | number | null;
+  const method = body.method ?? '(none)';
+  const start = Date.now();
+
+  console.log(`[hotel-agent] request id=${id} method=${method}`);
 
   try {
     const response = await handleA2ARequest(body);
+    const ms = Date.now() - start;
+
+    if (response.error) {
+      console.warn(`[hotel-agent] response id=${id} error=${response.error.code} msg="${response.error.message}" (${ms}ms)`);
+    } else {
+      const parts = response.result?.parts ?? [];
+      const hasData = parts.some((p) => p.kind === 'data');
+      console.log(`[hotel-agent] response id=${id} parts=${parts.length} hasData=${hasData} (${ms}ms)`);
+    }
+
     res.json({
       jsonrpc: '2.0',
       id: response.id,
@@ -39,7 +53,8 @@ app.post('/hotel-agent', async (req, res) => {
       ...(response.error ? { error: response.error } : {}),
     });
   } catch (err) {
-    console.error('[hotel-agent] Unhandled error:', err);
+    const ms = Date.now() - start;
+    console.error(`[hotel-agent] unhandled error id=${id} (${ms}ms):`, err);
     res.status(500).json({
       jsonrpc: '2.0',
       id,
