@@ -1,154 +1,68 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+AI coding agent 向けのリポジトリガイドです。`AGENTS.md` はこのファイルへの symlink として管理します。詳細な運用メモが必要な場合は `docs/ai-agent-operational-notes.md` を参照してください。
 
-## Project Overview
+## Project Snapshot
 
-UniAgent is a decentralized AI agent marketplace integrating A2A (Agent-to-Agent) protocol, x402 micropayments, and blockchain. Users send messages, and the system autonomously discovers agents on-chain, executes them with automatic USDC payments, and returns results.
+UniAgent は A2A、x402、Base Sepolia、Privy を組み合わせた分散 AI Agent マーケットプレイスです。ユーザーの依頼を Web UI で受け、Agent Service が AgentRegistry や DB キャッシュから Agent を探索し、x402 決済つきで外部 A2A Agent を実行します。
 
-## Monorepo Structure
-
-- **npm workspaces** with Yarn 1.22.19 as package manager
-- **CRITICAL**: Run `npm install` only at root. Never run npm install in sub-workspaces (causes duplicate lock files)
-- `.npmrc` includes `legacy-peer-deps=true`
-
-| Workspace | Purpose | Port |
-|-----------|---------|------|
-| `web/` | Next.js 15 frontend + API routes | 3000 |
-| `agent/` | LangChain ReAct agent service | 3002 |
-| `mcp/` | A2A discovery MCP server | 3001 |
-| `contracts/` | Hardhat smart contracts | - |
-| `a2a-agents/` | A2A hotel agents server (25 agents) | 3003 |
-| `packages/shared/` | Pure functions, types, business logic（DB 非依存） | - |
-| `packages/database/` | Prisma Client & DB アクセス層 | - |
-
-### packages の依存関係
-
-```
-shared (最下層・依存なし)
-  ↑
-database (shared に依存)
-  ↑
-web / mcp / agent / a2a-agents (shared, database を使用)
+```text
+User -> web -> agent -> AgentRegistry / DB cache
+                 |
+                 v
+            External A2A Agent
+                 |
+                 v
+          SSE events back to web
 ```
 
-## Build & Development Commands
+## Repository Rules
+
+- パッケージ管理は npm workspaces + Yarn 1.22.19 です。依存追加や `npm install` は必ずリポジトリルートで実行し、サブワークスペースに lockfile を作らないでください。
+- `web/` は Next.js 16 + React 19、`agent/` は LangChain ReAct Agent、`contracts/` は Hardhat、`a2a-agents/` は外部 A2A HTTP Agent 群です。`mcp/` は legacy workspace で、現在の実行経路では使用しません。
+- LangChain は `@langchain/core` 1.1.19 系です。v0 系から破壊的変更があるため、Agent 実装や LangChain API 変更時は必ず Context7 MCP などで LangChain v1.1 系の最新ドキュメントを確認してください。
+- 共通型・純粋ロジックは `packages/shared/`、Prisma Client と共有 DB アクセスは `packages/database/` に置きます。
+- Web 固有の DB アクセスは `web/src/lib/db/` に閉じ込め、API Route や Server Component から Prisma を直接 import しないでください。
+- Web の `/api/agents/*` ダミールートは削除済みです。Agent endpoint は `a2a-agents` または外部ホストの `.well-known/agent.json` を AgentRegistry に登録します。
+- `autoApproveThreshold` はサーバーサイドで DB から取得し、クライアントから送られた値は信用しないでください。
+
+## Frequent Commands
 
 ```bash
-# Install (root only!)
 npm install
-
-# Development (run all three for full stack)
-npm run dev                          # web
-npm run dev --workspace=agent        # agent service
-npm run dev --workspace=mcp          # MCP server
-
-# Building
-npm run build                        # all workspaces
-npm run build --workspace=web        # specific workspace
-
-# Quality checks
-npm run lint                         # ESLint all
-npm run lint:fix                     # Auto-fix
-npm run type-check                   # TypeScript all
-npm run format                       # Prettier
-npm run format:check                 # Check formatting
-
-# Testing
-npm run test                         # all workspaces
-npm run test --workspace=contracts   # contracts only
-
-# Database (Prisma in packages/database)
-npm run db:push --workspace=web      # Sync schema
-npm run db:generate --workspace=web  # Generate client
-npm run db:studio --workspace=web    # Prisma Studio GUI
-
-# Contracts
+npm run dev
+npm run dev --workspace=agent
+npm run build
+npm run lint
+npm run type-check
+npm run test
 npm run compile --workspace=contracts
 npm run deploy:base-sepolia --workspace=contracts
 ```
 
-## Architecture
+Prisma 関連は `web` の script 経由で実行します。
 
-```
-User Message → Web UI → Agent Service → LangChain ReAct Agent
-                                              ↓
-                        discover_agents tool → MCP Server → AgentRegistry (blockchain)
-                                              ↓
-                        execute_agent tool → External A2A Agent (x402 payment)
-                                              ↓
-                        SSE streaming results → Web UI
+```bash
+npm run db:generate --workspace=web
+npm run db:push --workspace=web
+npm run db:studio --workspace=web
 ```
 
-### Key Technologies
-- **A2A Protocol**: Agent-to-agent communication standard
-- **x402 Protocol**: HTTP 402 with EIP-3009 (gasless USDC transfers)
-- **LangChain ReAct**: Reasoning + Action loop for agent orchestration
-- **Privy**: Authentication & wallet delegation
-- **Base Sepolia**: L2 testnet (Chain ID: 84532)
+## External Tooling
 
-### Deployed Contracts
-- **AgentRegistry**: `0xe2B64700330af9e408ACb3A04a827045673311C1`
-- **AgentIdentityRegistry** (ERC-8004): `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`
-- **USDC**: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
+ここでいう MCP は Cursor/Supabase/Context7 などの外部 MCP ツールです。リポジトリ内の legacy workspace `mcp/` とは別物です。
 
-## Key Patterns
+- Supabase MCP: DB 構造確認、ログ、Advisor、SQL 検証に使います。スキーマ変更前は既存テーブルと RLS/権限を確認してください。
+- Vercel MCP/CLI: `web` のデプロイ状況、Preview/Production URL、ログ、環境変数確認に使います。明示依頼なしに本番 deploy や env 変更をしないでください。
+- Context7 MCP: Next.js、React、Prisma、Supabase、Vercel、x402 などの API や設定を書く前に最新ドキュメントを確認するために使います。
+- Foundry `cast`: Base Sepolia の読み取り調査に使います。`cast call`、`cast code`、`cast logs`、`cast tx`、`cast receipt`、`cast balance` が主用途です。`cast send` など状態変更はユーザーの明示承認なしに実行しないでください。
 
-### Streaming Events (agent → web)
-Events: `start`, `log`, `content`, `tool_call`, `payment`, `end`, `error`
+## Deployed Contracts
 
-### Shared Package Imports
-```typescript
-import { DiscoveredAgent } from '@agent-marketplace/shared';
-import { CONTRACT_ADDRESSES } from '@agent-marketplace/shared/config';
-import { AGENT_IDENTITY_REGISTRY_ABI } from '@agent-marketplace/shared/contract';
-import { discoverAgents } from '@agent-marketplace/database';
-import { getBudgetSettings } from '@/lib/db/budget-settings';  // web の DB アクセス
-```
+- `AgentRegistry`: `0xe2B64700330af9e408ACb3A04a827045673311C1`
+- `AgentIdentityRegistry` (ERC-8004): `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`
+- `USDC` (Base Sepolia): `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 
-### A2A dummy HTTP agents
-- Web の `/api/agents/*` ダミールートは削除済み。ホテル系などは **`a2a-agents`**（別ポート/Railway）、それ以外はデプロイ先の `.well-known/agent.json` をレジストリに載せる。
+## Verification
 
-### Agent Tools (in agent/src/tools/)
-- `discover-agents.ts`: Queries MCP server for available agents
-- `execute-agent.ts`: Executes agent with x402 payment flow
-- `privy-signer.ts`: EIP-3009 signing via Privy delegation
-
-### DB Access Architecture
-
-Prisma を介した DB アクセスは次の方針で配置する。
-
-| 配置 | 対象 | 用途 |
-|------|------|------|
-| **packages/database** | 複数ワークスペースで共有されるモデル | `discoverAgents`（AgentCache 検索）など |
-| **web/lib/db/** | web 固有のモデル | User, Conversation, Message, BudgetSettings, AgentCache(upsert), AccessLimit, EasAttestation |
-
-- **API ルートや Server Components では prisma を直接インポートしない**。`@/lib/db/*` の関数を使用する。
-- web/lib/db の構成: `users.ts`, `conversations.ts`, `messages.ts`, `budget-settings.ts`, `agent-cache.ts`, `access-limits.ts`, `attestations.ts`
-
-```typescript
-// web の API ルートでの DB アクセス例
-import { getBudgetSettings } from '@/lib/db/budget-settings';
-import { findConversationWithMessages } from '@/lib/db/conversations';
-import { createMessage } from '@/lib/db/messages';
-```
-
-### Security: autoApproveThreshold
-
-- **autoApproveThreshold はサーバーサイドでのみ取得・使用する**。クライアントから送信された値は信頼せず、認証後に DB の `budgetSettings` から取得する。
-- `/api/agent/stream`, `/api/agent/resume` は `getBudgetSettings(auth.privyUserId)` で閾値を取得し、Agent Service に転送する。
-- クライアント（useAgentStream, ChatView）は autoApproveThreshold をリクエストボディに含めない。
-
-## Environment Setup
-
-Each workspace has `.env.example`:
-- `web/.env.example`: Privy, Database, RPC URLs
-- `agent/.env.example`: Claude API, Privy, MCP server URL
-- `mcp/.env.example`: RPC URLs, Contract addresses
-- `contracts/.env.example`: Private key, RPC URLs
-
-## CI/CD
-
-- GitHub Actions runs lint, type-check, build on push to web/, mcp/, agent/, packages/shared/, packages/database/
-- Web: Vercel (vercel.json)
-- Agent/MCP: Railway (railway.json)
+変更の範囲に応じて、最低限 `npm run type-check`、`npm run lint`、該当 workspace の test/build を実行してください。コントラクト変更では `npm run compile --workspace=contracts` と `npm run test --workspace=contracts` を優先します。

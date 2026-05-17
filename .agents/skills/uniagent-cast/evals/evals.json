@@ -1,0 +1,29 @@
+{
+  "skill_name": "uniagent-cast",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "AgentRegistry に何件のエージェントが登録されているか確認して。コントラクトアドレスは 0xe2B64700330af9e408ACb3A04a827045673311C1 (Base Sepolia)",
+      "expected_output": "cast call を使って AgentRegistry の getAgentCount() を呼び出し、登録数を返す。実行したコマンドと結果を日本語で説明する。",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "このウォレットの USDC 残高を確認して: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "expected_output": "cast balance --erc20 を使って Base Sepolia USDC (0x036CbD53842c5426634e7929541eC2318f3dCF7e) の残高を確認し、結果をわかりやすく表示する。",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92 は何のコントラクト？ tokenId=1 のオーナーも調べて",
+      "expected_output": "コントラクトを既知のアドレスと照合して AgentIdentityRegistry (ERC-8004) と特定し、ownerOf(1) を cast call で取得して結果を返す。",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "function selector 0xa9059cbb が何の関数か教えて。それから AgentRegistry の getAgent(uint256) のセレクタも出して",
+      "expected_output": "cast 4byte で 0xa9059cbb を lookup し (transfer(address,uint256))、cast sig で getAgent(uint256) のセレクタを計算して両方表示する。RPC不要のオフラインコマンドを使う。",
+      "files": []
+    }
+  ]
+}

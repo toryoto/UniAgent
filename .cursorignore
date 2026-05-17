@@ -1,0 +1,28 @@
+
+
+# --- 環境変数・シークレット---
+**/.env
+**/.env.*
+
+# direnv など
+**/.envrc
+**/.envrc.*
+
+# --- 鍵・証明書 ---
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.keystore
+
+# --- クラウド・ツールの資格情報 ---
+**/credentials.json
+**/*-credentials.json
+**/*service-account*.json
+**/google-services.json
+**/GoogleService-Info.plist
