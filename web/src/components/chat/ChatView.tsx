@@ -32,6 +32,8 @@ import { parseMessage } from '@/lib/utils/message-parser';
 import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
 import { MessageMarkdown } from '@/components/chat/MessageMarkdown';
+import { HotelResultsCard } from '@/components/chat/HotelResultsCard';
+import type { HotelData } from '@/components/chat/HotelResultsCard';
 
 // Slash command definitions
 const SLASH_COMMANDS: SlashCommandOption[] = [
@@ -778,10 +780,38 @@ function ApprovalCard({
   );
 }
 
+interface HotelSearchResultData {
+  hotels: HotelData[];
+  searchParams?: { checkIn?: string; checkOut?: string };
+  totalResults?: number;
+}
+
+function extractHotelResults(result: string): HotelSearchResultData | null {
+  try {
+    const parsed = JSON.parse(result) as Record<string, unknown>;
+    // ExecuteAgentResult shape: { success, result: { parts: [...] } }
+    const resultObj = parsed?.result as Record<string, unknown> | undefined;
+    const parts = resultObj?.parts as Array<{ kind: string; data?: Record<string, unknown> }> | undefined;
+    if (!parts) return null;
+    const dataPart = parts.find((p) => p.kind === 'data' && Array.isArray(p.data?.hotels));
+    if (!dataPart?.data) return null;
+    const hotels = dataPart.data.hotels as HotelData[];
+    if (!hotels.length) return null;
+    return {
+      hotels,
+      searchParams: dataPart.data.searchParams as HotelSearchResultData['searchParams'],
+      totalResults: dataPart.data.totalResults as number | undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isCalling = toolCall.status === 'calling';
   const isRejected = toolCall.result === 'Rejected by user';
+  const hotelResults = !isCalling && toolCall.result ? extractHotelResults(toolCall.result) : null;
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
@@ -816,6 +846,14 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
           )}
         </span>
       </button>
+
+      {hotelResults && (
+        <HotelResultsCard
+          hotels={hotelResults.hotels}
+          searchParams={hotelResults.searchParams}
+          totalResults={hotelResults.totalResults}
+        />
+      )}
 
       {isExpanded && (
         <div className="mt-2 space-y-2">

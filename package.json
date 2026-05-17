@@ -9,7 +9,8 @@
     "contracts",
     "mcp",
     "agent",
-    "a2a-agents"
+    "a2a-agents",
+    "a2a-agents/hotel-agent"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
