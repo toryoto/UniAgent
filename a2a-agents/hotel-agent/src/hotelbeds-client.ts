@@ -46,6 +46,8 @@ export interface HotelResult {
   maxRate: string;
   currency: string;
   rooms: HotelRoom[];
+  imageUrl?: string;
+  webUrl?: string;
 }
 
 export interface HotelbedsSearchResult {
@@ -53,6 +55,64 @@ export interface HotelbedsSearchResult {
   total: number;
   checkIn: string;
   checkOut: string;
+}
+
+interface HotelContentItem {
+  imageUrl?: string;
+  webUrl?: string;
+}
+
+async function fetchHotelContent(hotelCodes: number[]): Promise<Map<number, HotelContentItem>> {
+  if (hotelCodes.length === 0) return new Map();
+
+  const apiKey = process.env.HOTELBEDS_API_KEY;
+  const apiSecret = process.env.HOTELBEDS_API_SECRET;
+  const baseUrl = process.env.HOTELBEDS_BASE_URL ?? 'https://api.test.hotelbeds.com';
+
+  if (!apiKey || !apiSecret) return new Map();
+
+  const { key, signature } = buildSignature(apiKey, apiSecret);
+  const codes = hotelCodes.join(',');
+
+  try {
+    const res = await fetch(
+      `${baseUrl}/hotel-content-api/1.0/hotels?codes=${codes}&fields=images,web&language=ENG&from=1&to=${hotelCodes.length}`,
+      {
+        headers: {
+          'Api-key': key,
+          'X-Signature': signature,
+          'Accept': 'application/json',
+        },
+      },
+    );
+
+    if (!res.ok) {
+      log.warn('hotel content api failed', { status: res.status });
+      return new Map();
+    }
+
+    const data = (await res.json()) as {
+      hotels?: Array<{
+        code: number;
+        images?: Array<{ path: string; visualOrder: number }>;
+        web?: string;
+      }>;
+    };
+
+    const result = new Map<number, HotelContentItem>();
+    for (const hotel of data.hotels ?? []) {
+      const sorted = (hotel.images ?? []).slice().sort((a, b) => a.visualOrder - b.visualOrder);
+      const mainImage = sorted[0];
+      result.set(hotel.code, {
+        imageUrl: mainImage ? `https://photos.hotelbeds.com/giata/bigger/${mainImage.path}` : undefined,
+        webUrl: hotel.web ?? undefined,
+      });
+    }
+    return result;
+  } catch (err) {
+    log.warn('hotel content api error', { error: (err as Error).message });
+    return new Map();
+  }
 }
 
 function buildSignature(apiKey: string, apiSecret: string): { key: string; signature: string } {
@@ -148,12 +208,17 @@ export async function searchHotelbeds(
   }
 
   const total = hotelsData.total ?? hotels.length;
-  const returned = Math.min(hotels.length, 10);
-  log.info('hotelbeds result', { total, returning: returned, ms: fetchMs });
+  const top5 = hotels.slice(0, 5);
+  log.info('hotelbeds result', { total, returning: top5.length, ms: fetchMs });
 
-  // Return top 10 results
+  const contentMap = await fetchHotelContent(top5.map((h) => h.code));
+  const enrichedHotels = top5.map((h) => {
+    const content = contentMap.get(h.code);
+    return content ? { ...h, imageUrl: content.imageUrl, webUrl: content.webUrl } : h;
+  });
+
   return {
-    hotels: hotels.slice(0, 10),
+    hotels: enrichedHotels,
     total,
     checkIn: hotelsData.checkIn ?? params.checkIn,
     checkOut: hotelsData.checkOut ?? params.checkOut,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Hotel, Star } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Hotel, Star } from 'lucide-react';
 
 interface HotelRate {
   boardName?: string;
@@ -26,6 +26,8 @@ export interface HotelData {
   maxRate?: string;
   currency?: string;
   rooms?: HotelRoom[];
+  imageUrl?: string;
+  webUrl?: string;
 }
 
 interface HotelResultsCardProps {
@@ -62,33 +64,55 @@ function HotelCard({ hotel }: { hotel: HotelData }) {
   const price = hotel.minRate ? `${parseFloat(hotel.minRate).toLocaleString()} ${currency}` : null;
 
   return (
-    <div className="rounded-md border border-slate-600 bg-slate-800 p-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Hotel className="h-3.5 w-3.5 shrink-0 text-blue-400" />
-            <span className="font-medium text-slate-100 text-xs leading-tight">{hotel.name}</span>
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {stars > 0 && <StarRating count={stars} />}
-            {hotel.categoryName && stars === 0 && (
-              <span className="text-[10px] text-slate-400">{hotel.categoryName}</span>
+    <div className="rounded-md border border-slate-600 bg-slate-800 overflow-hidden">
+      {hotel.imageUrl && (
+        <div className="h-28 overflow-hidden">
+          <img
+            src={hotel.imageUrl}
+            alt={hotel.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+      <div className="p-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Hotel className="h-3.5 w-3.5 shrink-0 text-blue-400" />
+              <span className="font-medium text-slate-100 text-xs leading-tight">{hotel.name}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              {stars > 0 && <StarRating count={stars} />}
+              {hotel.categoryName && stars === 0 && (
+                <span className="text-[10px] text-slate-400">{hotel.categoryName}</span>
+              )}
+              {hotel.destinationName && (
+                <span className="text-[10px] text-slate-500">{hotel.destinationName}</span>
+              )}
+            </div>
+            {boardName && (
+              <p className="mt-0.5 text-[10px] text-slate-500">{boardName}</p>
             )}
-            {hotel.destinationName && (
-              <span className="text-[10px] text-slate-500">{hotel.destinationName}</span>
+            {hotel.webUrl && (
+              <a
+                href={hotel.webUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-300"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                公式サイト
+              </a>
             )}
           </div>
-          {boardName && (
-            <p className="mt-0.5 text-[10px] text-slate-500">{boardName}</p>
+          {price && (
+            <div className="shrink-0 text-right">
+              <span className="text-xs font-semibold text-emerald-400">From</span>
+              <p className="text-xs font-bold text-emerald-300">{price}</p>
+              <p className="text-[10px] text-slate-500">/night</p>
+            </div>
           )}
         </div>
-        {price && (
-          <div className="shrink-0 text-right">
-            <span className="text-xs font-semibold text-emerald-400">From</span>
-            <p className="text-xs font-bold text-emerald-300">{price}</p>
-            <p className="text-[10px] text-slate-500">/night</p>
-          </div>
-        )}
       </div>
     </div>
   );

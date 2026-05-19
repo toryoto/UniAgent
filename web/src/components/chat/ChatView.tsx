@@ -424,6 +424,22 @@ function MessageBubble({
           </div>
         )}
 
+        {/* ホテル検索結果パネル (ToolCallCard の外に独立表示) */}
+        {!isUser && (() => {
+          const hotelData = message.toolCalls
+            ?.map((tc) => (tc.status !== 'calling' && tc.result ? extractHotelResults(tc.result) : null))
+            .find(Boolean);
+          return hotelData ? (
+            <div className="mb-3">
+              <HotelResultsCard
+                hotels={hotelData.hotels}
+                searchParams={hotelData.searchParams}
+                totalResults={hotelData.totalResults}
+              />
+            </div>
+          ) : null;
+        })()}
+
         {/* HITL Approval Card */}
         {!isUser && message.approval && !message.approval.resolved && (
           <div className="mb-3">
@@ -811,7 +827,6 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const isCalling = toolCall.status === 'calling';
   const isRejected = toolCall.result === 'Rejected by user';
-  const hotelResults = !isCalling && toolCall.result ? extractHotelResults(toolCall.result) : null;
 
   return (
     <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
@@ -846,14 +861,6 @@ function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
           )}
         </span>
       </button>
-
-      {hotelResults && (
-        <HotelResultsCard
-          hotels={hotelResults.hotels}
-          searchParams={hotelResults.searchParams}
-          totalResults={hotelResults.totalResults}
-        />
-      )}
 
       {isExpanded && (
         <div className="mt-2 space-y-2">
