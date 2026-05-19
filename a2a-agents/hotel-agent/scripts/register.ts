@@ -207,13 +207,6 @@ async function main(): Promise<void> {
   }
 
   if (agentId && WALLET_ADDRESS) {
-    await publicClient.readContract({
-      address: registryAddr,
-      abi: AGENT_IDENTITY_REGISTRY_ABI,
-      functionName: 'ownerOf',
-      args: [BigInt(agentId)],
-    });
-
     console.log('Setting agent wallet...');
     const walletHash = await walletClient.writeContract({
       account,

@@ -57,6 +57,11 @@ contract AgentIdentityRegistry is ERC721URIStorage {
         uint256 indexed agentId
     );
 
+    event Burned(
+        uint256 indexed agentId,
+        address indexed owner
+    );
+
     // ============================================================================
     // Constructor
     // ============================================================================
@@ -196,6 +201,31 @@ contract AgentIdentityRegistry is ERC721URIStorage {
         require(ownerOf(agentId) == msg.sender, "AgentIdentityRegistry: not owner");
         delete _agentWallets[agentId];
         emit AgentWalletUnset(agentId);
+    }
+
+    /**
+     * @notice Burn an agent token, removing it from the registry (owner only)
+     * @param agentId The agent token ID to burn
+     */
+    function burn(uint256 agentId) external {
+        require(ownerOf(agentId) == msg.sender, "AgentIdentityRegistry: not owner");
+
+        // Remove from _allTokenIds via swap-and-pop (linear scan; acceptable for registry scale)
+        uint256 len = _allTokenIds.length;
+        for (uint256 i = 0; i < len; i++) {
+            if (_allTokenIds[i] == agentId) {
+                _allTokenIds[i] = _allTokenIds[len - 1];
+                _allTokenIds.pop();
+                break;
+            }
+        }
+
+        // Clean up auxiliary mappings
+        delete _agentWallets[agentId];
+
+        address burner = msg.sender;
+        _burn(agentId); // ERC721URIStorage._burn also clears tokenURI
+        emit Burned(agentId, burner);
     }
 
     // ============================================================================

@@ -252,6 +252,60 @@ describe('AgentIdentityRegistry', function () {
   });
 
   // ============================================================================
+  // Burn
+  // ============================================================================
+
+  describe('Burn', function () {
+    beforeEach(async function () {
+      // Register three agents: IDs 1, 2, 3
+      await registry.connect(agent1Owner)['register(string)'](SAMPLE_URI);
+      await registry.connect(agent2Owner)['register(string)'](SAMPLE_URI_2);
+      await registry.connect(agent1Owner)['register(string)'](SAMPLE_URI);
+    });
+
+    it('should burn own token and remove from _allTokenIds', async function () {
+      await registry.connect(agent1Owner).burn(1);
+      expect(await registry.totalSupply()).to.equal(2);
+      const ids = await registry.getAllAgentIds();
+      expect(ids.map((id: bigint) => Number(id))).to.not.include(1);
+    });
+
+    it('should emit Burned event', async function () {
+      await expect(registry.connect(agent1Owner).burn(1))
+        .to.emit(registry, 'Burned')
+        .withArgs(1, agent1Owner.address);
+    });
+
+    it('should revert ownerOf after burn', async function () {
+      await registry.connect(agent1Owner).burn(1);
+      await expect(registry.ownerOf(1)).to.be.reverted;
+    });
+
+    it('should clear agentWallet on burn', async function () {
+      await registry.connect(agent1Owner).setAgentWallet(1, agent2Owner.address);
+      await registry.connect(agent1Owner).burn(1);
+      await expect(registry.getAgentWallet(1)).to.be.revertedWith(
+        'AgentIdentityRegistry: agent does not exist',
+      );
+    });
+
+    it('should reject burn by non-owner', async function () {
+      await expect(registry.connect(agent2Owner).burn(1)).to.be.revertedWith(
+        'AgentIdentityRegistry: not owner',
+      );
+    });
+
+    it('should correctly maintain _allTokenIds order after middle burn', async function () {
+      await registry.connect(agent2Owner).burn(2);
+      expect(await registry.totalSupply()).to.equal(2);
+      const ids = (await registry.getAllAgentIds()).map((id: bigint) => Number(id));
+      expect(ids).to.include(1);
+      expect(ids).to.include(3);
+      expect(ids).to.not.include(2);
+    });
+  });
+
+  // ============================================================================
   // ERC-721 Behavior
   // ============================================================================
 
