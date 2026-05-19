@@ -7,7 +7,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createLogger } from '@agent-marketplace/shared/logger';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+
+const log = createLogger('Conversations API');
 import { findUserIdByPrivyId } from '@/lib/db/users';
 import { findConversationOwner, deleteConversation } from '@/lib/db/conversations';
 
@@ -40,7 +43,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Conversation Detail API] DELETE error:', error);
+    log.error('DELETE error', { error: error instanceof Error ? error.message : String(error) });
 
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'P2025') {

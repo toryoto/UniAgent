@@ -6,7 +6,7 @@
 
 import { initChatModel } from 'langchain';
 import { z } from 'zod';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import { getEvaluationPrompt, RAW_SCORE_TO_100, scaleToUint8 } from '../prompts/evaluation-prompt.js';
 import { signAndStoreAttestation } from './eas-attestation.js';
 import type { AgentCategory, EvaluationScores, EvaluationWithAttestation } from '../types/index.js';

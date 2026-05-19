@@ -1,4 +1,7 @@
 import { createHash } from 'crypto';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('hotel-agent');
 
 export interface HotelbedsSearchParams {
   latitude: number;
@@ -86,10 +89,14 @@ export async function searchHotelbeds(
     requestBody.filter = { minCategory: params.minStars };
   }
 
-  console.log(
-    `[hotel-agent] hotelbeds search checkIn=${params.checkIn} checkOut=${params.checkOut}` +
-    ` lat=${params.latitude} lon=${params.longitude} adults=${params.adults} radius=${params.radiusKm}km`,
-  );
+  log.info('hotelbeds search', {
+    checkIn: params.checkIn,
+    checkOut: params.checkOut,
+    lat: params.latitude,
+    lon: params.longitude,
+    adults: params.adults,
+    radiusKm: params.radiusKm,
+  });
 
   const fetchStart = Date.now();
   const res = await fetch(`${baseUrl}/hotel-api/1.0/hotels`, {
@@ -106,7 +113,7 @@ export async function searchHotelbeds(
 
   if (!res.ok) {
     const text = await res.text();
-    console.error(`[hotel-agent] hotelbeds error status=${res.status} (${fetchMs}ms): ${text.slice(0, 200)}`);
+    log.error('hotelbeds error', { status: res.status, ms: fetchMs, body: text.slice(0, 200) });
     throw new Error(`Hotelbeds API error ${res.status}: ${text}`);
   }
 
@@ -121,13 +128,13 @@ export async function searchHotelbeds(
   };
 
   if (data.error) {
-    console.error(`[hotel-agent] hotelbeds api error ${data.error.code}: ${data.error.message}`);
+    log.error('hotelbeds api error', { code: data.error.code, message: data.error.message });
     throw new Error(`Hotelbeds error ${data.error.code}: ${data.error.message}`);
   }
 
   const hotelsData = data.hotels;
   if (!hotelsData) {
-    console.log(`[hotel-agent] hotelbeds result total=0 (${fetchMs}ms)`);
+    log.info('hotelbeds result', { total: 0, ms: fetchMs });
     return { hotels: [], total: 0, checkIn: params.checkIn, checkOut: params.checkOut };
   }
 
@@ -142,7 +149,7 @@ export async function searchHotelbeds(
 
   const total = hotelsData.total ?? hotels.length;
   const returned = Math.min(hotels.length, 10);
-  console.log(`[hotel-agent] hotelbeds result total=${total} returning=${returned} (${fetchMs}ms)`);
+  log.info('hotelbeds result', { total, returning: returned, ms: fetchMs });
 
   // Return top 10 results
   return {

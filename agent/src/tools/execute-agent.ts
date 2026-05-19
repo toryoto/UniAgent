@@ -8,7 +8,7 @@
 import { tool } from 'langchain';
 import { z } from 'zod';
 import type { JsonRpcResponse } from '@agent-marketplace/shared';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import type { ExecuteAgentInput, ExecuteAgentResult, PaymentRequiredData } from '../types/index.js';
 import { REQUEST_TIMEOUT_MS, MAX_PAYMENT_RETRIES } from '../config/constants.js';
 import { getPrivyClient } from '../lib/payment/privy-client.js';

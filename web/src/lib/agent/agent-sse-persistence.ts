@@ -1,3 +1,4 @@
+import { createLogger } from '@agent-marketplace/shared/logger';
 import { AssistantTurnCollector, createSseEventBuffer } from '@/lib/agent/assistant-turn-collector';
 import { touchConversation } from '@/lib/db/conversations';
 import { createMessage } from '@/lib/db/messages';
@@ -17,6 +18,7 @@ export function createAgentSsePersistenceTransform(
   options: AgentSsePersistenceOptions,
 ): TransformStream<Uint8Array, Uint8Array> {
   const { persistAssistantToConversationId, metaConversationId, logPrefix } = options;
+  const log = createLogger(logPrefix.replace(/^\[|\]$/g, '').trim() || 'SSE Persistence');
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let assistantContent = '';
@@ -71,7 +73,7 @@ export function createAgentSsePersistenceTransform(
           });
           await touchConversation(persistAssistantToConversationId);
         } catch (err) {
-          console.error(`${logPrefix} Failed to save assistant message:`, err);
+          log.error('Failed to save assistant message', { error: err instanceof Error ? err.message : String(err) });
         }
       }
     },

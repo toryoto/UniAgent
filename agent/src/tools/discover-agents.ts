@@ -18,7 +18,7 @@ import {
   type AgentWithStats,
   type DiscoverAgentsInput,
 } from '@agent-marketplace/shared';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 // ── Public ────────────────────────────────────────────────────────────────
 

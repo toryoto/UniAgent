@@ -1,5 +1,8 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('hotel-agent');
 
 export interface GeocodeResult {
   latitude: number;
@@ -42,13 +45,13 @@ async function geocodeCity(city: string): Promise<GeocodeResult> {
 
 export const geocodeCityTool = tool(
   async ({ city }): Promise<string> => {
-    console.log(`[hotel-agent] geocode city="${city}"`);
+    log.info('geocode', { city });
     try {
       const result = await geocodeCity(city);
-      console.log(`[hotel-agent] geocode result lat=${result.latitude} lon=${result.longitude} name="${result.displayName.slice(0, 60)}"`);
+      log.info('geocode result', { lat: result.latitude, lon: result.longitude, name: result.displayName.slice(0, 60) });
       return JSON.stringify(result);
     } catch (err) {
-      console.warn(`[hotel-agent] geocode error city="${city}":`, (err as Error).message);
+      log.warn('geocode error', { city, error: (err as Error).message });
       return JSON.stringify({ error: (err as Error).message });
     }
   },

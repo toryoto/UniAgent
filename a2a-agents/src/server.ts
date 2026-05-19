@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('a2a-agents');
 import { loadAgentRegistry } from './agents/registry.js';
 import { createAgentRoutes } from './routes/agent-endpoint.js';
 import { createWellKnownRoutes } from './routes/wellknown.js';
@@ -15,7 +18,7 @@ async function main() {
   const registry = loadAgentRegistry();
   const slugs = Object.keys(registry);
 
-  console.log(`Loaded ${slugs.length} agents: ${slugs.join(', ')}`);
+  log.info(`Loaded ${slugs.length} agents`, { agents: slugs.join(', ') });
 
   const app = express();
   app.use(cors());
@@ -57,7 +60,7 @@ async function main() {
     try {
       await x402HttpServer.initialize();
     } catch (err) {
-      console.error('x402 initialize failed (facilitator / route config):', err);
+      log.error('x402 initialize failed (facilitator / route config)', { error: err instanceof Error ? err.message : String(err) });
       process.exit(1);
     }
   }
@@ -68,15 +71,14 @@ async function main() {
   app.use(createAgentRoutes(registry));
 
   app.listen(PORT, () => {
-    console.log(`A2A Agents Server running on http://localhost:${PORT}`);
-    console.log(`Serving ${slugs.length} hotel agents`);
+    log.success(`A2A Agents Server running on http://localhost:${PORT}`, { agents: slugs.length });
     if (process.env.X402_DISABLED === 'true') {
-      console.log('x402 payment verification is DISABLED (dev mode)');
+      log.warn('x402 payment verification is DISABLED (dev mode)');
     }
   });
 }
 
 main().catch((err) => {
-  console.error('Failed to start server:', err);
+  log.error('Failed to start server', { error: err instanceof Error ? err.message : String(err) });
   process.exit(1);
 });

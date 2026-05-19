@@ -7,7 +7,7 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import { fetchAgentJson, fetchOpenApiSpec } from '../lib/a2a/agent-json.js';
 import { resolveAgentUrlFromAgentId } from '../lib/a2a/resolve-url.js';
 

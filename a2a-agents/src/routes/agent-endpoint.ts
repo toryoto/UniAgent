@@ -1,5 +1,8 @@
 import { Router } from 'express';
+import { createLogger } from '@agent-marketplace/shared/logger';
 import type { AgentRegistry } from '../agents/types.js';
+
+const log = createLogger('a2a-agents');
 import { parseRequest } from '../request/parser.js';
 import { generateResponse } from '../response/generator.js';
 import { settleX402IfNeeded } from '../middleware/x402.js';
@@ -42,7 +45,7 @@ export function createAgentRoutes(registry: AgentRegistry): Router {
         result,
       });
     } catch (err) {
-      console.error(`Error in agent ${agent.slug}:`, err);
+      log.error(`Error in agent ${agent.slug}`, { error: err instanceof Error ? err.message : String(err) });
       res.status(500).json({
         jsonrpc: '2.0',
         id: (req.body as Record<string, unknown>).id ?? null,

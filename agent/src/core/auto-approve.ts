@@ -7,7 +7,7 @@
 
 import type { HITLRequest } from 'langchain';
 import type { StreamProcessingContext } from '../types/index.js';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 /**
  * HITL リクエストを自動承認すべきかを判定する。

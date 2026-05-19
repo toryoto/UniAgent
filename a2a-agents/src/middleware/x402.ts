@@ -1,5 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
+import { createLogger } from '@agent-marketplace/shared/logger';
 import type { PaymentPayload, PaymentRequirements } from '@x402/core/types';
+
+const log = createLogger('x402');
 import type { HTTPProcessResult, HTTPResponseInstructions, x402HTTPResourceServer } from '@x402/core/server';
 import type { AgentRegistry } from '../agents/types.js';
 import { getPublicBaseUrl } from '../lib/public-base-url.js';
@@ -94,7 +97,7 @@ export async function settleX402IfNeeded(
       ctx.declaredExtensions
     );
   } catch (err) {
-    console.error('x402 processSettlement failed:', err);
+    log.error('processSettlement failed', { error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       jsonrpc: '2.0',
       id: jsonRpcId,
@@ -180,7 +183,7 @@ export function createX402Middleware(registry: AgentRegistry, httpServer: x402HT
           }
         }
       } catch (err) {
-        console.error('x402 processHTTPRequest failed:', err);
+        log.error('processHTTPRequest failed', { error: err instanceof Error ? err.message : String(err) });
         next(err);
       }
     })();

@@ -16,6 +16,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('Alchemy Webhook');
 import { ethers } from 'ethers';
 import { upsertAgentCache } from '@/lib/db/agent-cache';
 import { upsertAgentStake } from '@/lib/db/agent-stakes';
@@ -244,7 +247,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[Alchemy Webhook] Summary', {
+    log.info('Summary', {
       identity: {
         contractAddress: contractAddrLower,
         agentIdsFound: agentIds.size,
@@ -275,7 +278,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Alchemy Webhook] Error:', error);
+    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

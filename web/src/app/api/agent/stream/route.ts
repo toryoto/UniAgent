@@ -8,6 +8,9 @@
 
 import { NextRequest } from 'next/server';
 import { isToolRoundsArray, type AgentMessageHistoryEntry } from '@agent-marketplace/shared';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('Agent Stream API');
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings } from '@/lib/db/budget-settings';
 import { findUserIdByPrivyId } from '@/lib/db/users';
@@ -31,7 +34,7 @@ export const dynamic = 'force-dynamic';
  * Response: Server-Sent Events (with conversationId injected in start event)
  */
 export async function POST(request: NextRequest) {
-  console.log('[Agent Stream API] Request received');
+  log.info('Request received');
 
   try {
     const auth = await verifyPrivyToken(request);
@@ -97,9 +100,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[Agent Stream API] Forwarding to Agent Service (stream)', {
+    log.info('Forwarding to Agent Service (stream)', {
       ...(agentId ? { agentId } : {}),
-      conversationId: resolvedConversationId,
+      conversationId: resolvedConversationId ?? undefined,
       historyLength: messageHistory.length,
     });
 
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok || !response.body) {
       const errorText = await response.text();
-      console.error('[Agent Stream API] Agent Service error:', errorText);
+      log.error('Agent Service error', { status: response.status, body: errorText });
       return new Response(
         JSON.stringify({ success: false, error: `Agent Service error: ${response.status}` }),
         { status: response.status, headers: { 'Content-Type': 'application/json' } }
@@ -154,7 +157,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Agent Stream API] Error:', error);
+    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),

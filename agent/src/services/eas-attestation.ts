@@ -12,7 +12,7 @@ const { EAS, SchemaEncoder } = require('@ethereum-attestation-service/eas-sdk') 
 import { ethers } from 'ethers';
 import type { Prisma } from '@agent-marketplace/database';
 import { createAttestation } from './attestation-db.js';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import { EAS_CONTRACT_ADDRESS, EAS_SCHEMA, CHAIN_ID } from '../config/constants.js';
 import type { AttestationInput } from '../types/index.js';
 

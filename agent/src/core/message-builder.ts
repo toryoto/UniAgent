@@ -4,7 +4,7 @@
  * agent.ts と agent-streaming.ts の重複メッセージ構築を共通化する。
  */
 
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 interface RequestTimeContext {
   iso: string;

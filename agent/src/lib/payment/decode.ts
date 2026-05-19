@@ -7,7 +7,7 @@
 import { x402Client, x402HTTPClient } from '@x402/core/client';
 import { formatUSDCAmount } from '@agent-marketplace/shared';
 import type { PaymentRequiredData } from '../../types/index.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 /**
  * PAYMENT-REQUIRED ヘッダー（Base64 エンコード JSON）をデコードする。

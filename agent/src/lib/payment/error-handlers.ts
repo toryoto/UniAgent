@@ -5,7 +5,7 @@
 
 import type { PaymentRequiredData } from '../../types/index.js';
 import { convertAmountToUSDC, validatePaymentAmount } from './decode.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 /**
  * 402 Payment Required エラーを処理し、ユーザー向けのエラーメッセージを生成する。

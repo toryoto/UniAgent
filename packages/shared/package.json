@@ -25,6 +25,10 @@
     "./services": {
       "types": "./dist/services/index.d.ts",
       "import": "./dist/services/index.js"
+    },
+    "./logger": {
+      "types": "./dist/logger.d.ts",
+      "import": "./dist/logger.js"
     }
   },
   "scripts": {
@@ -32,6 +36,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "chalk": "^5.4.1",
     "ethers": "^6.16.0",
     "pinata": "^2.5.4"
   },

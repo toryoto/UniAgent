@@ -8,7 +8,7 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import { executeAgentTool } from './execute-agent.js';
 import { evaluateAndAttest } from '../services/evaluation.js';
 import { verifyX402TransactionHash } from '../lib/payment/verify-tx.js';

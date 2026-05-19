@@ -1,4 +1,7 @@
+import { createLogger } from '@agent-marketplace/shared/logger';
 import { ChatAnthropic } from '@langchain/anthropic';
+
+const log = createLogger('hotel-agent');
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { HumanMessage } from '@langchain/core/messages';
 import { geocodeCityTool } from './tools/geocode.js';
@@ -59,7 +62,7 @@ export async function runHotelAgent(userText: string): Promise<HotelAgentResult>
   const agent = getAgent();
   const preview = userText.slice(0, 80).replace(/\n/g, ' ');
   const model = process.env.HOTEL_AGENT_MODEL ?? 'claude-haiku-4-5-20251001';
-  console.log(`[hotel-agent] agent start model=${model} input="${preview}${userText.length > 80 ? '...' : ''}"`);
+  log.info('agent start', { model, input: `${preview}${userText.length > 80 ? '...' : ''}` });
 
   const start = Date.now();
   const result = await agent.invoke({
@@ -83,7 +86,7 @@ export async function runHotelAgent(userText: string): Promise<HotelAgentResult>
 
   const searchResult = getLastSearchResult() ?? undefined;
   const hotelsFound = searchResult ? searchResult.hotels.length : 0;
-  console.log(`[hotel-agent] agent done steps=${steps} hotelsFound=${hotelsFound} (${ms}ms)`);
+  log.success('agent done', { steps, hotelsFound, ms });
 
   return { text, searchResult };
 }

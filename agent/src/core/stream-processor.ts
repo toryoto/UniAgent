@@ -11,7 +11,7 @@ import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages
 import type { StreamEvent, HITLDecision } from '@agent-marketplace/shared';
 import type { StreamProcessingContext } from '../types/index.js';
 import { shouldAutoApprove } from './auto-approve.js';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 // ── Public ────────────────────────────────────────────────────────────────
 

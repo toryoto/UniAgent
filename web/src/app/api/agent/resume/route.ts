@@ -6,7 +6,10 @@
  */
 
 import { NextRequest } from 'next/server';
+import { createLogger } from '@agent-marketplace/shared/logger';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+
+const log = createLogger('Agent Resume API');
 import { getBudgetSettings } from '@/lib/db/budget-settings';
 import { findConversationHistory } from '@/lib/db/conversations';
 import { findUserIdByPrivyId } from '@/lib/db/users';
@@ -25,7 +28,7 @@ export const dynamic = 'force-dynamic';
  * Response: Server-Sent Events
  */
 export async function POST(request: NextRequest) {
-  console.log('[Agent Resume API] Request received');
+  log.info('Request received');
 
   try {
     const auth = await verifyPrivyToken(request);
@@ -64,7 +67,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log('[Agent Resume API] Forwarding to Agent Service (resume)', {
+    log.info('Forwarding to Agent Service (resume)', {
       threadId,
       decisionsCount: decisions.length,
       conversationId,
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok || !response.body) {
       const errorText = await response.text();
-      console.error('[Agent Resume API] Agent Service error:', errorText);
+      log.error('Agent Service error', { status: response.status, body: errorText });
       return new Response(
         JSON.stringify({ success: false, error: `Agent Service error: ${response.status}` }),
         { status: response.status, headers: { 'Content-Type': 'application/json' } }
@@ -106,7 +109,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[Agent Resume API] Error:', error);
+    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
       JSON.stringify({ success: false, error: errorMessage }),

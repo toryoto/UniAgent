@@ -8,7 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createLogger } from '@agent-marketplace/shared/logger';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
+
+const log = createLogger('Conversations API');
 import { findUserIdByPrivyId } from '@/lib/db/users';
 import { listConversationsByUser, createConversation } from '@/lib/db/conversations';
 
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
     const conversations = await listConversationsByUser(userId);
     return NextResponse.json({ conversations });
   } catch (error) {
-    console.error('[Conversations API] GET error:', error);
+    log.error('GET error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -50,7 +53,7 @@ export async function POST(request: NextRequest) {
     const conversation = await createConversation(userId, title || null);
     return NextResponse.json({ conversation }, { status: 201 });
   } catch (error) {
-    console.error('[Conversations API] POST error:', error);
+    log.error('POST error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -13,7 +13,7 @@ import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { buildStreamingUserMessage } from './message-builder.js';
 import { processAgentStream } from './stream-processor.js';
 import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
-import { logger, logSeparator } from '../utils/logger.js';
+import { logger, logSeparator } from '@agent-marketplace/shared/logger';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import type { StreamProcessingContext } from '../types/index.js';
 

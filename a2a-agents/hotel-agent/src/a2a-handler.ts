@@ -1,4 +1,7 @@
+import { createLogger } from '@agent-marketplace/shared/logger';
 import { runHotelAgent } from './langchain-agent.js';
+
+const log = createLogger('hotel-agent');
 
 interface A2APart {
   kind: 'text' | 'data';
@@ -100,7 +103,7 @@ export async function handleA2ARequest(body: Record<string, unknown>): Promise<{
     return { id, result: { parts } };
   } catch (err) {
     const message = (err as Error).message;
-    console.error('[hotel-agent] Error:', message);
+    log.error('Hotel search failed', { error: message });
     return {
       id,
       error: { code: -32603, message: `Hotel search failed: ${message}` },

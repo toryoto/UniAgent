@@ -11,7 +11,7 @@ import { wrapFetchWithPayment } from '@x402/fetch';
 import { PrivyClient } from '@privy-io/server-auth';
 import { PrivyEIP712Signer } from './privy-signer.js';
 import { NETWORK_ID } from '../../config/constants.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 /**
  * x402 対応 fetch クライアントを作成する。

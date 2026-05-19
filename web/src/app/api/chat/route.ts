@@ -6,7 +6,10 @@
  */
 
 import { NextRequest } from 'next/server';
+import { createLogger } from '@agent-marketplace/shared/logger';
 import type { ChatApiRequest, ChatSSEEvent, ToolCallLog } from '@/lib/types';
+
+const log = createLogger('Chat API');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -98,7 +101,7 @@ function buildClaudeRequestBody(
   // MCP Connector設定
   if (mcpEnabled) {
     const mcpServerUrl = mcpConfig?.servers?.[0]?.url || MCP_SERVER_URL;
-    console.log(`[Chat API] MCP Server URL: ${mcpServerUrl}`);
+    log.info(`MCP Server URL: ${mcpServerUrl}`);
 
     body.mcp_servers = [
       {
@@ -115,7 +118,7 @@ function buildClaudeRequestBody(
       },
     ];
 
-    console.log(`[Chat API] MCP configuration: server="${MCP_SERVER_NAME}", toolset=mcp_toolset`);
+    log.info(`MCP configuration: server="${MCP_SERVER_NAME}", toolset=mcp_toolset`);
   }
 
   return body;
@@ -173,9 +176,7 @@ async function* streamClaudeResponse(
                 status: 'running',
                 timestamp: new Date(),
               };
-              console.log(
-                `[Chat API] Tool use started: ${currentToolCall.toolName} (${currentToolCall.id})`
-              );
+              log.info(`Tool use started: ${currentToolCall.toolName}`, { id: currentToolCall.id });
               yield { type: 'tool_use_start', toolCall: currentToolCall };
             }
             break;
@@ -205,10 +206,10 @@ async function* streamClaudeResponse(
 
           case 'content_block_stop': {
             if (currentToolCall) {
-              console.log(
-                `[Chat API] Tool use completed: ${currentToolCall.toolName} (${currentToolCall.id})`
-              );
-              console.log('[Chat API] Tool input:', JSON.stringify(currentToolCall.input));
+              log.info(`Tool use completed: ${currentToolCall.toolName}`, {
+                id: currentToolCall.id,
+                input: currentToolCall.input,
+              });
               // MCP Connectorがツール実行を自動処理
               yield { type: 'tool_use_end', toolCallId: currentToolCall.id, output: null };
               currentToolCall = null;
@@ -223,10 +224,7 @@ async function* streamClaudeResponse(
 
           case 'message_stop': {
             const usage = parsed.usage as Record<string, number> | undefined;
-            console.log(
-              '[Chat API] Stream completed',
-              usage ? `(tokens: ${usage.input_tokens}/${usage.output_tokens})` : ''
-            );
+            log.success('Stream completed', usage ? { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens } : undefined);
             yield {
               type: 'end',
               usage: usage
@@ -239,7 +237,7 @@ async function* streamClaudeResponse(
           case 'error': {
             const error = parsed.error as Record<string, unknown> | undefined;
             const errorMsg = (error?.message as string) ?? 'Unknown error';
-            console.error('[Chat API] Claude API stream error:', errorMsg);
+            log.error('Claude API stream error', { error: errorMsg });
             yield { type: 'error', error: errorMsg };
             break;
           }
@@ -252,11 +250,11 @@ async function* streamClaudeResponse(
 }
 
 export async function POST(request: NextRequest) {
-  console.log('[Chat API] Request received');
+  log.info('Request received');
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.error('[Chat API] ANTHROPIC_API_KEY is not configured');
+    log.error('ANTHROPIC_API_KEY is not configured');
     return new Response(
       JSON.stringify({ success: false, error: 'ANTHROPIC_API_KEY is not configured' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -267,7 +265,7 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    console.error('[Chat API] Invalid JSON body');
+    log.error('Invalid JSON body');
     return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
@@ -275,7 +273,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
-    console.error('[Chat API] messages array is required');
+    log.error('messages array is required');
     return new Response(JSON.stringify({ success: false, error: 'messages array is required' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
@@ -283,7 +281,7 @@ export async function POST(request: NextRequest) {
   }
 
   const mcpEnabled = body.mcpConfig?.enabled ?? false;
-  console.log(`[Chat API] MCP enabled: ${mcpEnabled}`);
+  log.info(`MCP enabled: ${mcpEnabled}`);
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -298,7 +296,7 @@ export async function POST(request: NextRequest) {
 
   const claudeBody = buildClaudeRequestBody(body.messages, body.mcpConfig);
 
-  console.log('[Chat API] Sending request to Claude API...');
+  log.info('Sending request to Claude API...');
   let claudeResponse: Response;
   try {
     claudeResponse = await fetch(ANTHROPIC_API_URL, {
@@ -307,7 +305,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(claudeBody),
     });
   } catch (e) {
-    console.error('[Chat API] Failed to connect to Claude API:', e);
+    log.error('Failed to connect to Claude API', { error: String(e) });
     return new Response(
       JSON.stringify({ success: false, error: `Failed to connect to Claude API: ${e}` }),
       { status: 502, headers: { 'Content-Type': 'application/json' } }
@@ -316,14 +314,14 @@ export async function POST(request: NextRequest) {
 
   if (!claudeResponse.ok) {
     const errorText = await claudeResponse.text();
-    console.error(`[Chat API] Claude API error (${claudeResponse.status}):`, errorText);
+    log.error(`Claude API error`, { status: claudeResponse.status, body: errorText });
     return new Response(
       JSON.stringify({ success: false, error: `Claude API error: ${errorText}` }),
       { status: claudeResponse.status, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  console.log('[Chat API] Claude API response received, starting stream...');
+  log.info('Claude API response received, starting stream...');
 
   const reader = claudeResponse.body?.getReader();
   if (!reader) {

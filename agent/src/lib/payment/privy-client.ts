@@ -6,7 +6,7 @@
  */
 
 import { PrivyClient } from '@privy-io/server-auth';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 
 let _instance: PrivyClient | null = null;
 

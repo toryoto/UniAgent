@@ -10,7 +10,7 @@ import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { buildNonStreamingUserMessage } from './message-builder.js';
-import { logger, logStep, logSeparator } from '../utils/logger.js';
+import { logger, logStep, logSeparator } from '@agent-marketplace/shared/logger';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
 /**

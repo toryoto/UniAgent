@@ -7,7 +7,7 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { logger } from '../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import { evaluateAndAttest } from '../services/evaluation.js';
 import type { AgentCategory } from '../types/index.js';
 

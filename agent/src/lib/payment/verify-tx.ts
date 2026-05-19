@@ -7,7 +7,7 @@
 import { ethers } from 'ethers';
 import { prisma } from '@agent-marketplace/database';
 import { CHAIN_ID } from '../../config/constants.js';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import type { VerifyX402TxInput } from '../../types/index.js';
 
 /** 0x + 64文字の16進数 (32バイトハッシュ) */

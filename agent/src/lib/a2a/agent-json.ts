@@ -5,7 +5,7 @@
  */
 
 import type { AgentJson } from '@agent-marketplace/shared';
-import { logger } from '../../utils/logger.js';
+import { logger } from '@agent-marketplace/shared/logger';
 import { AGENT_JSON_TIMEOUT_MS } from '../../config/constants.js';
 
 // ── Public ────────────────────────────────────────────────────────────────

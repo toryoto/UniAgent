@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('hotel-agent');
 import { handleA2ARequest } from './a2a-handler.js';
 import { buildAgentCard, buildOpenApiSpec } from './wellknown.js';
 
@@ -32,18 +35,18 @@ app.post('/hotel-agent', async (req, res) => {
   const method = body.method ?? '(none)';
   const start = Date.now();
 
-  console.log(`[hotel-agent] request id=${id} method=${method}`);
+  log.info(`request`, { id, method });
 
   try {
     const response = await handleA2ARequest(body);
     const ms = Date.now() - start;
 
     if (response.error) {
-      console.warn(`[hotel-agent] response id=${id} error=${response.error.code} msg="${response.error.message}" (${ms}ms)`);
+      log.warn(`response error`, { id, code: response.error.code, msg: response.error.message, ms });
     } else {
       const parts = response.result?.parts ?? [];
       const hasData = parts.some((p) => p.kind === 'data');
-      console.log(`[hotel-agent] response id=${id} parts=${parts.length} hasData=${hasData} (${ms}ms)`);
+      log.success(`response ok`, { id, parts: parts.length, hasData, ms });
     }
 
     res.json({
@@ -54,7 +57,7 @@ app.post('/hotel-agent', async (req, res) => {
     });
   } catch (err) {
     const ms = Date.now() - start;
-    console.error(`[hotel-agent] unhandled error id=${id} (${ms}ms):`, err);
+    log.error(`unhandled error`, { id, ms, error: err instanceof Error ? err.message : String(err) });
     res.status(500).json({
       jsonrpc: '2.0',
       id,
@@ -64,8 +67,9 @@ app.post('/hotel-agent', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Hotel Search Agent running on port ${PORT}`);
-  console.log(`  A2A endpoint:   http://localhost:${PORT}/hotel-agent`);
-  console.log(`  Agent card:     http://localhost:${PORT}/hotel-agent/.well-known/agent.json`);
-  console.log(`  Hotelbeds URL:  ${process.env.HOTELBEDS_BASE_URL ?? 'https://api.test.hotelbeds.com'}`);
+  log.success(`Hotel Search Agent running on port ${PORT}`, {
+    a2aEndpoint: `http://localhost:${PORT}/hotel-agent`,
+    agentCard: `http://localhost:${PORT}/hotel-agent/.well-known/agent.json`,
+    hotelbedsUrl: process.env.HOTELBEDS_BASE_URL ?? 'https://api.test.hotelbeds.com',
+  });
 });

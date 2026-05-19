@@ -9,7 +9,7 @@ import express from 'express';
 import cors from 'cors';
 import type { AgentRequest, AgentResumeRequest } from '@agent-marketplace/shared';
 import { runAgentStream, resumeAgentStream } from '../core/agent-streaming.js';
-import { logger, logSeparator } from '../utils/logger.js';
+import { logger, logSeparator } from '@agent-marketplace/shared/logger';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3002', 10);
