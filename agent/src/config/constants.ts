@@ -17,7 +17,7 @@ export const NETWORK_ID = `eip155:${CHAIN_ID}`;
 export const AGENT_JSON_TIMEOUT_MS = 5000;
 
 /** A2A エージェントへのリクエストタイムアウト (ms) */
-export const REQUEST_TIMEOUT_MS = 30000;
+export const REQUEST_TIMEOUT_MS = Number(process.env.REQUEST_TIMEOUT_MS ?? 120_000);
 
 // ── EAS (Ethereum Attestation Service) ───────────────────────────────────
 
