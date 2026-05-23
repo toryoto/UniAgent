@@ -352,3 +352,143 @@ agents:
       - id: last-minute
         name: "Last Minute Booking"
         description: "Find last-minute hotel room availability"
+
+  # ==========================================================================
+  # FLIGHT AGENTS — HIGH QUALITY
+  # ==========================================================================
+
+  - slug: premium-flight-search
+    name: "PremiumFlightSearch"
+    description: "Premium flight search with comprehensive filtering by cabin class, stops, airline, and price. Returns real-time availability with seat counts and refund policies."
+    category: travel
+    agentType: flight
+    price: "$0.03"
+    qualityLevel: high
+    responseFormat: mixed
+    requestFormat: a2a-standard
+    skills:
+      - id: flight-search
+        name: "Flight Search"
+        description: "Search flights with filters: origin, destination, date, cabin class, direct-only, budget"
+      - id: fare-analysis
+        name: "Fare Analysis"
+        description: "Compare fares across airlines with refundability and seat availability"
+
+  - slug: business-class-finder
+    name: "BusinessClassFinder"
+    description: "Specialist in business and first class flights. Identifies premium cabin availability, upgrade opportunities, and corporate fare programs across major carriers."
+    category: travel
+    agentType: flight
+    price: "$0.04"
+    qualityLevel: high
+    responseFormat: data-only
+    requestFormat: a2a-standard
+    skills:
+      - id: premium-cabin-search
+        name: "Premium Cabin Search"
+        description: "Find business and first class seats with full fare details"
+      - id: upgrade-finder
+        name: "Upgrade Finder"
+        description: "Identify upgrade availability and mileage redemption options"
+
+  # ==========================================================================
+  # FLIGHT AGENTS — MEDIUM QUALITY
+  # ==========================================================================
+
+  - slug: cheap-flight-scanner
+    name: "CheapFlightScanner"
+    description: "Budget-focused flight search that scans for the lowest fares. Results may omit seat availability and refund details but are accurate on price and schedule."
+    category: travel
+    agentType: flight
+    price: "$0.01"
+    qualityLevel: medium
+    responseFormat: text-only
+    requestFormat: natural-language
+    skills:
+      - id: cheap-flights
+        name: "Cheap Flight Search"
+        description: "Find the lowest available fares between two cities"
+
+  - slug: flight-deal-bot
+    name: "FlightDealBot"
+    description: "Identifies flight deals and price drops using historical fare data. Covers major international routes with moderate accuracy on current availability."
+    category: travel
+    agentType: flight
+    price: "$0.015"
+    qualityLevel: medium
+    responseFormat: mixed
+    requestFormat: a2a-standard
+    skills:
+      - id: deal-detection
+        name: "Deal Detection"
+        description: "Find price drops and limited-time flight deals"
+      - id: route-comparison
+        name: "Route Comparison"
+        description: "Compare direct vs connecting flight options by price"
+
+  # ==========================================================================
+  # FLIGHT AGENTS — LOW QUALITY
+  # ==========================================================================
+
+  - slug: quick-flight-bot
+    name: "QuickFlightBot"
+    description: "Fast but minimal flight search. Returns basic schedule and price data without seat availability, refund information, or airline details."
+    category: travel
+    agentType: flight
+    price: "$0.002"
+    qualityLevel: low
+    responseFormat: data-only
+    requestFormat: flat
+    skills:
+      - id: quick-search
+        name: "Quick Flight Search"
+        description: "Basic flight schedule search"
+
+  - slug: basic-fare-finder
+    name: "BasicFareFinder"
+    description: "Simple one-way fare lookup with limited filtering. Only returns economy fares, no refund or seat details."
+    category: travel
+    agentType: flight
+    price: "$0.001"
+    qualityLevel: low
+    responseFormat: text-only
+    requestFormat: flat
+    skills:
+      - id: basic-fare
+        name: "Basic Fare Lookup"
+        description: "Look up basic economy fares for a route"
+
+  # ==========================================================================
+  # FLIGHT AGENTS — UNRELIABLE
+  # ==========================================================================
+
+  - slug: discount-flight-hunter
+    name: "DiscountFlightHunter"
+    description: "Hunts for heavily discounted fares but frequently loses connectivity to airline systems. Results when available may have price inaccuracies."
+    category: travel
+    agentType: flight
+    price: "$0.008"
+    qualityLevel: unreliable
+    responseFormat: data-only
+    requestFormat: a2a-standard
+    errorRate: 0.4
+    skills:
+      - id: discount-hunt
+        name: "Discount Hunt"
+        description: "Search for deeply discounted flight fares"
+
+  - slug: last-minute-flights
+    name: "LastMinuteFlights"
+    description: "Last-minute flight finder with slow GDS connections and occasional data errors. High latency but sometimes surfaces exclusive last-minute deals."
+    category: travel
+    agentType: flight
+    price: "$0.01"
+    qualityLevel: unreliable
+    responseFormat: text-only
+    requestFormat: natural-language
+    errorRate: 0.3
+    latencyMs: 3000
+    skills:
+      - id: last-minute-flights
+        name: "Last Minute Flights"
+        description: "Find last-minute flight availability"

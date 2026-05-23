@@ -5,6 +5,8 @@ import type { AgentRegistry } from '../agents/types.js';
 const log = createLogger('a2a-agents');
 import { parseRequest } from '../request/parser.js';
 import { generateResponse } from '../response/generator.js';
+import { parseFlightRequest } from '../request/flight-parser.js';
+import { generateFlightResponse } from '../response/flight-generator.js';
 import { settleX402IfNeeded } from '../middleware/x402.js';
 
 export function createAgentRoutes(registry: AgentRegistry): Router {
@@ -22,8 +24,11 @@ export function createAgentRoutes(registry: AgentRegistry): Router {
 
     try {
       const body = req.body as Record<string, unknown>;
-      const query = parseRequest(body, agent.requestFormat);
-      const { result, error } = await generateResponse(agent, query);
+      const isFlight = agent.agentType === 'flight';
+      const query = isFlight ? parseFlightRequest(body, agent.requestFormat) : parseRequest(body, agent.requestFormat);
+      const { result, error } = isFlight
+        ? await generateFlightResponse(agent, query as ReturnType<typeof parseFlightRequest>)
+        : await generateResponse(agent, query as ReturnType<typeof parseRequest>);
 
       if (error) {
         res.status(500).json({

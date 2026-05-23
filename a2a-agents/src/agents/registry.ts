@@ -25,6 +25,7 @@ interface YamlAgent {
   errorRate?: number;
   latencyMs?: number;
   image?: string;
+  agentType?: string;
 }
 
 function dollarToPricePerCall(dollar: string): string {
@@ -54,6 +55,7 @@ export function loadAgentRegistry(yamlPath?: string): AgentRegistry {
       errorRate: agent.errorRate,
       latencyMs: agent.latencyMs,
       image: agent.image,
+      agentType: (agent.agentType as AgentDefinition['agentType']) ?? 'hotel',
     };
   }
 

@@ -31,6 +31,8 @@ export interface AgentDefinition {
   latencyMs?: number;
   /** Image URL for ERC-8004 metadata */
   image?: string;
+  /** Agent domain type — controls which parser/generator pipeline to use. Defaults to 'hotel'. */
+  agentType?: 'hotel' | 'flight';
 }
 
 export type AgentRegistry = Record<string, AgentDefinition>;
