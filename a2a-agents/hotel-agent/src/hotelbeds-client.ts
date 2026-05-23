@@ -65,6 +65,17 @@ interface HotelContentItem {
   webUrl?: string;
 }
 
+/** Hotelbeds Content API returns hostnames without a scheme; browsers treat those as relative paths. */
+function normalizeHotelWebUrl(web?: string): string | undefined {
+  if (!web?.trim()) return undefined;
+
+  const trimmed = web.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('//')) return `https:${trimmed}`;
+
+  return `https://${trimmed}`;
+}
+
 async function fetchHotelContent(hotelCodes: number[]): Promise<Map<number, HotelContentItem>> {
   if (hotelCodes.length === 0) return new Map();
 
@@ -108,7 +119,7 @@ async function fetchHotelContent(hotelCodes: number[]): Promise<Map<number, Hote
       const mainImage = sorted[0];
       result.set(hotel.code, {
         imageUrl: mainImage ? `https://photos.hotelbeds.com/giata/bigger/${mainImage.path}` : undefined,
-        webUrl: hotel.web ?? undefined,
+        webUrl: normalizeHotelWebUrl(hotel.web),
       });
     }
     return result;
