@@ -72,6 +72,8 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
   logSeparator('Agent Execution Start (Streaming)');
   yield { type: 'start', data: { message } };
 
+  let threadId: string | undefined;
+
   try {
     const agent = await getAgent();
 
@@ -88,7 +90,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       new HumanMessage(userMessage),
     ];
 
-    const threadId = crypto.randomUUID();
+    threadId = crypto.randomUUID();
 
     const stream = await agent.stream(
       { messages },
@@ -126,6 +128,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.agent.error('Stream model call failed', { error: errorMessage, threadId });
     yield { type: 'error', data: { error: errorMessage } };
   }
 }
@@ -186,6 +189,7 @@ export async function* resumeAgentStream(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.agent.error('Stream model call failed', { error: errorMessage, threadId });
     yield { type: 'error', data: { error: errorMessage } };
   }
 }
