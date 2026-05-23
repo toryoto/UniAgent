@@ -34,6 +34,12 @@ const discoverAgentsSchema = z.object({
     .describe('検索するカテゴリ (例: "travel", "finance", "utility")'),
   skillName: z.string().optional().describe('検索するスキル名 (部分一致)'),
   maxPrice: z.number().optional().describe('最大価格 (USDC)'),
+  minRating: z
+    .number()
+    .min(0)
+    .max(5)
+    .optional()
+    .describe('最小評価 (0-5)。省略時はフィルタなし。初回検索は 3.0 推奨'),
 });
 
 /**
@@ -49,6 +55,7 @@ export const discoverAgentsTool = tool(
         category: input.category,
         skillName: input.skillName,
         maxPrice: input.maxPrice,
+        minRating: input.minRating,
       });
 
       const dbInput: DiscoverAgentsInput = {
@@ -57,6 +64,7 @@ export const discoverAgentsTool = tool(
         category: input.category,
         skillName: input.skillName,
         maxPrice: input.maxPrice,
+        minRating: input.minRating,
       };
       const rows = await discoverAgentsWithStats(dbInput);
 
@@ -80,6 +88,8 @@ export const discoverAgentsTool = tool(
         url: agent.url,
         endpoint: agent.endpoint,
         price: agent.price,
+        rating: Math.round(agent.rating * 10) / 10,
+        ratingCount: agent.ratingCount,
         compositeScore: Math.round(agent.compositeScore * 1000) / 1000,
         selectionReason: agent.selectionReason,
         category: agent.category,
@@ -98,14 +108,20 @@ export const discoverAgentsTool = tool(
   {
     name: 'discover_agents',
     description: `AgentCache(DB)からエージェントを検索し、Bayesian ε-Greedy ランキングで最適な最大3体を選出します。
-カテゴリやスキル名に加え、名前や説明の自由検索にも対応。価格でのフィルタリングもサポート。
-結果にはエージェントのID、名前、説明、URL、価格（USDC）、composite score、選出理由が含まれます。
+カテゴリやスキル名に加え、名前や説明の自由検索にも対応。maxPrice / minRating (0-5) でフィルタ可能。
+結果にはエージェントのID、名前、説明、URL、価格（USDC）、rating、composite score、選出理由が含まれます。
 注意: 1回の呼び出しで返るのは最大3体のみ。フライト+ホテルなど複数の異なる能力が必要な場合は、skillNameやqを変えて役割ごとに検索を分けると、各役割で複数候補を得やすい。`,
     schema: discoverAgentsSchema,
   },
 );
 
 // ── Private ───────────────────────────────────────────────────────────────
+
+/** discoverAgents と同様: EAS スコア (0-5) を attestation 平均から算出 */
+function computeRatingFromStats(row: AgentStatsRow): number {
+  if (row.ratingCount === 0) return 0;
+  return (row.avgQuality + row.avgReliability) / 2 / 51;
+}
 
 function toAgentCacheRow(row: AgentStatsRow): AgentCacheRow {
   return {
@@ -114,7 +130,7 @@ function toAgentCacheRow(row: AgentStatsRow): AgentCacheRow {
     category: row.category,
     isActive: row.isActive,
     agentCard: row.agentCard,
-    rating: 0,
+    rating: computeRatingFromStats(row),
     ratingCount: row.ratingCount,
     stakedAmount: row.stakedAmount,
   };

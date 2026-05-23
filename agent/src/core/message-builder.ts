@@ -56,12 +56,7 @@ export function buildStreamingUserMessage(params: BuildStreamingMessageParams): 
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
 - auto_approve_threshold: $${autoApproveThreshold} USDC
-- 指定エージェントID: ${agentId}
-
-## 重要な指示（指定エージェントの場合）
-※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
-※そのエージェントがタスクに適している場合のみ execute_and_evaluate_agent で実行してください
-※タスクに合わない場合や追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`;
+- 指定エージェントID: ${agentId}`;
   }
 
   return `${message}\n\n[Context: requestTime=${requestTimeIso}, timeZone=${requestTimeZone}, walletId=${walletId}, walletAddress=${walletAddress}, autoApproveThreshold=${autoApproveThreshold} USDC]`;
@@ -93,16 +88,7 @@ ${message}
 - wallet_id: ${walletId}
 - wallet_address: ${walletAddress}
 - auto_approve_threshold: $${autoApproveThreshold} USDC
-- 現在の予算使用額: $${totalCost} USDC${
-    agentId
-      ? `
-- 指定エージェントID: ${agentId}
-  ※まず discover_agents({ agentId: "${agentId}" }) でエージェント情報を取得してください
-  ※そのエージェントがタスクに適している場合のみ execute_agent で実行してください
-  ※タスクに合わない場合やタスク遂行するために追加エージェントが必要な場合は、カテゴリやスキル名で discover_agents を再実行してください`
-      : ''
-  }
-
+- 現在の予算使用額: $${totalCost} USDC${agentId ? `\n- 指定エージェントID: ${agentId}` : ''}
 ## 重要な指示
 - discover_agents（検索）はコストフリーなので、必要に応じて積極的に使用してください
 - execute_agent（実行）は課金されるため、タスクに適したエージェントのみ実行してください
