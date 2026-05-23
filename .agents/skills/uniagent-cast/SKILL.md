@@ -10,8 +10,10 @@ description: |
   - Checking if a contract is deployed, what functions it has, or who owns it
   - Decoding calldata, ABI output, function selectors, or event topics
   - After a deployment or transaction to verify on-chain state
+  - "IPFS の中身確認", "Pinata のファイル一覧", "tokenURI の内容", "IPFS を削除", "unpin"
+  - Checking whether agentWallet is set for registered agents
 
-  Always prefer this skill over generic Bash explanations when the task involves reading chain data.
+  Always prefer this skill over generic Bash explanations when the task involves reading chain data or IPFS/Pinata state.
   If the user says "mainnet", use Base mainnet. Otherwise default to Base Sepolia.
 ---
 
@@ -156,11 +158,15 @@ LATEST=$(cast block latest --rpc-url $RPC --field number)
 cast logs --address $IDENTITY --from-block $((LATEST - 1000)) --rpc-url $RPC
 ```
 
+## IPFS / Pinata Research
+
+For Pinata pin listing, IPFS content fetching, tokenURI → content verification, and unpin operations, see [references/ipfs-pinata.md](references/ipfs-pinata.md).
+
 ## Output Format
 
 Always structure your response as:
 
-1. **Command** — the exact `cast` invocation (in a code block)
-2. **Raw output** — what cast returned
+1. **Command** — the exact `cast` / `curl` invocation (in a code block)
+2. **Raw output** — what the command returned
 3. **Interpretation** — what the value means in plain language
 4. **Next steps** (optional) — suggest follow-up queries if useful
