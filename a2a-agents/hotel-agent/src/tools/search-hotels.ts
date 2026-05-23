@@ -48,20 +48,12 @@ export const searchHotelsTool = tool(
         });
       }
 
-      // Return summary for the LLM (not the full data, to keep token count low)
-      const summary = result.hotels.map((h) => ({
-        name: h.name,
-        category: h.categoryName,
-        minRate: `${h.minRate} ${h.currency}`,
-        boardName: h.rooms[0]?.rates[0]?.boardName ?? 'Room only',
-      }));
-
       return JSON.stringify({
         found: result.total,
         showing: result.hotels.length,
         checkIn: result.checkIn,
         checkOut: result.checkOut,
-        hotels: summary,
+        hotels: result.hotels,
       });
     } catch (err) {
       return JSON.stringify({ error: (err as Error).message });

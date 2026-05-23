@@ -1,5 +1,7 @@
 import { createHash } from 'crypto';
 import { createLogger } from '@agent-marketplace/shared/logger';
+import { compactHotelResults, type CompactHotelResult } from './compact-hotels.js';
+export type { CompactHotelResult, CompactHotelRoom, CompactHotelRate } from './compact-hotels.js';
 
 const log = createLogger('hotel-agent');
 
@@ -54,7 +56,7 @@ export interface HotelResult {
 }
 
 export interface HotelbedsSearchResult {
-  hotels: HotelResult[];
+  hotels: CompactHotelResult[];
   total: number;
   checkIn: string;
   checkOut: string;
@@ -232,8 +234,15 @@ export async function searchHotelbeds(
     return content ? { ...h, imageUrl: content.imageUrl, webUrl: content.webUrl } : h;
   });
 
+  const compactHotels = compactHotelResults(enrichedHotels);
+  log.info('hotelbeds compact', {
+    rawHotels: enrichedHotels.length,
+    rawRooms: enrichedHotels.reduce((sum, h) => sum + h.rooms.length, 0),
+    compactHotels: compactHotels.length,
+  });
+
   return {
-    hotels: enrichedHotels,
+    hotels: compactHotels,
     total,
     checkIn: hotelsData.checkIn ?? params.checkIn,
     checkOut: hotelsData.checkOut ?? params.checkOut,

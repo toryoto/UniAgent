@@ -18,6 +18,13 @@ export function createWellKnownRoutes(registry: AgentRegistry): Router {
     const baseUrl = getPublicBaseUrl(req);
     const receiverAddress = process.env.AGENT_RECEIVER_ADDRESS || '0x25b61126EED206F6470533C073DDC3B4157bb6d1';
 
+    const outputModes =
+      agent.responseFormat === 'data-only' || agent.responseFormat === 'legacy-flat'
+        ? ['data']
+        : agent.responseFormat === 'text-only'
+          ? ['text']
+          : ['text', 'data'];
+
     res.json({
       name: agent.name,
       description: agent.description,
@@ -39,7 +46,7 @@ export function createWellKnownRoutes(registry: AgentRegistry): Router {
         chain: BASE_SEPOLIA_NETWORK_ID,
       },
       defaultInputModes: ['text'],
-      defaultOutputModes: ['text'],
+      defaultOutputModes: outputModes,
     });
   });
 

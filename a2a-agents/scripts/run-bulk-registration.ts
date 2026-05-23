@@ -172,7 +172,7 @@ export async function runBulkRegistration(options: {
   const account = !isDryRun && formattedKey ? privateKeyToAccount(formattedKey) : null;
 
   const publicClient = account
-    ? createPublicClient({ transport: http(RPC_URL || undefined) })
+    ? createPublicClient({ chain: baseSepolia, transport: http(RPC_URL || undefined) })
     : null;
 
   const walletClient = account
@@ -247,19 +247,6 @@ export async function runBulkRegistration(options: {
         }
 
         if (result.agentId && WALLET_ADDRESS) {
-          try {
-            await publicClient.readContract({
-              address: registryAddr,
-              abi: AGENT_IDENTITY_REGISTRY_ABI,
-              functionName: 'ownerOf',
-              args: [BigInt(result.agentId)],
-            });
-          } catch {
-            throw new Error(
-              `レシートでは agentId=${result.agentId} と解釈したが ownerOf が revert しました。tx ${hash} をエクスプローラで確認し、別トークン ID の可能性や reorg を疑ってください。`,
-            );
-          }
-
           console.log('  Setting agent wallet...');
           const walletHash = await walletClient.writeContract({
             account,
