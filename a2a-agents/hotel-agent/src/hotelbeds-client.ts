@@ -3,6 +3,9 @@ import { createLogger } from '@agent-marketplace/shared/logger';
 
 const log = createLogger('hotel-agent');
 
+/** Maximum hotels requested from Hotelbeds availability search. */
+const MAX_HOTEL_RESULTS = 10;
+
 export interface HotelbedsSearchParams {
   latitude: number;
   longitude: number;
@@ -145,9 +148,11 @@ export async function searchHotelbeds(
     },
   };
 
+  const filter: Record<string, unknown> = { maxHotels: MAX_HOTEL_RESULTS };
   if (params.minStars) {
-    requestBody.filter = { minCategory: params.minStars };
+    filter.minCategory = params.minStars;
   }
+  requestBody.filter = filter;
 
   log.info('hotelbeds search', {
     checkIn: params.checkIn,
@@ -208,11 +213,10 @@ export async function searchHotelbeds(
   }
 
   const total = hotelsData.total ?? hotels.length;
-  const top5 = hotels.slice(0, 5);
-  log.info('hotelbeds result', { total, returning: top5.length, ms: fetchMs });
+  log.info('hotelbeds result', { total, returning: hotels.length, ms: fetchMs });
 
-  const contentMap = await fetchHotelContent(top5.map((h) => h.code));
-  const enrichedHotels = top5.map((h) => {
+  const contentMap = await fetchHotelContent(hotels.map((h) => h.code));
+  const enrichedHotels = hotels.map((h) => {
     const content = contentMap.get(h.code);
     return content ? { ...h, imageUrl: content.imageUrl, webUrl: content.webUrl } : h;
   });
