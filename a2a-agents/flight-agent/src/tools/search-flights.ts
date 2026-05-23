@@ -2,6 +2,11 @@ import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { searchDuffel } from '../duffel-client.js';
 import type { DuffelSearchResult } from '../duffel-client.js';
+import {
+  RECOMMENDED_OFFER_COUNT,
+  selectRecommendedOffers,
+  type FlightPreference,
+} from '../select-offers.js';
 
 // Shared state: last successful flight search result for inclusion in A2A DataPart
 let _lastSearchResult: DuffelSearchResult | null = null;
@@ -22,9 +27,10 @@ export const searchFlightsTool = tool(
     returnDate,
     adults,
     cabinClass,
+    preference,
   }): Promise<string> => {
     try {
-      const result = await searchDuffel({
+      const rawResult = await searchDuffel({
         origin,
         destination,
         departureDate,
@@ -33,16 +39,30 @@ export const searchFlightsTool = tool(
         cabinClass: cabinClass as 'economy' | 'premium_economy' | 'business' | 'first' | undefined,
       });
 
+      const selectedPreference = (preference ?? 'balanced') as FlightPreference;
+      const selectedOffers = selectRecommendedOffers(
+        rawResult.offers,
+        selectedPreference,
+        RECOMMENDED_OFFER_COUNT,
+      );
+
+      const result: DuffelSearchResult = {
+        ...rawResult,
+        offers: selectedOffers,
+        totalFound: rawResult.offers.length,
+        preference: selectedPreference,
+      };
+
       _lastSearchResult = result;
 
       if (result.offers.length === 0) {
         return JSON.stringify({
           found: 0,
+          totalFound: result.totalFound,
           message: 'No flights found for this route and date. Try adjusting the dates or route.',
         });
       }
 
-      // Return summary for the LLM (not the full data, to keep token count low)
       const summary = result.offers.map((o) => {
         const outbound = o.slices[0];
         return {
@@ -60,7 +80,9 @@ export const searchFlightsTool = tool(
       });
 
       return JSON.stringify({
-        found: result.offers.length,
+        recommended: result.offers.length,
+        totalFound: result.totalFound,
+        preference: result.preference,
         origin: result.origin,
         destination: result.destination,
         departureDate: result.departureDate,
@@ -84,6 +106,12 @@ export const searchFlightsTool = tool(
         .enum(['economy', 'premium_economy', 'business', 'first'])
         .optional()
         .describe('Cabin class (default: economy)'),
+      preference: z
+        .enum(['balanced', 'cheapest', 'fastest', 'direct', 'refundable', 'morning', 'afternoon', 'evening'])
+        .optional()
+        .describe(
+          'How to rank recommendations. Infer from user language: cheapest=lowest price, fastest=shortest travel time, direct=non-stop, refundable=refundable fares, morning/afternoon/evening=departure time preference, balanced=mix of best options (default).',
+        ),
     }),
   },
 );

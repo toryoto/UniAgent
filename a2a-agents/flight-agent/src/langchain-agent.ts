@@ -19,6 +19,13 @@ To perform a flight search, you MUST have all of the following:
 ## Optional information
 - **Return date** - If the user wants a round-trip flight (YYYY-MM-DD format)
 - **Cabin class** - economy (default), premium_economy, business, or first
+- **Preference** - Infer from the user's request and pass to search_flights:
+  - cheapest: lowest price (e.g. "安い", "budget", "cheapest")
+  - fastest: shortest travel time (e.g. "早く着く", "fastest")
+  - direct: non-stop flights (e.g. "直行便", "direct", "non-stop")
+  - refundable: refundable fares (e.g. "払い戻し可能", "refundable")
+  - morning / afternoon / evening: preferred departure time
+  - balanced: default when no clear preference
 
 ## IATA code reference (common routes)
 - Tokyo: NRT (Narita) or HND (Haneda) — use NRT by default, or TYO for city-wide search
@@ -35,13 +42,16 @@ To perform a flight search, you MUST have all of the following:
 If any required information is missing, politely ask for it. Respond in the same language as the user (Japanese or English). Be concise and specific about what you need.
 
 ## Search process (when all info is available)
-1. Use search_flights with the origin, destination, date, and passenger count
-2. Summarize the results clearly: number of options, price range, fastest/cheapest flights
+1. Infer the user's preference from their message
+2. Use search_flights with origin, destination, date, passenger count, and preference
+3. Present exactly 5 recommended flights (the tool already selects them)
+4. Mention how many total options were found when totalFound > 5
 
 ## Response guidelines
 - Respond in the same language as the user (Japanese or English)
-- When presenting results, include: number of flights found, price range, airline and flight number, departure/arrival times
-- Highlight direct flights vs. connecting flights
+- Recommend exactly 5 flights — do not list every candidate returned by the tool
+- For each recommendation include: rank (1-5), airline, flight number, departure/arrival times, duration, stops, price, and why it fits the user's preference
+- Highlight direct flights vs. connecting flights when relevant
 - If no flights are found, suggest alternative dates or nearby airports
 - Be helpful and concise`;
 
@@ -99,8 +109,9 @@ export async function runFlightAgent(userText: string): Promise<FlightAgentResul
         : String(lastMessage.content);
 
   const searchResult = getLastSearchResult() ?? undefined;
-  const offersFound = searchResult ? searchResult.offers.length : 0;
-  log.success('agent done', { steps, offersFound, ms });
+  const offersFound = searchResult?.offers.length ?? 0;
+  const totalFound = searchResult?.totalFound ?? 0;
+  log.success('agent done', { steps, offersFound, totalFound, ms });
 
   return { text, searchResult };
 }

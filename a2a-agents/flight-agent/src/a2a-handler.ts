@@ -1,5 +1,6 @@
 import { createLogger } from '@agent-marketplace/shared/logger';
 import { runFlightAgent } from './langchain-agent.js';
+import { toCompactOffer } from './select-offers.js';
 
 const log = createLogger('flight-agent');
 
@@ -87,14 +88,16 @@ export async function handleA2ARequest(body: Record<string, unknown>): Promise<{
       parts.push({
         kind: 'data',
         data: {
-          offers: searchResult.offers,
+          offers: searchResult.offers.map(toCompactOffer),
           searchParams: {
             origin: searchResult.origin,
             destination: searchResult.destination,
             departureDate: searchResult.departureDate,
             returnDate: searchResult.returnDate,
+            preference: searchResult.preference,
           },
-          totalResults: searchResult.offers.length,
+          totalFound: searchResult.totalFound,
+          recommendedCount: searchResult.offers.length,
           source: 'duffel',
         },
       });

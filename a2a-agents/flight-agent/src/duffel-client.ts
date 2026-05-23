@@ -3,7 +3,8 @@ import { createLogger } from '@agent-marketplace/shared/logger';
 const log = createLogger('flight-agent');
 
 const DUFFEL_API_BASE = 'https://api.duffel.com';
-const MAX_OFFERS = 10;
+/** Candidate pool fetched from Duffel before preference-based selection. */
+export const DUFFEL_FETCH_LIMIT = 25;
 
 export interface DuffelSearchParams {
   origin: string;
@@ -49,12 +50,17 @@ export interface DuffelOffer {
   seatsAvailable?: number;
 }
 
-export interface DuffelSearchResult {
+export interface DuffelRawSearchResult {
   offers: DuffelOffer[];
   origin: string;
   destination: string;
   departureDate: string;
   returnDate?: string;
+}
+
+export interface DuffelSearchResult extends DuffelRawSearchResult {
+  totalFound: number;
+  preference: string;
 }
 
 function duffelHeaders(): Record<string, string> {
@@ -107,7 +113,7 @@ async function createOfferRequest(params: DuffelSearchParams): Promise<string> {
 }
 
 async function fetchOffers(offerRequestId: string): Promise<DuffelOffer[]> {
-  const url = `${DUFFEL_API_BASE}/air/offers?offer_request_id=${offerRequestId}&sort=total_amount&limit=${MAX_OFFERS}`;
+  const url = `${DUFFEL_API_BASE}/air/offers?offer_request_id=${offerRequestId}&sort=total_amount&limit=${DUFFEL_FETCH_LIMIT}`;
 
   const res = await fetch(url, { headers: duffelHeaders() });
 
@@ -193,7 +199,7 @@ function parseDuffelDuration(duration: string): number {
   return hours * 60 + minutes;
 }
 
-export async function searchDuffel(params: DuffelSearchParams): Promise<DuffelSearchResult> {
+export async function searchDuffel(params: DuffelSearchParams): Promise<DuffelRawSearchResult> {
   log.info('duffel search', {
     origin: params.origin,
     destination: params.destination,
