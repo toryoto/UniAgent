@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-AI coding agent 向けのリポジトリガイドです。`AGENTS.md` はこのファイルへの symlink として管理します。詳細な運用メモが必要な場合は `docs/ai-agent-operational-notes.md` を参照してください。
+AI coding agent 向けのリポジトリガイドです。`AGENTS.md` はこのファイルへの symlink として管理します。詳細は `docs/coding-conventions.md`（コーディング規約）と `docs/ai-agent-operational-notes.md`（運用メモ）を参照してください。
 
 ## Project Snapshot
 
@@ -25,6 +25,51 @@ User -> web -> agent -> AgentRegistry / DB cache
 - Web 固有の DB アクセスは `web/src/lib/db/` に閉じ込め、API Route や Server Component から Prisma を直接 import しないでください。
 - Web の `/api/agents/*` ダミールートは削除済みです。Agent endpoint は `a2a-agents` または外部ホストの `.well-known/agent.json` を AgentRegistry に登録します。
 - `autoApproveThreshold` はサーバーサイドで DB から取得し、クライアントから送られた値は信用しないでください。
+
+## Coding Conventions
+
+モノレポ全体の設計・配置・TSDoc の指針です。詳細は `docs/coding-conventions.md` を参照してください。
+
+### 関心の分離
+
+- **UI (`web/components`)**: 表示と操作のみ。Prisma・秘密 env・Agent Service 直叩きは書かない。
+- **API Route (`web/app/api`)**: 認証・入力検証・オーケストレーション。永続化は `web/src/lib/db/`、共有ロジックは `packages/shared/` へ委譲する。
+- **Agent Service (`agent/`)**: LangChain tools / A2A / x402。React や Next.js に依存しない。
+- **A2A Agent (`a2a-agents/`)**: 外部 HTTP Agent と `.well-known/agent.json`。マーケットプレイス UI や会話 DB は触らない。
+
+レイヤーは `Route/UI → lib(orchestration) → shared(domain) → db/external` の順で依存する。
+
+### パッケージ配置
+
+| 置き場所 | 対象 |
+| -------- | ---- |
+| `packages/shared/` | 2 workspace 以上で使う型・定数・純粋関数（DB/フレームワーク非依存） |
+| `packages/database/` | 複数 workspace 向け Prisma クエリ（変換・フィルタは shared に委譲） |
+| `web/src/lib/db/` | Web 固有の永続化（User, Conversation, BudgetSettings 等） |
+| 各 workspace 内 `lib/` | その workspace 専用の外部連携・ユースケース |
+
+**shared に移す条件**: 複数 workspace で使う + 副作用なし + Prisma/React/Next に依存しない。1 箇所だけの都合は早合目に shared へ移さない。
+
+**依存方向**: `shared → database → app workspaces`。`packages/shared` から Prisma や Next.js を import しない。
+
+### ディレクトリ
+
+- **`web/src/lib/db/`**: Web から Prisma を触る唯一の層。Route/Component から `@prisma/client` 直 import 禁止。
+- **`web/src/lib/hooks/`**: クライアント用 hooks。Server-only コードを import しない。
+- **`agent/src/tools/`**: 1 tool = 1 ファイル。`core/` は実行・ストリーム、`lib/` は A2A/x402 等のプロトコル実装。
+- **`a2a-agents/src/`**: 共通 A2A 基盤。個別 Agent 固有ロジックは `hotel-agent/` 等のサブ workspace に閉じる。
+
+### TSDoc
+
+- **書く**: 公開 export、セキュリティ境界（信用しない入力）、非自明なビジネスルール、外部プロトコル（x402/A2A/SSE）の前提。
+- **書かない**: 自明なユーティリティ、実装の逐語訳コメント。
+- ファイル先頭に `@module`、公開関数に 1 行概要 + 必要なら `@param` / `@returns`。
+
+### その他
+
+- named export と `index.ts` による re-export を優先する。
+- `any` は避け、外部 JSON は parse 後に型を絞る。
+- 共通化は「複数箇所の複雑さを実際に減らす」ときだけ行う（YAGNI）。
 
 ## Frequent Commands
 
