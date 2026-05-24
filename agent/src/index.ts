@@ -5,4 +5,4 @@
 
 export { runAgent } from './core/agent.js';
 export { discoverAgentsTool, executeAgentTool } from './tools/index.js';
-export { logger, logStep, logSeparator } from '@agent-marketplace/shared/logger';
+export { logger } from '@agent-marketplace/shared/logger';

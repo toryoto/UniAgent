@@ -9,7 +9,7 @@ import express from 'express';
 import cors from 'cors';
 import type { AgentRequest, AgentResumeRequest } from '@agent-marketplace/shared';
 import { runAgentStream, resumeAgentStream } from '../core/agent-streaming.js';
-import { logger, logSeparator } from '@agent-marketplace/shared/logger';
+import { logger } from '@agent-marketplace/shared/logger';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3002', 10);
@@ -155,11 +155,11 @@ app.post('/api/agent/resume', async (req, res) => {
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
-  logSeparator('UniAgent Agent Service');
+  logger.separator('UniAgent Agent Service');
   logger.agent.success(`Server running on http://0.0.0.0:${PORT}`);
   logger.agent.info('Endpoints:');
   console.log('  - GET  /health       Health check');
   console.log('  - POST /api/agent/stream   Execute agent (SSE)');
   console.log('  - POST /api/agent/resume   Resume agent (HITL)');
-  logSeparator();
+  logger.separator();
 });

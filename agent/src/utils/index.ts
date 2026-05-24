@@ -3,4 +3,4 @@
  * ユーティリティのバレルエクスポート。
  */
 
-export { logger, logStep, logSeparator } from '@agent-marketplace/shared/logger';
+export { logger } from '@agent-marketplace/shared/logger';

@@ -13,7 +13,7 @@ import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { buildStreamingUserMessage } from './message-builder.js';
 import { processAgentStream } from './stream-processor.js';
 import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
-import { logger, logSeparator } from '@agent-marketplace/shared/logger';
+import { logger } from '@agent-marketplace/shared/logger';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import type { StreamProcessingContext } from '../types/index.js';
 
@@ -69,7 +69,7 @@ async function getAgent() {
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
   const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
 
-  logSeparator('Agent Execution Start (Streaming)');
+  logger.separator('Agent Execution Start (Streaming)');
   yield { type: 'start', data: { message } };
 
   let threadId: string | undefined;
@@ -117,7 +117,7 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
       if (event.type === 'interrupt') return;
     }
 
-    logSeparator('Agent Execution End');
+    logger.separator('Agent Execution End');
 
     yield {
       type: 'final',
@@ -147,7 +147,7 @@ export async function* resumeAgentStream(
   decisions: HITLResponse,
   autoApproveThreshold: number,
 ): AsyncGenerator<StreamEvent> {
-  logSeparator('Agent Resume (Streaming)');
+  logger.separator('Agent Resume (Streaming)');
   logger.agent.info('Resuming agent', { threadId, decisions });
 
   try {
@@ -178,7 +178,7 @@ export async function* resumeAgentStream(
       if (event.type === 'interrupt') return;
     }
 
-    logSeparator('Agent Resume End');
+    logger.separator('Agent Resume End');
 
     yield {
       type: 'final',

@@ -10,7 +10,7 @@ import type { AgentRequest, AgentResponse } from '@agent-marketplace/shared';
 import { discoverAgentsTool, executeAgentTool, fetchAgentSpecTool } from '../tools/index.js';
 import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { buildNonStreamingUserMessage } from './message-builder.js';
-import { logger, logStep, logSeparator } from '@agent-marketplace/shared/logger';
+import { logger } from '@agent-marketplace/shared/logger';
 import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 
 /**
@@ -25,7 +25,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   let totalCost = 0;
   let stepCounter = 0;
 
-  logSeparator('Agent Execution Start');
+  logger.separator('Agent Execution Start');
   logger.agent.info('Received request', { message, walletId, walletAddress, autoApproveThreshold, agentId });
 
   try {
@@ -47,7 +47,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
       agentId,
     });
 
-    logStep(stepCounter, 'llm', 'Starting ReAct agent loop');
+    logger.step(stepCounter, 'llm', 'Starting ReAct agent loop');
 
     const messages = [
       ...expandHistoryToLangChainMessages(messageHistory),
@@ -68,8 +68,8 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
         : 'タスクが完了しました。';
 
     stepCounter++;
-    logStep(stepCounter, 'llm', 'Agent execution completed');
-    logSeparator('Agent Execution End');
+    logger.step(stepCounter, 'llm', 'Agent execution completed');
+    logger.separator('Agent Execution End');
     logger.agent.success('Total cost', { totalCost });
 
     return {
@@ -80,7 +80,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Agent execution failed', { error: errorMessage });
-    logSeparator('Agent Execution End (Error)');
+    logger.separator('Agent Execution End (Error)');
 
     return {
       success: false,
@@ -110,7 +110,7 @@ function extractTotalCost(
       if (typedMsg.tool_calls && typedMsg.tool_calls.length > 0) {
         for (const toolCall of typedMsg.tool_calls) {
           incrementStep();
-          logStep(incrementStep() - 1, 'mcp', `Tool call: ${toolCall.name}`);
+          logger.step(incrementStep() - 1, 'mcp', `Tool call: ${toolCall.name}`);
           logger.mcp.info('Tool arguments', toolCall.args);
         }
       }

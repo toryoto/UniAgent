@@ -1,8 +1,8 @@
 import chalk from 'chalk';
 
-export type LogLevel = 'info' | 'success' | 'warn' | 'error' | 'debug';
+type LogLevel = 'info' | 'success' | 'warn' | 'error' | 'debug';
 
-export interface ComponentLogger {
+interface ComponentLogger {
   info(msg: string, details?: Record<string, unknown>): void;
   success(msg: string, details?: Record<string, unknown>): void;
   warn(msg: string, details?: Record<string, unknown>): void;
@@ -74,7 +74,7 @@ function formatTimestamp(): string {
   return chalk.gray(new Date().toISOString().substring(11, 23));
 }
 
-export function log(
+function log(
   name: string,
   level: LogLevel,
   message: string,
@@ -108,7 +108,7 @@ export function createLogger(name: string): ComponentLogger {
   };
 }
 
-export function logStep(step: number, name: string, message: string): void {
+function logStep(step: number, name: string, message: string): void {
   if (LEVEL_ORDER['info'] < LEVEL_ORDER[getMinLevel()]) return;
 
   const timestamp = formatTimestamp();
@@ -117,7 +117,7 @@ export function logStep(step: number, name: string, message: string): void {
   console.log(`${timestamp} ${stepNum} ${tag} ${message}`);
 }
 
-export function logSeparator(title?: string): void {
+function logSeparator(title?: string): void {
   if (title) {
     console.log(chalk.gray(`\n${'─'.repeat(20)} ${title} ${'─'.repeat(20)}\n`));
   } else {
@@ -125,6 +125,7 @@ export function logSeparator(title?: string): void {
   }
 }
 
+/** Agent Service 向けの共有ロガー。コンポーネント別インスタンスと表示ユーティリティを1つに集約する。 */
 export const logger = {
   agent: createLogger('agent'),
   llm: createLogger('llm'),
@@ -133,4 +134,6 @@ export const logger = {
   payment: createLogger('payment'),
   http: createLogger('http'),
   eval: createLogger('eval'),
+  step: logStep,
+  separator: logSeparator,
 };
