@@ -1,0 +1,13 @@
+# LaTeX build artifacts (keep sources: *.tex, *.bib, images/)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+comment.cut
+
+# Generated PDF (uncomment to ignore)
+# *.pdf
