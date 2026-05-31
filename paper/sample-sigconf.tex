@@ -1,28 +1,6 @@
-%%
-%% This is file `sample-sigconf.tex',
-%% generated with the docstrip utility.
-%%
-%% The original source files were:
-%%
-%% samples.dtx  (with options: `all,proceedings,bibtex,sigconf')
-%% 
-%% IMPORTANT NOTICE:
-%% 
-%% For the copyright see the source file.
-%% 
-%% Any modified versions of this file must be renamed
-%% with new filenames distinct from sample-sigconf.tex.
-%% 
-%% For distribution of the original source see the terms
-%% for copying and modification in the file samples.dtx.
-%% 
-%% This generated file may be distributed as long as the
-%% original source files, as listed above, are part of the
-%% same distribution. (The sources need not necessarily be
-%% in the same archive or directory.)
-%%
-%%
-%% Commands for TeXCount
+%% UniAgent (ICCCM 2026) -- built on the ACM "acmart" sigconf template.
+%% For double-anonymous review, change the documentclass line to
+%% \documentclass[sigconf, anonymous, review]{acmart}.
 %TC:macro \cite [option:text,text]
 %TC:macro \citep [option:text,text]
 %TC:macro \citet [option:text,text]
@@ -33,21 +11,8 @@
 %TC:envir math 0 word
 %TC:envir comment 0 0
 % !TeX root = sample-sigconf.tex
-%%
-%% The first command in your LaTeX source must be the \documentclass
-%% command.
-%%
-%% For submission and review of your manuscript please change the
-%% command to \documentclass[manuscript, screen, review]{acmart}.
-%%
-%% When submitting camera ready or to TAPS, please change the command
-%% to \documentclass[sigconf]{acmart} or whichever template is required
-%% for your publication.
-%%
-%%
 \documentclass[sigconf]{acmart}
-%%
-%% \BibTeX command to typeset BibTeX logo in the docs
+
 \AtBeginDocument{%
   \providecommand\BibTeX{{%
     Bib\TeX}}}
@@ -55,68 +20,21 @@
 %% Figure assets live in paper/images/
 \graphicspath{{images/}}
 
-%% Rights management information.  This information is sent to you
-%% when you complete the rights form.  These commands have SAMPLE
-%% values in them; it is your responsibility as an author to replace
-%% the commands and values with those provided to you when you
-%% complete the rights form.
+%% Rights management information. Replace the SAMPLE values below with
+%% the commands provided when the rights form is completed.
 \setcopyright{acmlicensed}
 \copyrightyear{2026}
 \acmYear{2026}
 \acmDOI{XXXXXXX.XXXXXXX}
-%% ICCC 2026 (update venue/dates from the official CFP when available).
+%% ICCCM 2026 (update venue/dates from the official CFP when available).
 \acmConference[ICCCM '26]{International Conference on Cloud Computing and Management (ICCCM 2026)}{TBD}{TBD}
 \acmISBN{978-1-4503-XXXX-X/2026/XX}
 
-
-%%
-%% Submission ID.
-%% Use this when submitting an article to a sponsored event. You'll
-%% receive a unique submission ID from the organizers
-%% of the event, and this ID should be used as the parameter to this command.
-%%\acmSubmissionID{123-A56-BU3}
-
-%%
-%% For managing citations, it is recommended to use bibliography
-%% files in BibTeX format.
-%%
-%% You can then either use BibTeX with the ACM-Reference-Format style,
-%% or BibLaTeX with the acmnumeric or acmauthoryear sytles, that include
-%% support for advanced citation of software artefact from the
-%% biblatex-software package, also separately available on CTAN.
-%%
-%% Look at the sample-*-biblatex.tex files for templates showcasing
-%% the biblatex styles.
-%%
-
-%%
-%% The majority of ACM publications use numbered citations and
-%% references.  The command \citestyle{authoryear} switches to the
-%% "author year" style.
-%%
-%% If you are preparing content for an event
-%% sponsored by ACM SIGGRAPH, you must use the "author year" style of
-%% citations and references.
-%% Uncommenting
-%% the next command will enable that style.
-%%\citestyle{acmauthoryear}
-
-
-%%
-%% end of the preamble, start of the body of the document source.
 \begin{document}
 
-%%
-%% The "title" command has an optional parameter,
-%% allowing the author to define a "short title" to be used in page headers.
-\title{UniAgent: Integrating A2A, x402, and ERC-8004 for Autonomous Agent Marketplaces!}
+\title[UniAgent: An Integrated Marketplace for Autonomous Agents]{UniAgent: Integrating A2A, x402, and ERC-8004 for Autonomous Agent Marketplaces}
 
-%%
-%% The "author" command and its associated commands are used to define
-%% the authors and their affiliations.
-%% Of note is the shared affiliation of the first two authors, and the
-%% "authornote" and "authornotemark" commands
-%% used to denote shared contribution to the research.
+%% TODO: replace the placeholder authors and affiliations below.
 \author{Ben Trovato}
 \authornote{Both authors contributed equally to this research.}
 \email{trovato@corporation.com}
@@ -131,713 +49,721 @@
   \country{USA}
 }
 
-\author{Lars Th{\o}rv{\"a}ld}
-\affiliation{%
-  \institution{The Th{\o}rv{\"a}ld Group}
-  \city{Hekla}
-  \country{Iceland}}
-\email{larst@affiliation.org}
-
-\author{Valerie B\'eranger}
-\affiliation{%
-  \institution{Inria Paris-Rocquencourt}
-  \city{Rocquencourt}
-  \country{France}
-}
-
-\author{Aparna Patel}
-\affiliation{%
- \institution{Rajiv Gandhi University}
- \city{Doimukh}
- \state{Arunachal Pradesh}
- \country{India}}
-
-\author{Huifen Chan}
-\affiliation{%
-  \institution{Tsinghua University}
-  \city{Haidian Qu}
-  \state{Beijing Shi}
-  \country{China}}
-
-\author{Charles Palmer}
-\affiliation{%
-  \institution{Palmer Research Laboratories}
-  \city{San Antonio}
-  \state{Texas}
-  \country{USA}}
-\email{cpalmer@prl.com}
-
-\author{John Smith}
-\affiliation{%
-  \institution{The Th{\o}rv{\"a}ld Group}
-  \city{Hekla}
-  \country{Iceland}}
-\email{jsmith@affiliation.org}
-
-\author{Julius P. Kumquat}
-\affiliation{%
-  \institution{The Kumquat Consortium}
-  \city{New York}
-  \country{USA}}
-\email{jpkumquat@consortium.net}
-
-%%
-%% By default, the full list of authors will be used in the page
-%% headers. Often, this list is too long, and will overlap
-%% other information printed in the page headers. This command allows
-%% the author to define a more concise list
-%% of authors' names for this purpose.
 \renewcommand{\shortauthors}{Trovato et al.}
 
-%%
-%% The abstract is a short summary of the work to be presented in the
-%% article.
 \begin{abstract}
-  A clear and well-documented \LaTeX\ document is presented as an
-  article formatted for publication by ACM in a conference proceedings
-  or journal publication. Based on the ``acmart'' document class, this
-  article presents and explains many of the common variations, as well
-  as many of the formatting elements an author may use in the
-  preparation of the documentation of their work.
+  Large language model (LLM) agents are increasingly able to act on
+  behalf of users, but the infrastructure that lets them find, hire,
+  and pay one another across organizational boundaries is still
+  fragmented. Open protocols already exist for the individual pieces:
+  the Agent2Agent (A2A) protocol standardizes agent-to-agent
+  communication, x402 turns the HTTP~402 status code into a
+  micropayment channel, and ERC-8004 records agent identity on chain.
+  However, these protocols have so far been demonstrated only in
+  isolation or as one-to-one proofs of concept, and no end-to-end
+  service architecture ties them together so that a single
+  natural-language request is autonomously decomposed into agent
+  discovery, delegation, and payment. In this paper we present
+  \emph{UniAgent}, a decentralized agent marketplace that integrates
+  A2A, x402, and ERC-8004 under an LLM-based orchestration layer. A
+  three-layer design separates a \emph{marketplace layer} (an on-chain
+  ERC-8004 registry kept in sync with an off-chain cache through
+  blockchain event webhooks), an \emph{orchestration layer} (a ReAct
+  agent that discovers, selects, and invokes external agents through
+  two tools), and a \emph{payment layer} (x402 with delegated EIP-3009
+  signatures and a server-side budget policy). We describe a working
+  prototype deployed on the Base Sepolia testnet and report an
+  end-to-end evaluation over flight- and hotel-booking agents. UniAgent
+  shows that open communication, on-chain identity, and
+  protocol-native micropayments can be combined into a coherent,
+  vendor-neutral marketplace in which user tasks are carried out
+  autonomously across independent providers.
 \end{abstract}
 
-%%
-%% The code below is generated by the tool at http://dl.acm.org/ccs.cfm.
-%% Please copy and paste the code instead of the example below.
-%%
 \begin{CCSXML}
 <ccs2012>
  <concept>
-  <concept_id>00000000.0000000.0000000</concept_id>
-  <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
+  <concept_id>10010147.10010178.10010179</concept_id>
+  <concept_desc>Computing methodologies~Multi-agent systems</concept_desc>
   <concept_significance>500</concept_significance>
  </concept>
  <concept>
-  <concept_id>00000000.00000000.00000000</concept_id>
-  <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
+  <concept_id>10002951.10003260.10003282</concept_id>
+  <concept_desc>Information systems~Web services</concept_desc>
   <concept_significance>300</concept_significance>
  </concept>
  <concept>
-  <concept_id>00000000.00000000.00000000</concept_id>
-  <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
-  <concept_significance>100</concept_significance>
- </concept>
- <concept>
-  <concept_id>00000000.00000000.00000000</concept_id>
-  <concept_desc>Do Not Use This Code, Generate the Correct Terms for Your Paper</concept_desc>
-  <concept_significance>100</concept_significance>
+  <concept_id>10003752.10010124.10010131</concept_id>
+  <concept_desc>Software and its engineering~Distributed systems organizing principles</concept_desc>
+  <concept_significance>300</concept_significance>
  </concept>
 </ccs2012>
 \end{CCSXML}
 
-\ccsdesc[500]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
-\ccsdesc[300]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
-\ccsdesc{Do Not Use This Code~Generate the Correct Terms for Your Paper}
-\ccsdesc[100]{Do Not Use This Code~Generate the Correct Terms for Your Paper}
+\ccsdesc[500]{Computing methodologies~Multi-agent systems}
+\ccsdesc[300]{Information systems~Web services}
+\ccsdesc[300]{Software and its engineering~Distributed systems organizing principles}
 
-%%
-%% Keywords. The author(s) should pick words that accurately describe
-%% the work being presented. Separate the keywords with commas.
-\keywords{Do, Not, Use, This, Code, Put, the, Correct, Terms, for,
-  Your, Paper}
-%% A "teaser" image appears between the author and affiliation
-%% information and the body of the document, and typically spans the
-%% page.
-\begin{teaserfigure}
-  \includegraphics[width=\textwidth]{sampleteaser}
-  \caption{Seattle Mariners at Spring Training, 2010.}
-  \Description{Enjoying the baseball game from the third-base
-  seats. Ichiro Suzuki preparing to bat.}
-  \label{fig:teaser}
-\end{teaserfigure}
+\keywords{AI agents, agent marketplace, A2A protocol, x402, ERC-8004,
+  micropayments, on-chain identity, LLM orchestration, ReAct}
 
-\received{20 February 2007}
-\received[revised]{12 March 2009}
-\received[accepted]{5 June 2009}
-
-%%
-%% This command processes the author and affiliation and title
-%% information and builds the first part of the formatted document.
 \maketitle
 
 \section{Introduction}
-ACM's consolidated article template, introduced in 2017, provides a
-consistent \LaTeX\ style for use across ACM publications, and
-incorporates accessibility and metadata-extraction functionality
-necessary for future Digital Library endeavors. Numerous ACM and
-SIG-specific \LaTeX\ templates have been examined, and their unique
-features incorporated into this single new template.
+\label{sec:introduction}
 
-If you are new to publishing with ACM, this document is a valuable
-guide to the process of preparing your work for publication. If you
-have published with ACM before, this document provides insight and
-instruction into more recent changes to the article template.
+Large language models (LLMs) have made it practical to build
+autonomous agents that plan, call tools, and complete multi-step tasks
+on behalf of a user. As these agents proliferate, a natural next step
+is for one agent to delegate work to another: a travel assistant might
+hire a specialized flight agent and a separate hotel agent, each
+operated by a different organization. Realizing this vision requires
+three capabilities that cut across trust boundaries: agents must be
+able to \emph{communicate} with one another, to be \emph{discovered}
+and \emph{identified}, and to \emph{pay} for services without a shared
+account or a manual contract.
 
-The ``\verb|acmart|'' document class can be used to prepare articles
-for any ACM publication --- conference or journal, and for any stage
-of publication, from review to final ``camera-ready'' copy, to the
-author's own version, with {\itshape very} few changes to the source.
+Open standards have recently emerged for each of these capabilities.
+The Agent2Agent (A2A) protocol~\cite{a2a2025} defines how agents
+describe themselves through an \emph{Agent Card} and exchange messages
+over JSON-RPC. The x402 protocol~\cite{x402whitepaper} reuses the long-dormant
+HTTP~402 ``Payment Required'' status code to attach stablecoin
+micropayments to ordinary web requests. ERC-8004~\cite{erc8004}
+provides an on-chain registry of agent identities, building on the
+ERC-721 token standard so that any party can look up an
+agent without trusting a central directory. Individually, these
+protocols are compelling; together, they suggest a decentralized
+alternative to the closed agent stores offered by today's platforms.
 
-\section{Template Overview}
-As noted in the introduction, the ``\verb|acmart|'' document class can
-be used to prepare many different kinds of documentation --- a
-double-anonymous initial submission of a full-length technical paper, a
-two-page SIGGRAPH Emerging Technologies abstract, a ``camera-ready''
-journal article, a SIGCHI Extended Abstract, and more --- all by
-selecting the appropriate {\itshape template style} and {\itshape
-  template parameters}.
+Despite this progress, three gaps remain. \textbf{First}, A2A
+standardizes communication but explicitly leaves \emph{discovery}---how
+a client finds an appropriate agent in the first place---outside its
+scope. \textbf{Second}, recent work by Vaziry et
+al.~\cite{vaziry2025} demonstrated the technical feasibility of
+combining A2A, x402, and on-chain Agent Cards, but did so at the
+protocol level, as one-to-one interactions between a fixed pair of
+agents; it did not provide a service architecture that takes a
+user's high-level task and autonomously drives discovery, delegation,
+and payment to completion. \textbf{Third}, centralized platforms such
+as the OpenAI GPT Store~\cite{gptstore} do offer end-to-end
+experiences, but they confine the agent ecosystem to plug-ins inside a
+single vendor's walled garden~\cite{frieden2016platforms}, with
+platform-specific registration, discovery, and billing.
 
-This document will explain the major features of the document
-class. For further information, the {\itshape \LaTeX\ User's Guide} is
-available from
-\url{https://www.acm.org/publications/proceedings-template}.
+The result is a missing middle: the individual protocols exist, and
+closed platforms show what a smooth user experience looks like, but no
+\emph{open} architecture connects the protocols through an
+orchestration layer that can turn a natural-language request into
+cross-organizational agent transactions. This motivates our research
+question:
 
-\subsection{Template Styles}
+\begin{quote}
+\itshape How can open agent communication, on-chain identity, and
+protocol-level micropayments be integrated into a cohesive marketplace
+architecture with LLM-based orchestration, so that a user's high-level
+task is autonomously decomposed into agent discovery, delegation, and
+payment across organizational boundaries?
+\end{quote}
 
-The primary parameter given to the ``\verb|acmart|'' document class is
-the {\itshape template style} which corresponds to the kind of publication
-or SIG publishing the work. This parameter is enclosed in square
-brackets and is a part of the {\verb|documentclass|} command:
-\begin{verbatim}
-  \documentclass[STYLE]{acmart}
-\end{verbatim}
+We answer this question with \emph{UniAgent}, a decentralized agent
+marketplace whose architecture is summarized in
+Figure~\ref{fig:arch}. UniAgent takes the registration, discovery, and
+payment functions that a centralized platform bundles together and
+re-implements them on open protocols---A2A and x402---and a
+standardized on-chain identity layer---ERC-8004. On top of these, an
+LLM ReAct agent~\cite{yao2023react} acts as an orchestration layer that
+analyzes the task, discovers candidate agents, selects among them, and
+executes them with automatic payment.
 
-Journals use one of three template styles. All but three ACM journals
-use the {\verb|acmsmall|} template style:
-\begin{itemize}
-\item {\texttt{acmsmall}}: The default journal template style.
-\item {\texttt{acmlarge}}: Used by JOCCH and TAP.
-\item {\texttt{acmtog}}: Used by TOG.
-\end{itemize}
+\paragraph{Contributions.} This paper makes three contributions:
+\begin{enumerate}
+  \item \textbf{An integrated marketplace architecture} that unifies
+    A2A, x402, and ERC-8004 behind an orchestration layer, organized
+    as three loosely coupled layers (marketplace, orchestration,
+    payment).
+  \item \textbf{An autonomous LLM pipeline} in which a ReAct agent
+    drives task analysis, agent discovery, selection, and payment
+    through two tools (\texttt{discover\_agents} and
+    \texttt{execute\_agent}), with a server-side budget policy that
+    keeps spending under user control.
+  \item \textbf{A working prototype and end-to-end demonstration} on
+    the Base Sepolia testnet, exercising the full flow over external
+    flight- and hotel-booking agents and reporting success rate,
+    latency, and on-chain payment cost.
+\end{enumerate}
 
-The majority of conference proceedings documentation will use the {\verb|acmconf|} template style.
-\begin{itemize}
-\item {\texttt{sigconf}}: The default proceedings template style.
-\item{\texttt{sigchi}}: Used for SIGCHI conference articles.
-\item{\texttt{sigplan}}: Used for SIGPLAN conference articles.
-\end{itemize}
+The rest of the paper is organized as follows.
+Section~\ref{sec:background} reviews the protocols UniAgent builds on.
+Section~\ref{sec:related} positions our work against related research,
+with particular attention to Vaziry et al.
+Section~\ref{sec:architecture} presents the three-layer architecture,
+the core of our contribution. Section~\ref{sec:implementation}
+describes the prototype, and Section~\ref{sec:evaluation} evaluates it.
+Section~\ref{sec:discussion} discusses limitations and future work, and
+Section~\ref{sec:conclusion} concludes.
 
-\subsection{Template Parameters}
+\section{Background}
+\label{sec:background}
 
-In addition to specifying the {\itshape template style} to be used in
-formatting your work, there are a number of {\itshape template parameters}
-which modify some part of the applied template style. A complete list
-of these parameters can be found in the {\itshape \LaTeX\ User's Guide.}
+\subsection{A2A Protocol}
+The Agent2Agent (A2A) protocol~\cite{a2a2025} is an open standard for
+communication between independent agents. Each agent publishes an
+\emph{Agent Card}, a JSON document served at a well-known URL
+(\path{/.well-known/agent.json}) that describes the agent's name,
+capabilities, service endpoint, and---in payment-aware deployments---its
+price. Clients then exchange task messages with the agent over JSON-RPC.
+A2A deliberately standardizes only the communication format and leaves
+the question of \emph{how clients discover a suitable agent} to the
+application. This is the gap that a marketplace must fill.
 
-Frequently-used parameters, or combinations of parameters, include:
-\begin{itemize}
-\item {\texttt{anonymous,review}}: Suitable for a ``double-anonymous''
-  conference submission. Anonymizes the work and includes line
-  numbers. Use with the \texttt{\string\acmSubmissionID} command to print the
-  submission's unique ID on each page of the work.
-\item{\texttt{authorversion}}: Produces a version of the work suitable
-  for posting by the author.
-\item{\texttt{screen}}: Produces colored hyperlinks.
-\end{itemize}
+\subsection{x402 Protocol}
+x402~\cite{x402whitepaper} is a micropayment protocol that revives the
+HTTP~402 ``Payment Required'' status code. When a client requests a
+paid resource, the server responds with \texttt{402} together with
+machine-readable \emph{payment requirements} (amount, asset, recipient,
+and network). The client then constructs a payment and retries the
+request with an \texttt{X-PAYMENT} header; the server verifies and
+settles the payment, typically through a \emph{facilitator} that
+submits the transaction on chain, and finally returns the resource.
+Payments are denominated in stablecoins such as USDC and are made
+gasless for the payer using EIP-3009 \emph{transfer with
+authorization}~\cite{eip3009}, which lets a user authorize a transfer
+with an off-chain signature that a third party submits. We rely on this
+property in Section~\ref{sec:payment-layer} to delegate payment to the
+server without giving it custody of user funds.
 
-This document uses the following string as the first command in the
-source file:
-\begin{verbatim}
-\documentclass[sigconf]{acmart}
-\end{verbatim}
+\subsection{On-Chain Agent Identity (ERC-8004)}
+ERC-8004~\cite{erc8004} standardizes a registry of agent identities on
+the Ethereum Virtual Machine. Built on the ERC-721 non-fungible token
+standard, it assigns each agent a token whose metadata (the Agent Card)
+is stored off chain and referenced by its content identifier. Because the
+registry is a public contract,
+any client can enumerate agents and resolve their metadata without
+trusting a central catalog, which makes it a natural \emph{single
+source of truth} for a decentralized marketplace. A companion staking
+mechanism lets agents lock a deposit, giving them ``skin in the game.''
 
-\section{Modifications}
+\subsection{LLM-Based Agent Orchestration}
+The ReAct pattern~\cite{yao2023react} interleaves reasoning and acting:
+the LLM alternates between producing a thought, calling a tool, and
+observing the result, accumulating context until the task is done. This
+loop is a good fit for orchestration, because the set of agents,
+prices, and intermediate results is not known in advance and must be
+explored at run time. UniAgent implements the orchestration layer as a
+ReAct agent built with LangChain, exposing exactly two tools---one for
+discovery and one for execution---so that the model can operate the
+marketplace autonomously.
 
-Modifying the template --- including but not limited to: adjusting
-margins, typeface sizes, line spacing, paragraph and list definitions,
-and the use of the \verb|\vspace| command to manually adjust the
-vertical spacing between elements of your work --- is not allowed.
+\section{Related Work}
+\label{sec:related}
 
-{\bfseries Your document will be returned to you for revision if
-  modifications are discovered.}
+\paragraph{Agent communication protocols.}
+Several protocols now compete to standardize how agents interact.
+Ehtesham et al.~\cite{ehtesham2025survey} survey this space and compare
+the Model Context Protocol (MCP), which connects a single
+agent to tools and data sources, with peer-to-peer protocols such as
+A2A and the Agent Network Protocol (ANP). UniAgent adopts A2A for
+inter-agent communication because it is designed for cross-organization
+delegation, and uses an MCP-style tool interface only \emph{inside} the
+orchestrator. None of these communication protocols specifies discovery
+or payment, which is precisely what our marketplace layer adds.
 
-\section{Typefaces}
+\paragraph{Agent payment systems.}
+x402~\cite{x402whitepaper} attaches stablecoin transfers to ordinary
+HTTP requests and settles them on a smart-contract chain. We build on
+x402 because it is open, HTTP-native, and requires no proprietary
+intermediary, and we extend it with delegated signatures and a
+server-side budget policy (Section~\ref{sec:payment-layer}).
 
-The ``\verb|acmart|'' document class requires the use of the
-``Libertine'' typeface family. Your \TeX\ installation should include
-this set of packages. Please do not substitute other typefaces. The
-``\verb|lmodern|'' and ``\verb|ltimes|'' packages should not be used,
-as they will override the built-in typeface families.
+\paragraph{Decentralized agent identity and closest prior work.}
+Vaziry et al.~\cite{vaziry2025} represent each agent's card as an
+individual smart contract and show that A2A, x402, and on-chain identity
+can interoperate. UniAgent instead consolidates identities into a single
+standardized ERC-8004 registry~\cite{erc8004} rather than per-agent
+contracts, and---more importantly---builds a full marketplace and
+orchestration layer on top, as detailed below.
 
-\section{Title Information}
+\paragraph{Difference from Vaziry et al.}
+Table~\ref{tab:vaziry} summarizes the contrast. Vaziry et al. establish
+the technical \emph{feasibility} of the protocol combination through
+one-to-one agent interactions. UniAgent treats those protocols as
+building blocks and contributes the missing layer above them: an
+LLM orchestrator that, given a single user task, autonomously discovers
+agents from a standardized registry, selects among them, pays them over
+x402, and returns an integrated result---together with the
+user-facing experience (chat, streaming, and budget approval) that this
+requires.
 
-The title of your work should use capital letters appropriately -
-\url{https://capitalizemytitle.com/} has useful rules for
-capitalization. Use the {\verb|title|} command to define the title of
-your work. If your work has a subtitle, define it with the
-{\verb|subtitle|} command.  Do not insert line breaks in your title.
-
-If your title is lengthy, you must define a short version to be used
-in the page headers, to prevent overlapping text. The \verb|title|
-command has a ``short title'' parameter:
-\begin{verbatim}
-  \title[short title]{full title}
-\end{verbatim}
-
-\section{Authors and Affiliations}
-
-Each author must be defined separately for accurate metadata
-identification.  As an exception, multiple authors may share one
-affiliation. Authors' names should not be abbreviated; use full first
-names wherever possible. Include authors' e-mail addresses whenever
-possible.
-
-Grouping authors' names or e-mail addresses, or providing an ``e-mail
-alias,'' as shown below, is not acceptable:
-\begin{verbatim}
-  \author{Brooke Aster, David Mehldau}
-  \email{dave,judy,steve@university.edu}
-  \email{firstname.lastname@phillips.org}
-\end{verbatim}
-
-The \verb|authornote| and \verb|authornotemark| commands allow a note
-to apply to multiple authors --- for example, if the first two authors
-of an article contributed equally to the work.
-
-If your author list is lengthy, you must define a shortened version of
-the list of authors to be used in the page headers, to prevent
-overlapping text. The following command should be placed just after
-the last \verb|\author{}| definition:
-\begin{verbatim}
-  \renewcommand{\shortauthors}{McCartney, et al.}
-\end{verbatim}
-Omitting this command will force the use of a concatenated list of all
-of the authors' names, which may result in overlapping text in the
-page headers.
-
-The article template's documentation, available at
-\url{https://www.acm.org/publications/proceedings-template}, has a
-complete explanation of these commands and tips for their effective
-use.
-
-Note that authors' addresses are mandatory for journal articles.
-
-\section{Rights Information}
-
-Authors of any work published by ACM will need to complete a rights
-form. Depending on the kind of work, and the rights management choice
-made by the author, this may be copyright transfer, permission,
-license, or an OA (open access) agreement.
-
-Regardless of the rights management choice, the author will receive a
-copy of the completed rights form once it has been submitted. This
-form contains \LaTeX\ commands that must be copied into the source
-document. When the document source is compiled, these commands and
-their parameters add formatted text to several areas of the final
-document:
-\begin{itemize}
-\item the ``ACM Reference Format'' text on the first page.
-\item the ``rights management'' text on the first page.
-\item the conference information in the page header(s).
-\end{itemize}
-
-Rights information is unique to the work; if you are preparing several
-works for an event, make sure to use the correct set of commands with
-each of the works.
-
-The ACM Reference Format text is required for all articles over one
-page in length, and is optional for one-page articles (abstracts).
-
-\section{CCS Concepts and User-Defined Keywords}
-
-Two elements of the ``acmart'' document class provide powerful
-taxonomic tools for you to help readers find your work in an online
-search.
-
-The ACM Computing Classification System ---
-\url{https://www.acm.org/publications/class-2012} --- is a set of
-classifiers and concepts that describe the computing
-discipline. Authors can select entries from this classification
-system, via \url{https://dl.acm.org/ccs/ccs.cfm}, and generate the
-commands to be included in the \LaTeX\ source.
-
-User-defined keywords are a comma-separated list of words and phrases
-of the authors' choosing, providing a more flexible way of describing
-the research being presented.
-
-CCS concepts and user-defined keywords are required for for all
-articles over two pages in length, and are optional for one- and
-two-page articles (or abstracts).
-
-\section{Sectioning Commands}
-
-Your work should use standard \LaTeX\ sectioning commands:
-\verb|\section|, \verb|\subsection|, \verb|\subsubsection|,
-\verb|\paragraph|, and \verb|\subparagraph|. The sectioning levels up to
-\verb|\subsubsection| should be numbered; do not remove the numbering
-from the commands.
-
-Simulating a sectioning command by setting the first word or words of
-a paragraph in boldface or italicized text is {\bfseries not allowed.}
-
-Below are examples of sectioning commands.
-
-\subsection{Subsection}
-\label{sec:subsection}
-
-This is a subsection.
-
-\subsubsection{Subsubsection}
-\label{sec:subsubsection}
-
-This is a subsubsection.
-
-\paragraph{Paragraph}
-
-This is a paragraph.
-
-\subparagraph{Subparagraph}
-
-This is a subparagraph.
-
-\section{Tables}
-
-The ``\verb|acmart|'' document class includes the ``\verb|booktabs|''
-package --- \url{https://ctan.org/pkg/booktabs} --- for preparing
-high-quality tables.
-
-Table captions are placed {\itshape above} the table.
-
-Because tables cannot be split across pages, the best placement for
-them is typically the top of the page nearest their initial cite.  To
-ensure this proper ``floating'' placement of tables, use the
-environment \textbf{table} to enclose the table's contents and the
-table caption.  The contents of the table itself must go in the
-\textbf{tabular} environment, to be aligned properly in rows and
-columns, with the desired horizontal and vertical rules.  Again,
-detailed instructions on \textbf{tabular} material are found in the
-\textit{\LaTeX\ User's Guide}.
-
-Immediately following this sentence is the point at which
-Table~\ref{tab:freq} is included in the input file; compare the
-placement of the table here with the table in the printed output of
-this document.
-
-\begin{table}
-  \caption{Frequency of Special Characters}
-  \label{tab:freq}
-  \begin{tabular}{ccl}
+\begin{table}[t]
+  \caption{UniAgent compared with Vaziry et al.~\cite{vaziry2025}.}
+  \label{tab:vaziry}
+  \small
+  \begin{tabular}{@{}p{0.20\linewidth}p{0.33\linewidth}p{0.33\linewidth}@{}}
     \toprule
-    Non-English or Math&Frequency&Comments\\
+    Aspect & Vaziry et al. & UniAgent \\
     \midrule
-    \O & 1 in 1,000& For Swedish names\\
-    $\pi$ & 1 in 5& Common in math\\
-    \$ & 4 in 5 & Used in business\\
-    $\Psi^2_1$ & 1 in 40,000& Unexplained usage\\
-  \bottomrule
-\end{tabular}
-\end{table}
-
-To set a wider table, which takes up the whole width of the page's
-live area, use the environment \textbf{table*} to enclose the table's
-contents and the table caption.  As with a single-column table, this
-wide table will ``float'' to a location deemed more
-desirable. Immediately following this sentence is the point at which
-Table~\ref{tab:commands} is included in the input file; again, it is
-instructive to compare the placement of the table here with the table
-in the printed output of this document.
-
-\begin{table*}
-  \caption{Some Typical Commands}
-  \label{tab:commands}
-  \begin{tabular}{ccl}
-    \toprule
-    Command &A Number & Comments\\
-    \midrule
-    \texttt{{\char'134}author} & 100& Author \\
-    \texttt{{\char'134}table}& 300 & For tables\\
-    \texttt{{\char'134}table*}& 400& For wider tables\\
+    Positioning & Protocol-level feasibility study
+      & Marketplace architecture integrating the protocols \\
+    Identity & Per-agent smart contracts
+      & Single ERC-8004 standard registry \\
+    Discovery & Four methods proposed, not integrated
+      & Registry plus webhook-synced cache \\
+    Payment & x402 over A2A, demonstrated
+      & x402 with delegated signing and budget policy \\
+    Orchestration & None (fixed agent A\,$\to$\,B)
+      & LLM ReAct agent discovers, selects, executes \\
+    User experience & Protocol-level proof of concept
+      & Chat UI, streaming, budget approval \\
     \bottomrule
   \end{tabular}
-\end{table*}
+\end{table}
 
-Always use midrule to separate table header rows from data rows, and
-use it only for this purpose. This enables assistive technologies to
-recognise table headers and support their users in navigating tables
-more easily.
+\paragraph{LLM multi-agent orchestration.}
+AutoGen~\cite{wu2023autogen} shows how multiple LLM-based agents can
+coordinate through conversation, tool use, and optional human input
+within an application. UniAgent addresses a different layer: it treats
+the marketplace itself---open registration, cross-vendor discovery, and
+protocol-native payment---as the object of orchestration.
 
-\section{Math Equations}
-You may want to display math equations in three distinct styles:
-inline, numbered or non-numbered display.  Each of the three are
-discussed in the next sections.
+\paragraph{Centralized marketplaces.}
+Centralized agent stores such as the OpenAI GPT Store~\cite{gptstore}
+offer registration, discovery, and billing as a smooth, integrated
+experience, but only within one vendor's platform: agents are listed,
+ranked, and charged according to platform-specific rules, and there is
+no portability across providers. This resembles the broader platform
+pattern of walled gardens, where openness and neutrality are limited by
+the platform operator~\cite{frieden2016platforms}. UniAgent aims to
+reproduce the convenience of such platforms while keeping each function
+open and vendor-neutral.
 
-\subsection{Inline (In-text) Equations}
-A formula that appears in the running text is called an inline or
-in-text formula.  It is produced by the \textbf{math} environment,
-which can be invoked with the usual
-\texttt{{\char'134}begin\,\ldots{\char'134}end} construction or with
-the short form \texttt{\$\,\ldots\$}. You can use any of the symbols
-and structures, from $\alpha$ to $\omega$, available in
-\LaTeX~\cite{Lamport:LaTeX}; this section will simply show a few
-examples of in-text equations in context. Notice how this equation:
-\begin{math}
-  \lim_{n\rightarrow \infty}x=0
-\end{math},
-set here in in-line math style, looks slightly different when
-set in display style.  (See next section).
+\section{System Architecture}
+\label{sec:architecture}
 
-\subsection{Display Equations}
-A numbered display equation---one set off by vertical space from the
-text and centered horizontally---is produced by the \textbf{equation}
-environment. An unnumbered display equation is produced by the
-\textbf{displaymath} environment.
+UniAgent is organized into three layers, shown together in
+Figure~\ref{fig:arch}: a \emph{marketplace layer} that maintains the
+catalog of available agents, an \emph{orchestration layer} that turns a
+user task into a sequence of agent invocations, and a \emph{payment
+layer} that settles each invocation. The layers are deliberately
+decoupled---the orchestrator does not need to know how identity is
+stored, and the payment layer does not need to know why an agent was
+selected---so that each can evolve independently. We describe each layer
+in turn and then explain how they combine into an end-to-end flow.
 
-Again, in either environment, you can use any of the symbols and
-structures available in \LaTeX\@; this section will just give a couple
-of examples of display equations in context.  First, consider the
-equation, shown as an inline equation above:
-\begin{equation}
-  \lim_{n\rightarrow \infty}x=0
-\end{equation}
-Notice how it is formatted somewhat differently in
-the \textbf{displaymath}
-environment.  Now, we'll enter an unnumbered equation:
-\begin{displaymath}
-  \sum_{i=0}^{\infty} x + 1
-\end{displaymath}
-and follow it with another numbered equation:
-\begin{equation}
-  \sum_{i=0}^{\infty}x_i=\int_{0}^{\pi+2} f
-\end{equation}
-just to demonstrate \LaTeX's able handling of numbering.
-
-\section{Figures}
-
-The ``\verb|figure|'' environment should be used for figures. One or
-more images can be placed within a figure. If your figure contains
-third-party material, you must clearly identify it as such, as shown
-in the example below.
-\begin{figure}[h]
+\begin{figure*}[t]
   \centering
-  \includegraphics[width=\linewidth]{sample-franklin}
-  \caption{1907 Franklin Model D roadster. Photograph by Harris \&
-    Ewing, Inc. [Public domain], via Wikimedia
-    Commons. (\url{https://goo.gl/VLCRBB}).}
-  \Description{A woman and a girl in white dresses sit in an open car.}
+  \includegraphics[width=\textwidth]{uniagent-system-arch}
+  \caption{Overview of the UniAgent architecture. A user issues a
+    natural-language task through the web application; an LLM-based
+    agent service discovers candidate agents from an ERC-8004 registry
+    (cached in PostgreSQL via Alchemy webhooks), invokes the selected
+    external A2A agents, and settles payment over x402 using USDC on
+    Base Sepolia.}
+  \Description{A block diagram with three groups. On the left, a user
+    in a browser connects through Privy to the UniAgent application,
+    which contains a web app, an agent service, and a PostgreSQL cache.
+    The agent service calls the Anthropic Claude API for reasoning and
+    communicates with an external A2A agent. On the right, a Base
+    Sepolia group contains the EAS, USDC, AgentStaking, and the
+    ERC-8004 AgentIdentityRegistry contracts. Arrows show a chat
+    execution flow and a marketplace synchronization flow driven by
+    Alchemy webhooks and agent-developer registration.}
+  \label{fig:arch}
+\end{figure*}
+
+\subsection{Marketplace Layer}
+\label{sec:marketplace-layer}
+
+The marketplace layer answers a single question: which agents exist and
+what can they do? Its authoritative source is the on-chain ERC-8004
+\texttt{AgentIdentityRegistry}. Reading directly from the chain on every
+request, however, would be slow and costly, so UniAgent maintains an
+off-chain cache and keeps it consistent with the chain through an
+event-driven pipeline.
+
+Figure~\ref{fig:developer-flow} shows the developer-facing flow. An
+agent developer first deploys an A2A agent and uploads its Agent Card to
+IPFS (Phase~A). The developer then registers the agent in the ERC-8004
+registry, recording the IPFS content identifier as the token's
+metadata URI, and optionally stakes a deposit (Phase~B). Registration
+and staking emit on-chain events. A blockchain indexing service
+(Alchemy) watches for these events and calls a webhook on the web
+application (Phase~C); the webhook verifies the event, fetches the
+metadata from IPFS, and updates a PostgreSQL cache. Finally, the
+marketplace UI reads from this cache to list agents quickly and cheaply
+(Phase~D). Because the chain remains the single source of truth and the
+cache is rebuilt from on-chain events, the cache can be regenerated at
+any time without loss of authority.
+
+\subsection{Orchestration Layer}
+\label{sec:orchestration-layer}
+
+The orchestration layer is a ReAct agent~\cite{yao2023react} built with
+LangChain and driven by a commercial LLM. It receives
+the user's natural-language task and operates the marketplace through
+two tools:
+
+\begin{itemize}
+  \item \texttt{discover\_agents(category, query)} returns a short list
+    of candidate agents for a given need, drawn from the marketplace
+    cache.
+  \item \texttt{execute\_agent(agentId, input)} invokes a chosen agent
+    over A2A and pays for it over x402, returning the agent's result.
+\end{itemize}
+
+Given a task such as planning a trip, the agent reasons about which
+sub-tasks are needed, calls \texttt{discover\_agents} for each, inspects
+the candidates, selects one, and calls \texttt{execute\_agent}; it then
+observes the result and decides whether further steps are required. This
+loop continues until the task is complete, at which point the agent
+composes a final answer. Crucially, the model is never given a fixed
+plan or a hard-coded list of agents---both the decomposition and the
+choice of providers emerge from the ReAct loop at run time.
+
+\paragraph{Discovery ranking.}
+To keep the candidate list short and useful, \texttt{discover\_agents}
+does not return every matching agent. Instead, the marketplace ranks
+candidates from the cache using a composite score that combines an
+agent's reliability and quality (estimated from past attestations), the
+size of its on-chain deposit, and a small bonus for newly registered
+agents, and returns the top three. The reliability and quality
+estimates are smoothed toward a global average so that agents with few
+reviews are neither unfairly promoted nor permanently excluded
+(mitigating the cold-start problem), and a small exploration term
+occasionally surfaces a new agent so that it can accumulate a track
+record. We describe the ranking qualitatively here, as a way to give the
+LLM a manageable and balanced set of options; its exact form is an
+engineering parameter rather than a contribution of this paper.
+
+\paragraph{Budget control.}
+Because the orchestrator can spend real funds, spending is governed by a
+server-side budget policy. Each user has an \texttt{autoApproveThreshold}
+stored in the database; payments below it proceed automatically, while
+payments above it pause the loop and request explicit user approval
+through the UI, following human-in-the-loop patterns common in
+multi-agent LLM frameworks~\cite{wu2023autogen}. This threshold is
+always read on the server and is never taken from the client, so a
+manipulated client cannot raise its own spending limit.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{uniagent-agent-developer-flow-chart}
+  \caption{Agent registration and marketplace synchronization. A
+    developer deploys an A2A agent, uploads its Agent Card to IPFS, and
+    registers it in the ERC-8004 registry (optionally staking a
+    deposit). On-chain events are delivered to a webhook through a
+    blockchain indexer, which refreshes the PostgreSQL cache that backs
+    the marketplace UI.}
+  \Description{A four-phase swimlane diagram with lanes for the agent
+    developer, external A2A agent, IPFS/Pinata, Base Sepolia, Alchemy,
+    the web app, PostgreSQL, and the user. Phase A is preparation
+    (deploy and upload), Phase B is on-chain registration and staking,
+    Phase C is event-driven synchronization through a custom webhook
+    that verifies signatures, fetches metadata, and updates the cache,
+    and Phase D is the user browsing the marketplace.}
+  \label{fig:developer-flow}
+\end{figure*}
+
+\subsection{Payment Layer}
+\label{sec:payment-layer}
+
+The payment layer settles each \texttt{execute\_agent} call using
+x402~\cite{x402whitepaper}. When the orchestrator posts a task to an external
+agent's endpoint, the agent replies with HTTP~402 and its payment
+requirements. The orchestrator then creates an EIP-3009 \emph{transfer
+with authorization}~\cite{eip3009} for the requested amount of USDC and
+retries the request with the signed authorization in the
+\texttt{X-PAYMENT} header. The external agent forwards the payment to an
+x402 facilitator, which settles it on Base Sepolia, and then
+returns the result. We follow the standard x402 settlement sequence and
+refer the reader to the x402 specification for the detailed message
+diagram rather than reproducing it here.
+
+UniAgent extends this baseline in two ways. First, signing is
+\emph{delegated}: through Privy, the user authorizes the
+server to sign EIP-3009 transfers on their behalf, so payments are both
+gasless and non-custodial---the server can move funds within the
+user's policy but never holds the user's private key. Second, payment
+is bounded by the server-side budget policy described above, so
+delegation never becomes unbounded authority. After a successful
+execution, the system records an off-chain attestation of the
+interaction's quality and reliability using the Ethereum Attestation
+Service (EAS)~\cite{eas}; these attestations feed back into the
+discovery ranking of Section~\ref{sec:orchestration-layer}, closing the
+loop between payment and reputation. A full evaluation of this
+reputation feedback is left to future work.
+
+\subsection{Integration Design}
+\label{sec:integration-design}
+
+Figure~\ref{fig:user-flow} shows how the layers combine into a single
+end-to-end experience. After the user authenticates with Privy and
+submits a task, the web application opens a server-sent events (SSE)
+stream and forwards the task to the orchestrator. The orchestrator runs
+the ReAct loop---reasoning about the task, discovering agents
+(marketplace layer), executing the chosen agent with x402 payment
+(payment layer), and, when a payment exceeds the budget threshold,
+pausing for human-in-the-loop approval. Throughout, intermediate
+events---reasoning steps, tool calls, payments, and partial
+results---are streamed back to the UI over SSE, so the user sees the
+task unfold in real time rather than waiting for a single opaque
+response.
+
+The value of the design comes from the combination rather than any
+single protocol. A2A makes agents callable across organizations;
+ERC-8004 makes them discoverable and identifiable without a central
+directory; x402 makes them payable with a single signed request; and
+the orchestration layer ties these together so that a user expresses a
+goal in natural language and the system carries out the underlying
+discovery, delegation, and payment automatically.
+
+\section{Implementation}
+\label{sec:implementation}
+
+We implemented UniAgent as a TypeScript monorepo. The web application
+uses Next.js and React, with Privy for social login and
+delegated wallets. The orchestration service is a separate process
+built on LangChain with a commercial LLM, exposing the
+two tools described above and streaming results to the web app over SSE.
+The marketplace cache is stored in PostgreSQL and accessed through an
+ORM, with all database access confined to a dedicated data-access layer.
+Smart contracts are written in Solidity and developed with Hardhat.
+Payments use the x402 protocol with USDC on the Base Sepolia testnet.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{uniagent-user-flow-chart}
+  \caption{End-to-end execution flow. The orchestrator runs a ReAct
+    loop that discovers, inspects, and executes external A2A agents,
+    settling each call over x402; payments above the user's budget
+    threshold trigger a human-in-the-loop approval. Progress is
+    streamed to the UI over SSE.}
+  \Description{A swimlane diagram with lanes for the user, web app,
+    orchestrator, the LLM API, the PostgreSQL cache, external A2A
+    agents, and the payment and chain components. The orchestrator
+    alternates between reason and act steps: discover agents, execute
+    an agent, optionally branch to a human-in-the-loop approval, then
+    perform x402 payment, record an evaluation, and finally stream the
+    result back to the user.}
+  \label{fig:user-flow}
+\end{figure*}
+
+\paragraph{Deployment.}
+\begin{sloppypar}
+The ERC-8004 \texttt{AgentIdentityRegistry} is deployed on Base Sepolia
+(chain ID~84532) at
+\texttt{0x864A0C05\allowbreak 4AA6E9DBcC\allowbreak DB36a44a14\allowbreak A5A7bc81EB\allowbreak 92},
+and payments are settled in the testnet USDC token at
+\texttt{0x036CbD53\allowbreak 842c542663\allowbreak 4e7929541e\allowbreak C2318f3dCF\allowbreak 7e},
+which implements EIP-3009. An EAS schema is registered to record
+per-interaction quality and reliability attestations.
+\end{sloppypar}
+
+\paragraph{Demonstration scenario.}
+For the prototype we focus on a travel-planning use case with two agent
+categories, \emph{flight} and \emph{hotel}, served as external A2A
+agents. A request such as ``plan a three-day trip to Paris'' is
+decomposed by the orchestrator into a flight sub-task and a hotel
+sub-task, each resolved through discovery and paid execution, and the
+results are combined into a single itinerary. The agents are
+deliberately operated as independent A2A services so that the flow
+exercises real cross-service discovery, communication, and payment
+rather than in-process calls.
+
+Figures~\ref{fig:ui-chat}--\ref{fig:ui-budget} illustrate the user
+interface. Figure~\ref{fig:ui-chat} shows the chat view, where the user
+enters a task in natural language and watches reasoning steps, tool
+calls, and streamed responses appear over SSE. Figure~\ref{fig:ui-market}
+shows the marketplace view, which lists registered agents together with
+their on-chain ERC-8004 metadata. Figure~\ref{fig:ui-budget} shows the
+budget-approval dialog that appears when a payment exceeds the user's
+\texttt{autoApproveThreshold}.
+
+%% TODO: replace the three placeholders below with actual screenshots.
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox[c][3.2cm][c]{0.88\linewidth}{\centering\itshape
+    Placeholder: chat UI screenshot \\ (natural-language input,
+    tool-call log, SSE streaming response). To be added.}}
+  \caption{Chat UI: natural-language task input with streamed reasoning
+    steps, tool calls, and responses.}
+  \Description{Placeholder for a screenshot of the chat interface.}
+  \label{fig:ui-chat}
 \end{figure}
 
-Your figures should contain a caption which describes the figure to
-the reader.
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox[c][3.2cm][c]{0.88\linewidth}{\centering\itshape
+    Placeholder: marketplace screenshot \\ (list of registered agents
+    with on-chain ERC-8004 metadata). To be added.}}
+  \caption{Marketplace UI: registered agents and their on-chain
+    ERC-8004 metadata.}
+  \Description{Placeholder for a screenshot of the marketplace listing.}
+  \label{fig:ui-market}
+\end{figure}
 
-Figure captions are placed {\itshape below} the figure.
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox[c][3.2cm][c]{0.88\linewidth}{\centering\itshape
+    Placeholder: budget-approval screenshot \\ (approval dialog shown
+    when a payment exceeds the threshold). To be added.}}
+  \caption{Budget-approval UI: the dialog shown when a payment exceeds
+    the user's \texttt{autoApproveThreshold}.}
+  \Description{Placeholder for a screenshot of the budget-approval
+    dialog.}
+  \label{fig:ui-budget}
+\end{figure}
 
-Every figure should also have a figure description unless it is purely
-decorative. These descriptions convey what’s in the image to someone
-who cannot see it. They are also used by search engine crawlers for
-indexing images, and when images cannot be loaded.
+\section{Evaluation}
+\label{sec:evaluation}
 
-A figure description must be unformatted plain text less than 2000
-characters long (including spaces).  {\bfseries Figure descriptions
-  should not repeat the figure caption – their purpose is to capture
-  important information that is not already provided in the caption or
-  the main text of the paper.} For figures that convey important and
-complex new information, a short text description may not be
-adequate. More complex alternative descriptions can be placed in an
-appendix and referenced in a short figure description. For example,
-provide a data table capturing the information in a bar chart, or a
-structured list representing a graph.  For additional information
-regarding how best to write figure descriptions and why doing this is
-so important, please see
-\url{https://www.acm.org/publications/taps/describing-figures/}.
+Our evaluation asks whether the integrated architecture can carry a
+realistic user task through discovery, delegation, and payment
+end to end, and at what cost. \emph{The quantitative results in this
+section are placeholders to be replaced with measured values
+(marked \texttt{XX}).}
 
-\subsection{The ``Teaser Figure''}
+\subsection{Experimental Setup}
+We deploy UniAgent on the Base Sepolia testnet with two categories of
+external A2A agents, flight and hotel. We define a task set spanning
+three classes: single-agent tasks, multi-agent tasks that require
+chaining two agents, and error-handling tasks designed to trigger
+fallback behavior. For each task we measure the end-to-end success
+rate, the wall-clock completion time, and the on-chain payment cost.
 
-A ``teaser figure'' is an image, or set of images in one figure, that
-are placed after all author and affiliation information, and before
-the body of the article, spanning the page. If you wish to have such a
-figure in your article, place the command immediately before the
-\verb|\maketitle| command:
-\begin{verbatim}
-  \begin{teaserfigure}
-    \includegraphics[width=\textwidth]{sampleteaser}
-    \caption{figure caption}
-    \Description{figure description}
-  \end{teaserfigure}
-\end{verbatim}
-
-\section{Citations and Bibliographies}
-
-The use of \BibTeX\ for the preparation and formatting of one's
-references is strongly recommended. Authors' names should be complete
---- use full first names (``Donald E. Knuth'') not initials
-(``D. E. Knuth'') --- and the salient identifying features of a
-reference should be included: title, year, volume, number, pages,
-article DOI, etc.
-
-The bibliography is included in your source document with these two
-commands, placed just before the \verb|\end{document}| command:
-\begin{verbatim}
-  \bibliographystyle{ACM-Reference-Format}
-  \bibliography{bibfile}
-\end{verbatim}
-where ``\verb|bibfile|'' is the name, without the ``\verb|.bib|''
-suffix, of the \BibTeX\ file.
-
-Citations and references are numbered by default. A small number of
-ACM publications have citations and references formatted in the
-``author year'' style; for these exceptions, please include this
-command in the {\bfseries preamble} (before the command
-``\verb|\begin{document}|'') of your \LaTeX\ source:
-\begin{verbatim}
-  \citestyle{acmauthoryear}
-\end{verbatim}
-
-
-  Some examples.  A paginated journal article \cite{Abril07}, an
-  enumerated journal article \cite{Cohen07}, a reference to an entire
-  issue \cite{JCohen96}, a monograph (whole book) \cite{Kosiur01}, a
-  monograph/whole book in a series (see 2a in spec. document)
-  \cite{Harel79}, a divisible-book such as an anthology or compilation
-  \cite{Editor00} followed by the same example, however we only output
-  the series if the volume number is given \cite{Editor00a} (so
-  Editor00a's series should NOT be present since it has no vol. no.),
-  a chapter in a divisible book \cite{Spector90}, a chapter in a
-  divisible book in a series \cite{Douglass98}, a multi-volume work as
-  book \cite{Knuth97}, a couple of articles in a proceedings (of a
-  conference, symposium, workshop for example) (paginated proceedings
-  article) \cite{Andler79, Hagerup1993}, a proceedings article with
-  all possible elements \cite{Smith10}, an example of an enumerated
-  proceedings article \cite{VanGundy07}, an informally published work
-  \cite{Harel78}, a couple of preprints \cite{Bornmann2019,
-    AnzarootPBM14}, a doctoral dissertation \cite{Clarkson85}, a
-  master's thesis: \cite{anisi03}, an online document / world wide web
-  resource \cite{Thornburg01, Ablamowicz07, Poker06}, a video game
-  (Case 1) \cite{Obama08} and (Case 2) \cite{Novak03} and \cite{Lee05}
-  and (Case 3) a patent \cite{JoeScientist001}, work accepted for
-  publication \cite{rous08}, 'YYYYb'-test for prolific author
-  \cite{SaeediMEJ10} and \cite{SaeediJETC10}. Other cites might
-  contain 'duplicate' DOI and URLs (some SIAM articles)
-  \cite{Kirschmer:2010:AEI:1958016.1958018}. Boris / Barbara Beeton:
-  multi-volume works as books \cite{MR781536} and \cite{MR781537}. A
-  presentation~\cite{Reiser2014}. An article under
-  review~\cite{Baggett2025}. A
-  couple of citations with DOIs:
-  \cite{2004:ITE:1009386.1010128,Kirschmer:2010:AEI:1958016.1958018}. Online
-  citations: \cite{TUGInstmem, Thornburg01, CTANacmart}.
-  Artifacts: \cite{R} and \cite{UMassCitations}.
-
-\section{Acknowledgments}
-
-Identification of funding sources and other support, and thanks to
-individuals and groups that assisted in the research and the
-preparation of the work should be included in an acknowledgment
-section, which is placed just before the reference section in your
-document.
-
-This section has a special environment:
-\begin{verbatim}
-  \begin{acks}
-  ...
-  \end{acks}
-\end{verbatim}
-so that the information contained therein can be more easily collected
-during the article metadata extraction phase, and to ensure
-consistency in the spelling of the section heading.
-
-Authors should not prepare this section as a numbered or unnumbered {\verb|\section|}; please use the ``{\verb|acks|}'' environment.
-
-\section{Appendices}
-
-If your work needs an appendix, add it before the
-``\verb|\end{document}|'' command at the conclusion of your source
-document.
-
-Start the appendix with the ``\verb|appendix|'' command:
-\begin{verbatim}
-  \appendix
-\end{verbatim}
-and note that in the appendix, sections are lettered, not
-numbered. This document has two appendices, demonstrating the section
-and subsection identification method.
-
-\section{Multi-language papers}
-
-Papers may be written in languages other than English or include
-titles, subtitles, keywords and abstracts in different languages (as a
-rule, a paper in a language other than English should include an
-English title and an English abstract).  Use \verb|language=...| for
-every language used in the paper.  The last language indicated is the
-main language of the paper.  For example, a French paper with
-additional titles and abstracts in English and German may start with
-the following command
-\begin{verbatim}
-\documentclass[sigconf, language=english, language=german,
-               language=french]{acmart}
-\end{verbatim}
-
-The title, subtitle, keywords and abstract will be typeset in the main
-language of the paper.  The commands \verb|\translatedXXX|, \verb|XXX|
-begin title, subtitle and keywords, can be used to set these elements
-in the other languages.  The environment \verb|translatedabstract| is
-used to set the translation of the abstract.  These commands and
-environment have a mandatory first argument: the language of the
-second argument.  See \verb|sample-sigconf-i13n.tex| file for examples
-of their usage.
-
-\section{SIGCHI Extended Abstracts}
-
-The ``\verb|sigchi-a|'' template style (available only in \LaTeX\ and
-not in Word) produces a landscape-orientation formatted article, with
-a wide left margin. Three environments are available for use with the
-``\verb|sigchi-a|'' template style, and produce formatted output in
-the margin:
+\subsection{Scenarios and End-to-End Success Rate}
+We use four scenarios:
 \begin{description}
-\item[\texttt{sidebar}:]  Place formatted text in the margin.
-\item[\texttt{marginfigure}:] Place a figure in the margin.
-\item[\texttt{margintable}:] Place a table in the margin.
+  \item[S1 (single agent):] ``search for a hotel in Tokyo'' should be
+    resolved by a single hotel agent.
+  \item[S2 (multi-agent):] ``plan a three-day trip to Paris'' should be
+    decomposed and resolved by a flight agent and a hotel agent in
+    sequence.
+  \item[S3 (budget approval):] a task whose cost exceeds the threshold
+    should pause and require user approval (cf.\
+    Figure~\ref{fig:ui-budget}).
+  \item[S4 (agent failure):] when a selected agent does not respond,
+    the orchestrator should fall back to an alternative.
 \end{description}
 
-%%
-%% The acknowledgments section is defined using the "acks" environment
-%% (and NOT an unnumbered section). This ensures the proper
-%% identification of the section in the article metadata, and the
-%% consistent spelling of the heading.
+Table~\ref{tab:scenarios} reports the success rate per scenario over
+$N=\texttt{XX}$ runs each. We also classify failures into LLM selection
+errors, A2A communication errors, and x402 payment timeouts.
+
+\begin{table}[t]
+  \caption{End-to-end success rate by scenario (placeholder values).}
+  \label{tab:scenarios}
+  \small
+  \begin{tabular}{@{}llcc@{}}
+    \toprule
+    Scenario & Type & Runs & Success rate \\
+    \midrule
+    S1 & single agent     & \texttt{XX} & \texttt{XX}\% \\
+    S2 & multi-agent       & \texttt{XX} & \texttt{XX}\% \\
+    S3 & budget approval   & \texttt{XX} & \texttt{XX}\% \\
+    S4 & agent failure     & \texttt{XX} & \texttt{XX}\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Payment Cost and Latency}
+Table~\ref{tab:cost} reports the additional latency introduced by the
+x402 payment step and the on-chain gas cost per task as measured on Base
+Sepolia. The payment overhead is expected to be small relative to the
+LLM reasoning and external-agent execution time.
+
+\begin{table}[t]
+  \caption{Payment latency and cost per task (placeholder values).}
+  \label{tab:cost}
+  \small
+  \begin{tabular}{@{}lc@{}}
+    \toprule
+    Metric & Value \\
+    \midrule
+    x402 settlement latency (ms) & \texttt{XX} \\
+    Gas per task (gas units)     & \texttt{XX} \\
+    End-to-end task time (s)     & \texttt{XX} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Comparison with Existing Approaches}
+Table~\ref{tab:comparison} compares UniAgent feature-by-feature with the
+protocol-level study of Vaziry et al.~\cite{vaziry2025} and with a
+centralized platform such as the GPT Store~\cite{gptstore}. UniAgent
+matches the end-to-end convenience of the centralized platform while
+keeping registration, discovery, and payment open and vendor-neutral, and it adds the
+orchestration layer that the protocol-level study lacks. The centralized platform achieves an end-to-end flow only within
+a closed environment, whereas UniAgent does so across independent
+providers.
+
+\begin{table}[t]
+  \caption{Feature comparison.}
+  \label{tab:comparison}
+  \small
+  \begin{tabular}{@{}p{0.20\linewidth}p{0.18\linewidth}p{0.18\linewidth}p{0.22\linewidth}@{}}
+    \toprule
+    Feature & Vaziry et al. & UniAgent & Centralized (GPT Store) \\
+    \midrule
+    Registration & Custom contract & ERC-8004 & Platform-specific \\
+    Discovery & Proposed, not integrated & Registry + cache & In-platform search \\
+    Payment & x402 PoC & x402 + budget & Platform billing \\
+    Orchestration & None & LLM ReAct & Platform-dependent \\
+    End-to-end flow & No & Yes & Yes (closed) \\
+    Vendor-neutral & Yes & Yes & No \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Discussion}
+\label{sec:discussion}
+
+The prototype shows that an open, integrated marketplace is feasible:
+once registration, discovery, communication, and payment are each
+expressed as open protocols, an LLM orchestrator can stitch them into an
+autonomous end-to-end flow. We expect the dominant cost to be LLM
+reasoning and external-agent execution rather than payment, since x402
+settlement adds only a single signed request and one on-chain transfer.
+
+UniAgent has several limitations. It currently runs on a testnet, so
+real economic incentives and adversarial behavior are not yet exercised.
+The evaluation uses two agent categories (flight and hotel); broader
+domains and a larger agent population remain to be tested. The discovery
+ranking and the EAS-based reputation feedback are presented here as
+design elements and have not been validated at scale. Finally,
+end-to-end quality depends on the LLM's selection accuracy: prior
+benchmarks show that reasoning, decision-making, and instruction
+following remain key failure modes for LLM
+agents~\cite{liu2024agentbench}, so a poor choice among candidates can
+lower task success even when every protocol behaves correctly.
+
+Future work includes large-scale evaluation of the discovery and
+reputation mechanisms, hardening the system for mainnet (security and
+key management for delegated payments), refining the economic model for
+staking and pricing, and extending orchestration to richer multi-agent
+workflows.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented UniAgent, a decentralized agent marketplace that integrates
+the A2A communication protocol, x402 micropayments, and ERC-8004
+on-chain identity under an LLM-based orchestration layer. Whereas prior
+work demonstrated these protocols in isolation or as one-to-one
+interactions, and centralized platforms offer end-to-end convenience
+only within a closed ecosystem, UniAgent shows how to combine open
+protocols into a coherent, vendor-neutral architecture in which a single
+natural-language request is autonomously decomposed into agent
+discovery, delegation, and payment. A working prototype on Base Sepolia
+demonstrates the full flow over independent flight- and hotel-booking
+agents. We believe this integrated design is a step toward an open ``web
+of agents'' in which users delegate tasks across organizational
+boundaries as easily as they browse the web today.
+
 \begin{acks}
-To Robert, for the bagels and explaining CMYK and color spaces.
+%% TODO: add funding sources and acknowledgments.
 \end{acks}
 
-%%
-%% The next two lines define the bibliography style to be used, and
-%% the bibliography file.
 \bibliographystyle{ACM-Reference-Format}
-\bibliography{sample-base}
-
-
-%%
-%% If your work has an appendix, this is the place to put it.
-\appendix
-
-\section{Research Methods}
-
-\subsection{Part One}
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi
-malesuada, quam in pulvinar varius, metus nunc fermentum urna, id
-sollicitudin purus odio sit amet enim. Aliquam ullamcorper eu ipsum
-vel mollis. Curabitur quis dictum nisl. Phasellus vel semper risus, et
-lacinia dolor. Integer ultricies commodo sem nec semper.
-
-\subsection{Part Two}
-
-Etiam commodo feugiat nisl pulvinar pellentesque. Etiam auctor sodales
-ligula, non varius nibh pulvinar semper. Suspendisse nec lectus non
-ipsum convallis congue hendrerit vitae sapien. Donec at laoreet
-eros. Vivamus non purus placerat, scelerisque diam eu, cursus
-ante. Etiam aliquam tortor auctor efficitur mattis.
-
-\section{Online Resources}
-
-Nam id fermentum dui. Suspendisse sagittis tortor a nulla mollis, in
-pulvinar ex pretium. Sed interdum orci quis metus euismod, et sagittis
-enim maximus. Vestibulum gravida massa ut felis suscipit
-congue. Quisque mattis elit a risus ultrices commodo venenatis eget
-dui. Etiam sagittis eleifend elementum.
-
-Nam interdum magna at lectus dignissim, ac dignissim lorem
-rhoncus. Maecenas eu arcu ac neque placerat aliquam. Nunc pulvinar
-massa et mattis lacinia.
+\bibliography{references}
 
 \end{document}
-\endinput
-%%
-%% End of file `sample-sigconf.tex'.
