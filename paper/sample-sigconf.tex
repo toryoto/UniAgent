@@ -19,6 +19,20 @@
 
 %% Figure assets live in paper/images/
 \graphicspath{{images/}}
+\usepackage{subcaption}
+
+%% Give LaTeX more freedom when placing floats so that figures and tables
+%% stay on (or nearer) the page that references them instead of drifting.
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{4}
+\setcounter{dbltopnumber}{3}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.5}
+\renewcommand{\dbltopfraction}{0.92}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.72}
+\renewcommand{\dblfloatpagefraction}{0.72}
 
 %% Rights management information. Replace the SAMPLE values below with
 %% the commands provided when the rights form is completed.
@@ -34,22 +48,24 @@
 
 \title[UniAgent: An Integrated Marketplace for Autonomous Agents]{UniAgent: Integrating A2A, x402, and ERC-8004 for Autonomous Agent Marketplaces}
 
-%% TODO: replace the placeholder authors and affiliations below.
-\author{Ben Trovato}
-\authornote{Both authors contributed equally to this research.}
-\email{trovato@corporation.com}
-\orcid{1234-5678-9012}
-\author{G.K.M. Tobin}
-\authornotemark[1]
-\email{webmaster@marysville-ohio.com}
+\author{M. Fahim Ferdous Khan}
+\email{khan@iniad.org}
 \affiliation{%
-  \institution{Institute for Clarity in Documentation}
-  \city{Dublin}
-  \state{Ohio}
-  \country{USA}
+  \institution{Faculty of Information Networking for Innovation and Design (INIAD)}
+  \institution{Toyo University}
+  \city{Tokyo}
+  \country{Japan}
+}
+\author{Ryoto Taga}
+\email{ryoto.taga12@gmail.com}
+\affiliation{%
+  \institution{Faculty of Information Networking for Innovation and Design (INIAD)}
+  \institution{Toyo University}
+  \city{Tokyo}
+  \country{Japan}
 }
 
-\renewcommand{\shortauthors}{Trovato et al.}
+\renewcommand{\shortauthors}{Khan and Taga}
 
 \begin{abstract}
   Large language model (LLM) agents are increasingly able to act on
@@ -69,11 +85,11 @@
   three-layer design separates a \emph{marketplace layer} (an on-chain
   ERC-8004 registry kept in sync with an off-chain cache through
   blockchain event webhooks), an \emph{orchestration layer} (a ReAct
-  agent that discovers, selects, and invokes external agents through
-  two tools), and a \emph{payment layer} (x402 with delegated EIP-3009
-  signatures and a server-side budget policy). We describe a working
+  agent that discovers, inspects, and invokes external agents through
+  three tools), and a \emph{payment layer} (x402 with delegated EIP-3009
+  signatures). We describe a working
   prototype deployed on the Base Sepolia testnet and report an
-  end-to-end evaluation over flight- and hotel-booking agents. UniAgent
+  end-to-end evaluation over flight- and hotel-search agents. UniAgent
   shows that open communication, on-chain identity, and
   protocol-native micropayments can be combined into a coherent,
   vendor-neutral marketplace in which user tasks are carried out
@@ -172,8 +188,9 @@ payment functions that a centralized platform bundles together and
 re-implements them on open protocols---A2A and x402---and a
 standardized on-chain identity layer---ERC-8004. On top of these, an
 LLM ReAct agent~\cite{yao2023react} acts as an orchestration layer that
-analyzes the task, discovers candidate agents, selects among them, and
-executes them with automatic payment.
+analyzes the task, discovers candidate agents, inspects their
+specifications, selects among them, and executes them with automatic
+payment.
 
 \paragraph{Contributions.} This paper makes three contributions:
 \begin{enumerate}
@@ -182,13 +199,13 @@ executes them with automatic payment.
     as three loosely coupled layers (marketplace, orchestration,
     payment).
   \item \textbf{An autonomous LLM pipeline} in which a ReAct agent
-    drives task analysis, agent discovery, selection, and payment
-    through two tools (\texttt{discover\_agents} and
-    \texttt{execute\_agent}), with a server-side budget policy that
-    keeps spending under user control.
+    drives task analysis, agent discovery, specification inspection,
+    and paid execution through three tools (\texttt{discover\_agents},
+    \texttt{fetch\_agent\_spec}, and
+    \texttt{execute\_and\_evaluate\_agent}).
   \item \textbf{A working prototype and end-to-end demonstration} on
     the Base Sepolia testnet, exercising the full flow over external
-    flight- and hotel-booking agents and reporting success rate,
+    flight- and hotel-search agents and reporting success rate,
     latency, and on-chain payment cost.
 \end{enumerate}
 
@@ -228,9 +245,10 @@ submits the transaction on chain, and finally returns the resource.
 Payments are denominated in stablecoins such as USDC and are made
 gasless for the payer using EIP-3009 \emph{transfer with
 authorization}~\cite{eip3009}, which lets a user authorize a transfer
-with an off-chain signature that a third party submits. We rely on this
-property in Section~\ref{sec:payment-layer} to delegate payment to the
-server without giving it custody of user funds.
+with an off-chain signature that a third party submits. UniAgent
+instantiates this pattern in Section~\ref{sec:payment-layer} and
+Figure~\ref{fig:x402-sequence}, delegating EIP-3009 signing to the
+agent service through Privy without giving it custody of user funds.
 
 \subsection{On-Chain Agent Identity (ERC-8004)}
 ERC-8004~\cite{erc8004} standardizes a registry of agent identities on
@@ -250,9 +268,9 @@ observing the result, accumulating context until the task is done. This
 loop is a good fit for orchestration, because the set of agents,
 prices, and intermediate results is not known in advance and must be
 explored at run time. UniAgent implements the orchestration layer as a
-ReAct agent built with LangChain, exposing exactly two tools---one for
-discovery and one for execution---so that the model can operate the
-marketplace autonomously.
+ReAct agent built with LangChain, exposing three tools---for discovery,
+specification lookup, and paid execution---so that the model can operate
+the marketplace autonomously.
 
 \section{Related Work}
 \label{sec:related}
@@ -272,8 +290,8 @@ or payment, which is precisely what our marketplace layer adds.
 x402~\cite{x402whitepaper} attaches stablecoin transfers to ordinary
 HTTP requests and settles them on a smart-contract chain. We build on
 x402 because it is open, HTTP-native, and requires no proprietary
-intermediary, and we extend it with delegated signatures and a
-server-side budget policy (Section~\ref{sec:payment-layer}).
+intermediary, and we extend it with delegated EIP-3009 signing through
+Privy (Section~\ref{sec:payment-layer}).
 
 \paragraph{Decentralized agent identity and closest prior work.}
 Vaziry et al.~\cite{vaziry2025} represent each agent's card as an
@@ -291,7 +309,7 @@ building blocks and contributes the missing layer above them: an
 LLM orchestrator that, given a single user task, autonomously discovers
 agents from a standardized registry, selects among them, pays them over
 x402, and returns an integrated result---together with the
-user-facing experience (chat, streaming, and budget approval) that this
+user-facing experience (chat and streaming) that this
 requires.
 
 \begin{table}[t]
@@ -309,11 +327,11 @@ requires.
     Discovery & Four methods proposed, not integrated
       & Registry plus webhook-synced cache \\
     Payment & x402 over A2A, demonstrated
-      & x402 with delegated signing and budget policy \\
+      & x402 with delegated signing \\
     Orchestration & None (fixed agent A\,$\to$\,B)
       & LLM ReAct agent discovers, selects, executes \\
     User experience & Protocol-level proof of concept
-      & Chat UI, streaming, budget approval \\
+      & Chat UI and SSE streaming \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -394,56 +412,6 @@ marketplace UI reads from this cache to list agents quickly and cheaply
 cache is rebuilt from on-chain events, the cache can be regenerated at
 any time without loss of authority.
 
-\subsection{Orchestration Layer}
-\label{sec:orchestration-layer}
-
-The orchestration layer is a ReAct agent~\cite{yao2023react} built with
-LangChain and driven by a commercial LLM. It receives
-the user's natural-language task and operates the marketplace through
-two tools:
-
-\begin{itemize}
-  \item \texttt{discover\_agents(category, query)} returns a short list
-    of candidate agents for a given need, drawn from the marketplace
-    cache.
-  \item \texttt{execute\_agent(agentId, input)} invokes a chosen agent
-    over A2A and pays for it over x402, returning the agent's result.
-\end{itemize}
-
-Given a task such as planning a trip, the agent reasons about which
-sub-tasks are needed, calls \texttt{discover\_agents} for each, inspects
-the candidates, selects one, and calls \texttt{execute\_agent}; it then
-observes the result and decides whether further steps are required. This
-loop continues until the task is complete, at which point the agent
-composes a final answer. Crucially, the model is never given a fixed
-plan or a hard-coded list of agents---both the decomposition and the
-choice of providers emerge from the ReAct loop at run time.
-
-\paragraph{Discovery ranking.}
-To keep the candidate list short and useful, \texttt{discover\_agents}
-does not return every matching agent. Instead, the marketplace ranks
-candidates from the cache using a composite score that combines an
-agent's reliability and quality (estimated from past attestations), the
-size of its on-chain deposit, and a small bonus for newly registered
-agents, and returns the top three. The reliability and quality
-estimates are smoothed toward a global average so that agents with few
-reviews are neither unfairly promoted nor permanently excluded
-(mitigating the cold-start problem), and a small exploration term
-occasionally surfaces a new agent so that it can accumulate a track
-record. We describe the ranking qualitatively here, as a way to give the
-LLM a manageable and balanced set of options; its exact form is an
-engineering parameter rather than a contribution of this paper.
-
-\paragraph{Budget control.}
-Because the orchestrator can spend real funds, spending is governed by a
-server-side budget policy. Each user has an \texttt{autoApproveThreshold}
-stored in the database; payments below it proceed automatically, while
-payments above it pause the loop and request explicit user approval
-through the UI, following human-in-the-loop patterns common in
-multi-agent LLM frameworks~\cite{wu2023autogen}. This threshold is
-always read on the server and is never taken from the client, so a
-manipulated client cannot raise its own spending limit.
-
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{uniagent-agent-developer-flow-chart}
@@ -463,34 +431,114 @@ manipulated client cannot raise its own spending limit.
   \label{fig:developer-flow}
 \end{figure*}
 
+\subsection{Orchestration Layer}
+\label{sec:orchestration-layer}
+
+The orchestration layer is a ReAct agent~\cite{yao2023react} built with
+LangChain and driven by a commercial LLM. It receives the user's
+natural-language task and operates the marketplace through three tools:
+
+\begin{sloppypar}
+\begin{itemize}
+  \item \texttt{discover\_agents(category, query)} returns a short list
+    of candidate agents for a given need, drawn from the marketplace
+    cache (Section~\ref{sec:marketplace-layer}).
+  \item \texttt{fetch\_agent\_spec(agentId)} retrieves the candidate's
+    Agent Card from its well-known URL and, when available, its OpenAPI
+    specification. This lookup is free of charge and lets the LLM
+    inspect skills, input modes, endpoint details, and x402 pricing
+    before committing to a paid call.
+  \item \texttt{execute\_and\_evaluate\_agent(agentId, category,
+    input)} invokes the chosen agent over A2A, settles payment over
+    x402 (Section~\ref{sec:payment-layer}), verifies the resulting
+    on-chain transaction, and records a quality attestation through EAS.
+\end{itemize}
+\end{sloppypar}
+
+\paragraph{Orchestration loop.}
+Given a task such as planning a trip, the ReAct agent first decomposes
+it into sub-tasks (e.g., a flight search and a hotel search). For each
+sub-task it calls \texttt{discover\_agents} to obtain up to three ranked
+candidates, then typically calls \texttt{fetch\_agent\_spec} on the most
+promising ones to compare capabilities and prices. After selecting an
+agent, it calls \texttt{execute\_and\_evaluate\_agent}, observes the
+result, and repeats the loop until the overall task is complete, at which
+point it composes a final answer. Figure~\ref{fig:ui-chat} illustrates
+this pattern in the chat UI, where multiple discovery and specification
+lookups precede execution. Crucially, the model is never given a fixed
+plan or a hard-coded list of agents---both the decomposition and the
+choice of providers emerge from the ReAct loop at run time.
+
+\paragraph{Discovery ranking.}
+To keep the candidate list short and useful, \texttt{discover\_agents}
+does not return every matching agent. Instead, the marketplace ranks
+candidates from the cache using a composite score that combines an
+agent's reliability and quality (estimated from past attestations), the
+size of its on-chain deposit, and a small bonus for newly registered
+agents, and returns the top three. The reliability and quality
+estimates are smoothed toward a global average so that agents with few
+reviews are neither unfairly promoted nor permanently excluded
+(mitigating the cold-start problem), and a small exploration term
+occasionally surfaces a new agent so that it can accumulate a track
+record. We describe the ranking qualitatively here, as a way to give the
+LLM a manageable and balanced set of options; its exact form is an
+engineering parameter rather than a contribution of this paper.
+
 \subsection{Payment Layer}
 \label{sec:payment-layer}
 
-The payment layer settles each \texttt{execute\_agent} call using
-x402~\cite{x402whitepaper}. When the orchestrator posts a task to an external
-agent's endpoint, the agent replies with HTTP~402 and its payment
-requirements. The orchestrator then creates an EIP-3009 \emph{transfer
-with authorization}~\cite{eip3009} for the requested amount of USDC and
-retries the request with the signed authorization in the
-\texttt{X-PAYMENT} header. The external agent forwards the payment to an
-x402 facilitator, which settles it on Base Sepolia, and then
-returns the result. We follow the standard x402 settlement sequence and
-refer the reader to the x402 specification for the detailed message
-diagram rather than reproducing it here.
+\begin{sloppypar}
+The payment layer settles each paid invocation issued by
+\texttt{execute\_and\_evaluate\_agent} using
+x402~\cite{x402whitepaper}. Figure~\ref{fig:x402-sequence} traces the
+full exchange among five parties: the agent service (via its internal
+\texttt{execute\_agent} handler), a Privy delegated wallet, the external
+A2A agent, an x402 facilitator, and USDC on the Base Sepolia testnet. The
+orchestrator first posts an A2A task request to the agent's HTTP
+endpoint. The agent responds with HTTP~402 and a \texttt{PAYMENT-REQUIRED}
+header that specifies the price, recipient (\texttt{payTo}), network, and
+payment scheme. The agent service then requests an EIP-3009 \emph{transfer
+with authorization}~\cite{eip3009} from Privy; Privy returns a signed
+payment payload (\texttt{from}, \texttt{to}, \texttt{value},
+\texttt{nonce}, and signature components) without exposing the user's
+private key to the server. The service retries the request with the
+payload in the \texttt{X-PAYMENT} header. The external agent verifies
+the payload through the facilitator's \texttt{/verify} endpoint, executes
+the task, and calls \texttt{/settle} so that the facilitator submits
+\texttt{transferWithAuthorization} on chain. Once the transaction is
+confirmed on Base Sepolia, the agent returns HTTP~200 with the task
+result and a \texttt{PAYMENT-RESPONSE} header.
+\end{sloppypar}
 
-UniAgent extends this baseline in two ways. First, signing is
-\emph{delegated}: through Privy, the user authorizes the
-server to sign EIP-3009 transfers on their behalf, so payments are both
-gasless and non-custodial---the server can move funds within the
-user's policy but never holds the user's private key. Second, payment
-is bounded by the server-side budget policy described above, so
-delegation never becomes unbounded authority. After a successful
-execution, the system records an off-chain attestation of the
-interaction's quality and reliability using the Ethereum Attestation
-Service (EAS)~\cite{eas}; these attestations feed back into the
-discovery ranking of Section~\ref{sec:orchestration-layer}, closing the
-loop between payment and reputation. A full evaluation of this
-reputation feedback is left to future work.
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.8\textwidth]{x402-sequencial}
+  \caption{x402 payment sequence in UniAgent. The agent service sends an
+    A2A task request, receives HTTP~402 with \texttt{PAYMENT-REQUIRED},
+    obtains a gasless EIP-3009 signature from a Privy delegated wallet,
+    retries with \texttt{X-PAYMENT}, and the external agent verifies and
+    settles the payment through an x402 facilitator on Base Sepolia before
+    returning the result. After settlement, the agent service records an
+    off-chain EAS attestation (not shown as a message arrow).}
+  \Description{A sequence diagram with five participants: Agent Service
+    execute\_agent, Privy Delegated Wallet, External A2A Agent, x402
+    Facilitator, and Base Sepolia USDC. Messages show POST with A2A task,
+    HTTP 402 with PAYMENT-REQUIRED, EIP-3009 signing via Privy, POST retry
+    with X-PAYMENT, facilitator verify and settle, on-chain USDC transfer,
+    HTTP 200 with result and PAYMENT-RESPONSE, and a note that EAS
+    attestation is recorded off-chain.}
+  \label{fig:x402-sequence}
+\end{figure*}
+
+This sequence follows the standard x402 verify-and-settle pattern; the
+main UniAgent extension is \emph{delegated signing} through Privy, which
+makes payments gasless and non-custodial while keeping the user's key
+under wallet-provider control. After a successful execution, the system
+records an off-chain quality and reliability attestation using
+the Ethereum Attestation Service (EAS)~\cite{eas}; these attestations
+feed back into the discovery ranking above, closing the loop between
+payment and reputation. A full evaluation of this feedback loop is left
+to future work.
 
 \subsection{Integration Design}
 \label{sec:integration-design}
@@ -500,9 +548,9 @@ end-to-end experience. After the user authenticates with Privy and
 submits a task, the web application opens a server-sent events (SSE)
 stream and forwards the task to the orchestrator. The orchestrator runs
 the ReAct loop---reasoning about the task, discovering agents
-(marketplace layer), executing the chosen agent with x402 payment
-(payment layer), and, when a payment exceeds the budget threshold,
-pausing for human-in-the-loop approval. Throughout, intermediate
+(marketplace layer), inspecting their Agent Cards through
+\texttt{fetch\_agent\_spec}, and executing the chosen agent with x402
+payment (payment layer). Throughout, intermediate
 events---reasoning steps, tool calls, payments, and partial
 results---are streamed back to the UI over SSE, so the user sees the
 task unfold in real time rather than waiting for a single opaque
@@ -516,102 +564,112 @@ the orchestration layer ties these together so that a user expresses a
 goal in natural language and the system carries out the underlying
 discovery, delegation, and payment automatically.
 
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{uniagent-user-flow-chart}
+  \caption{End-to-end execution flow. The orchestrator runs a ReAct
+    loop that discovers, inspects, and executes external A2A agents,
+    settling each call over x402. Progress is streamed to the UI over
+    SSE.}
+  \Description{A swimlane diagram with lanes for the user, web app,
+    orchestrator, the LLM API, the PostgreSQL cache, external A2A
+    agents, and the payment and chain components. The orchestrator
+    alternates between reason and act steps: discover agents, execute
+    an agent, perform x402 payment, record an evaluation, and finally
+    stream the result back to the user.}
+  \label{fig:user-flow}
+\end{figure*}
+
 \section{Implementation}
 \label{sec:implementation}
 
 We implemented UniAgent as a TypeScript monorepo. The web application
 uses Next.js and React, with Privy for social login and
 delegated wallets. The orchestration service is a separate process
-built on LangChain with a commercial LLM, exposing the
-two tools described above and streaming results to the web app over SSE.
+built on LangChain with a commercial LLM, exposing the three tools
+described in Section~\ref{sec:orchestration-layer} and streaming results
+to the web app over SSE.
 The marketplace cache is stored in PostgreSQL and accessed through an
 ORM, with all database access confined to a dedicated data-access layer.
 Smart contracts are written in Solidity and developed with Hardhat.
 Payments use the x402 protocol with USDC on the Base Sepolia testnet.
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{uniagent-user-flow-chart}
-  \caption{End-to-end execution flow. The orchestrator runs a ReAct
-    loop that discovers, inspects, and executes external A2A agents,
-    settling each call over x402; payments above the user's budget
-    threshold trigger a human-in-the-loop approval. Progress is
-    streamed to the UI over SSE.}
-  \Description{A swimlane diagram with lanes for the user, web app,
-    orchestrator, the LLM API, the PostgreSQL cache, external A2A
-    agents, and the payment and chain components. The orchestrator
-    alternates between reason and act steps: discover agents, execute
-    an agent, optionally branch to a human-in-the-loop approval, then
-    perform x402 payment, record an evaluation, and finally stream the
-    result back to the user.}
-  \label{fig:user-flow}
-\end{figure*}
-
 \paragraph{Deployment.}
-\begin{sloppypar}
-The ERC-8004 \texttt{AgentIdentityRegistry} is deployed on Base Sepolia
-(chain ID~84532) at
-\texttt{0x864A0C05\allowbreak 4AA6E9DBcC\allowbreak DB36a44a14\allowbreak A5A7bc81EB\allowbreak 92},
-and payments are settled in the testnet USDC token at
-\texttt{0x036CbD53\allowbreak 842c542663\allowbreak 4e7929541e\allowbreak C2318f3dCF\allowbreak 7e},
-which implements EIP-3009. An EAS schema is registered to record
-per-interaction quality and reliability attestations.
-\end{sloppypar}
+The prototype runs on the Base Sepolia testnet (chain ID~84532).
+Table~\ref{tab:deployment} lists the main on-chain components: the
+ERC-8004 \texttt{AgentIdentityRegistry} that anchors agent identity, the
+\texttt{AgentStaking} contract that holds agent deposits, and the
+EIP-3009--capable USDC token in which x402 payments are settled. An
+EAS schema is additionally registered to record per-interaction quality
+and reliability attestations.
+
+\begin{table}[H]
+  \caption{Primary on-chain deployments (Base Sepolia, chain ID~84532).}
+  \label{tab:deployment}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{@{}lp{0.52\linewidth}@{}}
+    \toprule
+    Contract & Address \\
+    \midrule
+    AgentIdentityRegistry
+      & \texttt{0x864A0C05\allowbreak 4AA6E9DBcC\allowbreak DB36a44a14\allowbreak A5A7bc81EB\allowbreak 92} \\
+    AgentStaking
+      & \texttt{0xC034e56E\allowbreak De7FC31579\allowbreak E41095A4e9\allowbreak 63D499e85d\allowbreak 39} \\
+    USDC
+      & \texttt{0x036CbD53\allowbreak 842c542663\allowbreak 4e7929541e\allowbreak C2318f3dCF\allowbreak 7e} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
 \paragraph{Demonstration scenario.}
 For the prototype we focus on a travel-planning use case with two agent
 categories, \emph{flight} and \emph{hotel}, served as external A2A
 agents. A request such as ``plan a three-day trip to Paris'' is
 decomposed by the orchestrator into a flight sub-task and a hotel
-sub-task, each resolved through discovery and paid execution, and the
-results are combined into a single itinerary. The agents are
+sub-task, each resolved through discovery, specification inspection, and
+paid execution, and the results are combined into a single itinerary. The agents are
 deliberately operated as independent A2A services so that the flow
 exercises real cross-service discovery, communication, and payment
 rather than in-process calls.
 
-Figures~\ref{fig:ui-chat}--\ref{fig:ui-budget} illustrate the user
-interface. Figure~\ref{fig:ui-chat} shows the chat view, where the user
-enters a task in natural language and watches reasoning steps, tool
-calls, and streamed responses appear over SSE. Figure~\ref{fig:ui-market}
-shows the marketplace view, which lists registered agents together with
-their on-chain ERC-8004 metadata. Figure~\ref{fig:ui-budget} shows the
-budget-approval dialog that appears when a payment exceeds the user's
-\texttt{autoApproveThreshold}.
+Figures~\ref{fig:ui-chat} and~\ref{fig:ui-market} illustrate the web
+interface. Figure~\ref{fig:ui-chat} shows the chat view: the user enters
+a task in natural language and observes the orchestrator's tool calls---
+\texttt{discover\_agents} to rank candidates,
+\texttt{fetch\_agent\_spec} to compare Agent Cards, and eventually
+\texttt{execute\_and\_evaluate\_agent}---streamed over SSE.
+Figure~\ref{fig:ui-market} shows the marketplace view, where users
+browse registered agents with category and price filters; each card
+displays on-chain ERC-8004 metadata and an x402 price badge.
 
-%% TODO: replace the three placeholders below with actual screenshots.
-\begin{figure}[t]
+\begin{figure*}[t]
   \centering
-  \fbox{\parbox[c][3.2cm][c]{0.88\linewidth}{\centering\itshape
-    Placeholder: chat UI screenshot \\ (natural-language input,
-    tool-call log, SSE streaming response). To be added.}}
-  \caption{Chat UI: natural-language task input with streamed reasoning
-    steps, tool calls, and responses.}
-  \Description{Placeholder for a screenshot of the chat interface.}
-  \label{fig:ui-chat}
-\end{figure}
-
-\begin{figure}[t]
-  \centering
-  \fbox{\parbox[c][3.2cm][c]{0.88\linewidth}{\centering\itshape
-    Placeholder: marketplace screenshot \\ (list of registered agents
-    with on-chain ERC-8004 metadata). To be added.}}
-  \caption{Marketplace UI: registered agents and their on-chain
-    ERC-8004 metadata.}
-  \Description{Placeholder for a screenshot of the marketplace listing.}
-  \label{fig:ui-market}
-\end{figure}
-
-\begin{figure}[t]
-  \centering
-  \fbox{\parbox[c][3.2cm][c]{0.88\linewidth}{\centering\itshape
-    Placeholder: budget-approval screenshot \\ (approval dialog shown
-    when a payment exceeds the threshold). To be added.}}
-  \caption{Budget-approval UI: the dialog shown when a payment exceeds
-    the user's \texttt{autoApproveThreshold}.}
-  \Description{Placeholder for a screenshot of the budget-approval
-    dialog.}
-  \label{fig:ui-budget}
-\end{figure}
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{chat-ui}
+    \caption{Chat view: natural-language task input with streamed tool
+      calls and ranked agent recommendations.}
+    \label{fig:ui-chat}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{marketplace}
+    \caption{Marketplace view: searchable listing of registered agents
+      with ERC-8004 metadata and x402 price badges.}
+    \label{fig:ui-market}
+  \end{subfigure}
+  \caption{The UniAgent web interface.}
+  \Description{Two screenshots of the UniAgent web interface. The left
+    panel is the chat view, showing a hotel search query in Japanese, a
+    log of completed discover and fetch\_agent\_spec tool calls, and
+    ranked hotel agent candidates with prices and ratings. The right
+    panel is the marketplace view, showing category and price filters, a
+    grid of agent cards for flight and hotel services, and x402 price
+    badges on each listing.}
+  \label{fig:ui}
+\end{figure*}
 
 \section{Evaluation}
 \label{sec:evaluation}
@@ -631,17 +689,14 @@ fallback behavior. For each task we measure the end-to-end success
 rate, the wall-clock completion time, and the on-chain payment cost.
 
 \subsection{Scenarios and End-to-End Success Rate}
-We use four scenarios:
+We use three scenarios:
 \begin{description}
   \item[S1 (single agent):] ``search for a hotel in Tokyo'' should be
     resolved by a single hotel agent.
   \item[S2 (multi-agent):] ``plan a three-day trip to Paris'' should be
     decomposed and resolved by a flight agent and a hotel agent in
     sequence.
-  \item[S3 (budget approval):] a task whose cost exceeds the threshold
-    should pause and require user approval (cf.\
-    Figure~\ref{fig:ui-budget}).
-  \item[S4 (agent failure):] when a selected agent does not respond,
+  \item[S3 (agent failure):] when a selected agent does not respond,
     the orchestrator should fall back to an alternative.
 \end{description}
 
@@ -659,8 +714,7 @@ errors, A2A communication errors, and x402 payment timeouts.
     \midrule
     S1 & single agent     & \texttt{XX} & \texttt{XX}\% \\
     S2 & multi-agent       & \texttt{XX} & \texttt{XX}\% \\
-    S3 & budget approval   & \texttt{XX} & \texttt{XX}\% \\
-    S4 & agent failure     & \texttt{XX} & \texttt{XX}\% \\
+    S3 & agent failure     & \texttt{XX} & \texttt{XX}\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -706,7 +760,7 @@ providers.
     \midrule
     Registration & Custom contract & ERC-8004 & Platform-specific \\
     Discovery & Proposed, not integrated & Registry + cache & In-platform search \\
-    Payment & x402 PoC & x402 + budget & Platform billing \\
+    Payment & x402 PoC & x402 + delegated signing & Platform billing \\
     Orchestration & None & LLM ReAct & Platform-dependent \\
     End-to-end flow & No & Yes & Yes (closed) \\
     Vendor-neutral & Yes & Yes & No \\
@@ -754,7 +808,7 @@ only within a closed ecosystem, UniAgent shows how to combine open
 protocols into a coherent, vendor-neutral architecture in which a single
 natural-language request is autonomously decomposed into agent
 discovery, delegation, and payment. A working prototype on Base Sepolia
-demonstrates the full flow over independent flight- and hotel-booking
+demonstrates the full flow over independent flight- and hotel-search
 agents. We believe this integrated design is a step toward an open ``web
 of agents'' in which users delegate tasks across organizational
 boundaries as easily as they browse the web today.
