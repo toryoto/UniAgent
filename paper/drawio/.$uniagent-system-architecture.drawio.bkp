@@ -1,0 +1,220 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="ページ-1" id="65jHChInbwYGuvsD3FlV">
+    <mxGraphModel dx="2280" dy="1802" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=13;" value="&lt;b&gt;User (Browser)&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Authenticated embedded wallet (Privy)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="75" width="180" x="-12" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="dev" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#2E7D32;fontSize=13;" value="&lt;b&gt;Agent Developer&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px&quot;&gt;Metadata upload &amp;amp; on-chain registration&lt;/font&gt;" vertex="1">
+          <mxGeometry height="65" width="180" x="934" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="uniagent" parent="1" style="swimlane;startSize=28;fillColor=#FAFAFA;strokeColor=#424242;fontSize=15;fontStyle=1;html=1;rounded=1;swimlaneLine=0;" value="UniAgent Application" vertex="1">
+          <mxGeometry height="406" width="573" x="250" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="webapp" parent="uniagent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=12;" value="&lt;b&gt;Web App&lt;/b&gt;&lt;br&gt;(Next.js / Vercel)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;UI, auth, orchestration, DB persistence&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="210" x="22" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="agentsvc" parent="uniagent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=12;" value="&lt;b&gt;Agent Service&lt;/b&gt;&lt;br&gt;(Express / Railway)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;LangChain agent discovery, execution &amp;amp; evaluation (SSE)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="210" x="333" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="postgres" parent="uniagent" style="shape=cylinder3;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=12;size=12;" value="&lt;b&gt;PostgreSQL&lt;/b&gt; (Supabase)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Agent cache &amp;amp; app data&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="200" x="170" y="270" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sse" edge="1" parent="uniagent" source="webapp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;startArrow=classic;endArrow=classic;" target="agentsvc" value="&lt;font style=&quot;font-size:11px&quot;&gt;SSE / HITL&lt;/font&gt;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_wa_pg" edge="1" parent="uniagent" source="webapp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9E9E9E;dashed=1;strokeWidth=1;" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_as_pg" edge="1" parent="uniagent" source="agentsvc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9E9E9E;dashed=1;strokeWidth=1;" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2a" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8EAF6;strokeColor=#3F51B5;fontSize=12;" value="&lt;b&gt;A2A Agent&amp;nbsp;&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;HTTP agent with A2A protocol + x402 v2 payment&lt;/font&gt;" vertex="1">
+          <mxGeometry height="80" width="250" x="884" y="361" as="geometry" />
+        </mxCell>
+        <mxCell id="basesep" parent="1" style="swimlane;startSize=28;fillColor=#FFF8E1;strokeColor=#E65100;fontSize=14;fontStyle=1;html=1;rounded=1;swimlaneLine=0;" value="Base Sepolia (Chain ID: 84532)" vertex="1">
+          <mxGeometry height="595" width="380" x="1375" y="-70" as="geometry" />
+        </mxCell>
+        <mxCell id="registry" parent="basesep" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=12;" value="&lt;b&gt;AgentIdentityRegistry&lt;/b&gt;&lt;br&gt;(ERC-8004)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Agent metadata (source of truth)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="70" width="270" x="33" y="429" as="geometry" />
+        </mxCell>
+        <mxCell id="staking" parent="basesep" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=12;" value="&lt;b&gt;AgentStaking&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Staking&lt;/font&gt;" vertex="1">
+          <mxGeometry height="65" width="270" x="33" y="326" as="geometry" />
+        </mxCell>
+        <mxCell id="usdc" parent="basesep" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=12;" value="&lt;b&gt;USDC&lt;/b&gt; (EIP-3009)&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;x402 payment token&lt;/font&gt;" vertex="1">
+          <mxGeometry height="65" width="270" x="27" y="194" as="geometry" />
+        </mxCell>
+        <mxCell id="eas" parent="basesep" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=12;" value="&lt;b&gt;EAS&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Evaluation attestation layer&lt;/font&gt;" vertex="1">
+          <mxGeometry height="65" width="270" x="27" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="privy" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=12;" value="&lt;b&gt;Privy&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Auth, embedded wallet, EIP-3009 signing&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="210" x="272" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="claude" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=12;" value="&lt;b&gt;Anthropic Claude API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Agent infra (LLM reasoning &amp;amp; evaluation)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="210" x="583" y="-60" as="geometry" />
+        </mxCell>
+        <mxCell id="x402" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=12;" value="&lt;b&gt;x402 Facilitator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;HTTP 402 verification &amp;amp; USDC settlement&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="230" x="955" y="124" as="geometry" />
+        </mxCell>
+        <mxCell id="alchemy" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=12;" value="&lt;b&gt;Alchemy&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;On-chain events &amp;#8594; webhook&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="220" x="597" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="ipfs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#7B1FA2;fontSize=12;" value="&lt;b&gt;IPFS / Pinata&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;Agent metadata storage&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="220" x="1338" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="f1_user_wa" edge="1" parent="1" source="user" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=3;endArrow=classic;" target="webapp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f1_as_a2a" edge="1" parent="1" source="agentsvc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=3;fontSize=11;startArrow=classic;startFill=1;" target="a2a" value="A2A">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1009" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f1_as_claude" edge="1" parent="1" source="agentsvc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;" target="claude">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f1_wa_privy" edge="1" parent="1" source="webapp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;" target="privy">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f1_as_eas" edge="1" parent="1" source="agentsvc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;fontSize=11;exitX=0.75;exitY=0;exitDx=0;exitDy=0;" target="eas" value="Attestation">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="741" y="89" />
+              <mxPoint x="1531" y="89" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f2_dev_ipfs" edge="1" parent="1" source="dev" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;" target="ipfs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f2_reg_alch" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=11;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="alchemy" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1606" y="733" />
+              <mxPoint x="707" y="733" />
+            </Array>
+            <mxPoint x="1606" y="430" as="sourcePoint" />
+            <mxPoint x="916.9999999999995" y="1001.0000000000002" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-18" connectable="0" parent="f2_reg_alch" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="Event listening" vertex="1">
+          <mxGeometry relative="1" x="0.2188" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dep_x402_usdc" edge="1" parent="1" source="x402" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9E9E9E;dashed=1;strokeWidth=1;" target="usdc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1024" y="148" />
+              <mxPoint x="1531" y="148" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dep_privy_user" edge="1" parent="1" source="privy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9E9E9E;dashed=1;strokeWidth=1;" target="user">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-1" connectable="0" parent="1" style="group" value="" vertex="1">
+          <mxGeometry height="110" width="290" x="172" y="682" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_box" parent="gXc2uNJj03Ic0RZGKGVz-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#BDBDBD;fontSize=11;dashed=1;" value="" vertex="1">
+          <mxGeometry height="110" width="290" as="geometry" />
+        </mxCell>
+        <mxCell id="legend_title" parent="gXc2uNJj03Ic0RZGKGVz-1" style="text;html=1;fontSize=12;align=left;" value="&lt;b&gt;Legend&lt;/b&gt;" vertex="1">
+          <mxGeometry height="20" width="80" x="10" y="5" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" edge="1" parent="gXc2uNJj03Ic0RZGKGVz-1" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=3;rounded=1;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="15" y="40" as="sourcePoint" />
+            <mxPoint x="75" y="40" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg1_t" parent="gXc2uNJj03Ic0RZGKGVz-1" style="text;html=1;fontSize=11;align=left;" value="Flow 1: Chat execution" vertex="1">
+          <mxGeometry height="20" width="190" x="85" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" edge="1" parent="gXc2uNJj03Ic0RZGKGVz-1" style="endArrow=classic;html=1;strokeColor=#2E7D32;strokeWidth=2;rounded=1;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="15" y="65" as="sourcePoint" />
+            <mxPoint x="75" y="65" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg2_t" parent="gXc2uNJj03Ic0RZGKGVz-1" style="text;html=1;fontSize=11;align=left;" value="Flow 2: Marketplace sync" vertex="1">
+          <mxGeometry height="20" width="200" x="85" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" edge="1" parent="gXc2uNJj03Ic0RZGKGVz-1" style="endArrow=classic;html=1;strokeColor=#9E9E9E;strokeWidth=1;dashed=1;rounded=1;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="15" y="90" as="sourcePoint" />
+            <mxPoint x="75" y="90" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="leg3_t" parent="gXc2uNJj03Ic0RZGKGVz-1" style="text;html=1;fontSize=11;align=left;" value="Dependency" vertex="1">
+          <mxGeometry height="20" width="120" x="85" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-2" edge="1" parent="1" source="dev" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=11;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.411;exitY=0.019;exitDx=0;exitDy=0;exitPerimeter=0;" target="a2a" value="Deploy">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1009" y="619" as="sourcePoint" />
+            <mxPoint x="1059" y="438" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-4" edge="1" parent="1" source="alchemy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=11;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" target="webapp" value="Webhook">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="601" y="610" as="sourcePoint" />
+            <mxPoint x="500" y="516" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-5" edge="1" parent="1" source="a2a" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1565C0;strokeWidth=2;exitX=0.854;exitY=0.003;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.609;entryY=0.95;entryDx=0;entryDy=0;entryPerimeter=0;" target="x402">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1095" y="361" />
+            </Array>
+            <mxPoint x="946" y="319" as="sourcePoint" />
+            <mxPoint x="1072" y="177" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-6" connectable="0" parent="gXc2uNJj03Ic0RZGKGVz-5" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="Signature-based payment" vertex="1">
+          <mxGeometry relative="1" x="-0.1937" as="geometry">
+            <mxPoint y="1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-9" edge="1" parent="1" source="dev" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;fontSize=11;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" target="staking" value="Staking">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1162" y="641" />
+              <mxPoint x="1162" y="451" />
+              <mxPoint x="1342" y="451" />
+              <mxPoint x="1342" y="289" />
+            </Array>
+            <mxPoint x="1123" y="604" as="sourcePoint" />
+            <mxPoint x="1391" y="367" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-13" edge="1" parent="1" source="agentsvc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9E9E9E;dashed=1;strokeWidth=1;exitX=0.359;exitY=-0.009;exitDx=0;exitDy=0;exitPerimeter=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="privy">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="470" y="89" as="sourcePoint" />
+            <mxPoint x="276" y="309" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-15" edge="1" parent="1" source="dev" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E7D32;strokeWidth=2;entryX=0.25;entryY=1;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="registry">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1251" y="658" />
+              <mxPoint x="1252" y="657" />
+              <mxPoint x="1252" y="563" />
+              <mxPoint x="1476" y="563" />
+            </Array>
+            <mxPoint x="1114" y="659" as="sourcePoint" />
+            <mxPoint x="1461" y="649" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="gXc2uNJj03Ic0RZGKGVz-17" connectable="0" parent="gXc2uNJj03Ic0RZGKGVz-15" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=11;" value="Register" vertex="1">
+          <mxGeometry relative="1" x="-0.5377" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
