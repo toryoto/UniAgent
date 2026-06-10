@@ -348,11 +348,21 @@ Centralized agent stores such as the OpenAI GPT Store~\cite{gptstore}
 offer registration, discovery, and billing as a smooth, integrated
 experience, but only within one vendor's platform: agents are listed,
 ranked, and charged according to platform-specific rules, and there is
-no portability across providers. This resembles the broader platform
+no portability across providers. Enterprise vendors are moving in the
+same direction: Oracle AI Agent Marketplace embeds validated,
+partner-built agent templates directly inside Oracle Fusion
+Applications and adopts A2A for agent interoperability within that
+environment~\cite{oracleAgentMarketplace2025}. Such systems reinforce
+the demand for agent marketplaces, but they also show why A2A alone is
+insufficient: communication may be standardized while registration,
+discovery, deployment, and billing remain confined to a single vendor's
+application layer. They also rely on platform-managed billing rather
+than protocol-native micropayments. This resembles the broader platform
 pattern of walled gardens, where openness and neutrality are limited by
-the platform operator~\cite{frieden2016platforms}. UniAgent aims to
-reproduce the convenience of such platforms while keeping each function
-open and vendor-neutral.
+the platform
+operator~\cite{frieden2016platforms}. UniAgent aims to reproduce the
+convenience of such platforms while keeping each function open and
+vendor-neutral.
 
 \section{System Architecture}
 \label{sec:architecture}
@@ -724,31 +734,36 @@ errors, A2A communication errors, and x402 payment timeouts.
 
 \subsection{Comparison with Existing Approaches}
 Table~\ref{tab:comparison} compares UniAgent feature-by-feature with the
-protocol-level study of Vaziry et al.~\cite{vaziry2025} and with a
-centralized platform such as the GPT Store~\cite{gptstore}. UniAgent
-matches the end-to-end convenience of the centralized platform while
-keeping registration, discovery, and payment open and vendor-neutral, and it adds the
-orchestration layer that the protocol-level study lacks. The centralized platform achieves an end-to-end flow only within
-a closed environment, whereas UniAgent does so across independent
-providers.
+protocol-level study of Vaziry et al.~\cite{vaziry2025} and with
+centralized platforms such as the GPT Store~\cite{gptstore} and Oracle
+AI Agent Marketplace~\cite{oracleAgentMarketplace2025}. Oracle's
+adoption of A2A illustrates that agent-interface standards are becoming
+commercially relevant, but the benefit remains limited if registration,
+discovery, billing, and deployment stay inside a single vendor's
+application layer. UniAgent matches the end-to-end
+convenience of centralized platforms while keeping registration,
+discovery, and payment open and vendor-neutral, and it adds the
+orchestration layer that the protocol-level study lacks. The centralized
+platforms achieve an end-to-end flow only within closed environments,
+whereas UniAgent does so across independent providers.
 
-\begin{table}[t]
+\begin{table*}[t]
   \caption{Feature comparison.}
   \label{tab:comparison}
   \small
-  \begin{tabular}{@{}p{0.20\linewidth}p{0.18\linewidth}p{0.18\linewidth}p{0.22\linewidth}@{}}
+  \begin{tabular}{@{}p{0.16\textwidth}p{0.17\textwidth}p{0.17\textwidth}p{0.18\textwidth}p{0.20\textwidth}@{}}
     \toprule
-    Feature & Vaziry et al. & UniAgent & Centralized (GPT Store) \\
+    Feature & Vaziry et al. & UniAgent & Centralized (GPT Store) & Oracle Marketplace \\
     \midrule
-    Registration & Custom contract & ERC-8004 & Platform-specific \\
-    Discovery & Proposed, not integrated & Registry + cache & In-platform search \\
-    Payment & x402 PoC & x402 + delegated signing & Platform billing \\
-    Orchestration & None & LLM ReAct & Platform-dependent \\
-    End-to-end flow & No & Yes & Yes (closed) \\
-    Vendor-neutral & Yes & Yes & No \\
+    Registration & Custom contract & ERC-8004 & Platform-specific & PartnerNetwork / validated templates \\
+    Discovery & Proposed, not integrated & Registry + cache & In-platform search & Within Fusion Apps \\
+    Payment & x402 PoC & x402 + delegated signing & Platform billing & Oracle / platform billing \\
+    Orchestration & None & LLM ReAct & Platform-dependent & No-code Studio / app-embedded \\
+    End-to-end flow & No & Yes & Yes (closed) & Yes (closed) \\
+    Vendor-neutral & Yes & Yes & No & No \\
     \bottomrule
   \end{tabular}
-\end{table}
+\end{table*}
 
 \section{Discussion}
 \label{sec:discussion}
