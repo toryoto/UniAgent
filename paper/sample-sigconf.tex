@@ -783,17 +783,22 @@ workflows.
 
 We presented UniAgent, a decentralized agent marketplace that integrates
 the A2A communication protocol, x402 micropayments, and ERC-8004
-on-chain identity under an LLM-based orchestration layer. Whereas prior
-work demonstrated these protocols in isolation or as one-to-one
-interactions, and centralized platforms offer end-to-end convenience
-only within a closed ecosystem, UniAgent shows how to combine open
-protocols into a coherent, vendor-neutral architecture in which a single
-natural-language request is autonomously decomposed into agent
-discovery, delegation, and payment. A working prototype on Base Sepolia
-demonstrates the full flow over independent flight- and hotel-search
-agents. We believe this integrated design is a step toward an open ``web
-of agents'' in which users delegate tasks across organizational
-boundaries as easily as they browse the web today.
+on-chain identity under an LLM-based orchestration layer. The main
+contribution of our architecture is the separation and integration of
+three responsibilities that are usually handled by closed platforms: a
+marketplace layer for open agent registration and discovery, an
+orchestration layer that turns a user request into agent selection and
+delegation, and a payment layer that settles cross-provider execution
+through protocol-native micropayments. Whereas prior work demonstrated
+these protocols in isolation or as one-to-one interactions, UniAgent
+shows how they can be composed into a coherent, vendor-neutral framework
+in which a single natural-language request is autonomously decomposed
+into agent discovery, delegation, and payment. A working prototype on
+Base Sepolia demonstrates the full flow over independent flight- and
+hotel-search agents, showing that end-to-end convenience need not depend
+on a centralized agent platform. We believe this integrated design is a
+step toward an open ``web of agents'' in which users delegate tasks
+across organizational boundaries as easily as they browse the web today.
 
 \begin{acks}
 %% TODO: add funding sources and acknowledgments.
