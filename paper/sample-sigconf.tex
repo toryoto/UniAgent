@@ -46,8 +46,15 @@
 
 \begin{document}
 
-\title[UniAgent: An Integrated Marketplace for Autonomous Agents]{UniAgent: Integrating A2A, x402, and ERC-8004 for Autonomous Agent Marketplaces}
+\title[UniAgent: End-to-End Decentralized Agent Framework]{UniAgent: An End-to-End Decentralized Framework for Autonomous Agent Discovery, Delegation, and Payment}
 
+\author{Ryoto Taga}
+\email{ryoto.taga12@gmail.com}
+\affiliation{%
+  \institution{Accenture Inc.}
+  \city{Tokyo}
+  \country{Japan}
+}
 \author{M. Fahim Ferdous Khan}
 \email{khan@iniad.org}
 \affiliation{%
@@ -56,16 +63,8 @@
   \city{Tokyo}
   \country{Japan}
 }
-\author{Ryoto Taga}
-\email{ryoto.taga12@gmail.com}
-\affiliation{%
-  \institution{Faculty of Information Networking for Innovation and Design (INIAD)}
-  \institution{Toyo University}
-  \city{Tokyo}
-  \country{Japan}
-}
 
-\renewcommand{\shortauthors}{Khan and Taga}
+\renewcommand{\shortauthors}{Taga and Khan}
 
 \begin{abstract}
   Large language model (LLM) agents are increasingly able to act on
@@ -203,10 +202,13 @@ payment.
     and paid execution through three tools (\texttt{discover\_agents},
     \texttt{fetch\_agent\_spec}, and
     \texttt{execute\_and\_evaluate\_agent}).
-  \item \textbf{A working prototype and end-to-end demonstration} on
+  \item \textbf{A working prototype and end-to-end
+    demonstration}\footnote{Source code:
+    \url{https://github.com/toryoto/UniAgent}; live demo:
+    \url{https://uni-agent-web.vercel.app/}.} on
     the Base Sepolia testnet, exercising the full flow over external
-    flight- and hotel-search agents and reporting success rate,
-    latency, and on-chain payment cost.
+    flight- and hotel-search agents and reporting end-to-end success
+    rate.
 \end{enumerate}
 
 The rest of the paper is organized as follows.
@@ -245,10 +247,8 @@ submits the transaction on chain, and finally returns the resource.
 Payments are denominated in stablecoins such as USDC and are made
 gasless for the payer using EIP-3009 \emph{transfer with
 authorization}~\cite{eip3009}, which lets a user authorize a transfer
-with an off-chain signature that a third party submits. UniAgent
-instantiates this pattern in Section~\ref{sec:payment-layer} and
-Figure~\ref{fig:x402-sequence}, delegating EIP-3009 signing to the
-agent service through Privy without giving it custody of user funds.
+with an off-chain signature that a third party submits. We describe how
+UniAgent applies this pattern in Section~\ref{sec:payment-layer}.
 
 \subsection{On-Chain Agent Identity (ERC-8004)}
 ERC-8004~\cite{erc8004} standardizes a registry of agent identities on
@@ -463,9 +463,7 @@ candidates, then typically calls \texttt{fetch\_agent\_spec} on the most
 promising ones to compare capabilities and prices. After selecting an
 agent, it calls \texttt{execute\_and\_evaluate\_agent}, observes the
 result, and repeats the loop until the overall task is complete, at which
-point it composes a final answer. Figure~\ref{fig:ui-chat} illustrates
-this pattern in the chat UI, where multiple discovery and specification
-lookups precede execution. Crucially, the model is never given a fixed
+point it composes a final answer. Crucially, the model is never given a fixed
 plan or a hard-coded list of agents---both the decomposition and the
 choice of providers emerge from the ReAct loop at run time.
 
@@ -490,8 +488,11 @@ engineering parameter rather than a contribution of this paper.
 \begin{sloppypar}
 The payment layer settles each paid invocation issued by
 \texttt{execute\_and\_evaluate\_agent} using
-x402~\cite{x402whitepaper}. Figure~\ref{fig:x402-sequence} traces the
-full exchange among five parties: the agent service (via its internal
+x402~\cite{x402whitepaper}. Figure~\ref{fig:x402-sequence} illustrates
+how UniAgent instantiates the x402 verify-and-settle pattern,
+delegating EIP-3009 signing to the agent service through Privy without
+giving it custody of user funds. The diagram traces the full exchange
+among five parties: the agent service (via its internal
 \texttt{execute\_agent} handler), a Privy delegated wallet, the external
 A2A agent, an x402 facilitator, and USDC on the Base Sepolia testnet. The
 orchestrator first posts an A2A task request to the agent's HTTP
@@ -583,7 +584,9 @@ discovery, delegation, and payment automatically.
 \section{Implementation}
 \label{sec:implementation}
 
-We implemented UniAgent as a TypeScript monorepo. The web application
+We implemented UniAgent as a TypeScript monorepo; the source code is
+publicly available at \url{https://github.com/toryoto/UniAgent} and a
+live deployment at \url{https://uni-agent-web.vercel.app/}. The web application
 uses Next.js and React, with Privy for social login and
 delegated wallets. The orchestration service is a separate process
 built on LangChain with a commercial LLM, exposing the three tools
@@ -676,7 +679,7 @@ displays on-chain ERC-8004 metadata and an x402 price badge.
 
 Our evaluation asks whether the integrated architecture can carry a
 realistic user task through discovery, delegation, and payment
-end to end, and at what cost. \emph{The quantitative results in this
+end to end. \emph{The quantitative results in this
 section are placeholders to be replaced with measured values
 (marked \texttt{XX}).}
 
@@ -686,7 +689,7 @@ external A2A agents, flight and hotel. We define a task set spanning
 three classes: single-agent tasks, multi-agent tasks that require
 chaining two agents, and error-handling tasks designed to trigger
 fallback behavior. For each task we measure the end-to-end success
-rate, the wall-clock completion time, and the on-chain payment cost.
+rate.
 
 \subsection{Scenarios and End-to-End Success Rate}
 We use three scenarios:
@@ -715,27 +718,6 @@ errors, A2A communication errors, and x402 payment timeouts.
     S1 & single agent     & \texttt{XX} & \texttt{XX}\% \\
     S2 & multi-agent       & \texttt{XX} & \texttt{XX}\% \\
     S3 & agent failure     & \texttt{XX} & \texttt{XX}\% \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
-\subsection{Payment Cost and Latency}
-Table~\ref{tab:cost} reports the additional latency introduced by the
-x402 payment step and the on-chain gas cost per task as measured on Base
-Sepolia. The payment overhead is expected to be small relative to the
-LLM reasoning and external-agent execution time.
-
-\begin{table}[t]
-  \caption{Payment latency and cost per task (placeholder values).}
-  \label{tab:cost}
-  \small
-  \begin{tabular}{@{}lc@{}}
-    \toprule
-    Metric & Value \\
-    \midrule
-    x402 settlement latency (ms) & \texttt{XX} \\
-    Gas per task (gas units)     & \texttt{XX} \\
-    End-to-end task time (s)     & \texttt{XX} \\
     \bottomrule
   \end{tabular}
 \end{table}
