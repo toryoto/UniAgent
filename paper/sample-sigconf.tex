@@ -693,6 +693,18 @@ end to end. \emph{The quantitative results in this
 section are placeholders to be replaced with measured values
 (marked \texttt{XX}).}
 
+Across all runs we use the same system prompt for the orchestrator. The
+prompt uses standard prompt-engineering patterns, including role
+specification, step-wise workflow decomposition, tool-use constraints,
+safety gates for paid execution, fallback rules, structured output
+formatting, and few-shot examples. These instructions define the common
+operating procedure---agent discovery, specification lookup, candidate
+presentation, user approval before paid execution, execution, and final
+reporting---but do not encode scenario-specific answers, fixed agent
+choices, expected outputs, or success labels. We judge success from
+execution logs using the criteria below, rather than relying on the
+LLM's own self-assessment.
+
 \subsection{Experimental Setup}
 We deploy UniAgent on the Base Sepolia testnet with two categories of
 external A2A agents, flight and hotel. We define a task set spanning
