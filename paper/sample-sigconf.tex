@@ -713,17 +713,75 @@ chaining two agents, and error-handling tasks designed to trigger
 fallback behavior. For each task we measure the end-to-end success
 rate.
 
+The task set contains ten prompts per scenario. We vary destination,
+travel dates, party size, and travel intent (budget, business, family,
+or luxury travel) while keeping the required agent categories fixed. The
+prompts are ordinary natural-language requests; they do not include
+agent identifiers, endpoint URLs, transaction hashes, expected outputs,
+or success labels. For paid execution, UniAgent first presents candidate
+agents and requires the user to approve the selected provider before
+calling \texttt{execute\_and\_evaluate\_agent}. We therefore count a run
+as successful only if the system completes the full approval-mediated
+path: discovery, specification lookup, candidate presentation, user
+approval, paid execution, x402 settlement, and final result reporting.
+This evaluates an end-to-end workflow with human approval before
+payment, not a fully unattended one-turn automation.
+
+We record the selected agent, number of conversation turns, whether
+fallback was needed, payment amount, transaction hash, latency, and a
+manual success label derived from the execution log. A failure is
+classified as an LLM selection error, A2A communication error, x402
+payment timeout or failure, agent runtime error, fallback failure, or
+unknown error.
+
 \subsection{Scenarios and End-to-End Success Rate}
-We use three scenarios:
-\begin{description}
-  \item[S1 (single agent):] ``search for a hotel in Tokyo'' should be
-    resolved by a single hotel agent.
-  \item[S2 (multi-agent):] ``plan a three-day trip to Paris'' should be
-    decomposed and resolved by a flight agent and a hotel agent in
-    sequence.
-  \item[S3 (agent failure):] when a selected agent does not respond,
-    the orchestrator should fall back to an alternative.
-\end{description}
+We use three scenario classes, summarized in
+Table~\ref{tab:scenario-design}. S1 tests a single paid agent call, S2
+tests task decomposition and sequential execution of two independent
+providers, and S3 tests recovery from controlled provider failures. In
+S3, the primary provider is configured to return an error, timeout,
+malformed response, or payment failure; the injected primary failure is
+not counted as a UniAgent failure if the orchestrator recovers with an
+alternative provider.
+
+\begin{table*}[t]
+  \caption{Evaluation scenario classes.}
+  \label{tab:scenario-design}
+  \small
+  \begin{tabular}{@{}p{0.08\textwidth}p{0.18\textwidth}p{0.43\textwidth}p{0.22\textwidth}@{}}
+    \toprule
+    Scenario & Purpose & Representative prompt & Success condition \\
+    \midrule
+    S1 & Single-agent execution
+      & Search for a hotel in Tokyo for 2 adults from July 24 to July 26, 2026.
+      & One hotel agent is discovered, approved, paid, executed, and returns hotel results. \\
+    S2 & Multi-agent composition
+      & Plan a business trip from Tokyo to London from September 3 to September 5, 2026, including flights and a business hotel.
+      & Flight and hotel agents are both discovered, approved, paid, executed, and their results are integrated. \\
+    S3 & Failure recovery
+      & Search for a hotel in Tokyo. If the selected agent fails, use an alternative.
+      & A controlled primary failure is observed and an alternative provider completes the task. \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\paragraph{Representative case.}
+We describe S2-02 in detail because it exercises the full
+multi-provider path. The user asks: ``Plan a business trip from Tokyo to
+London from September 3 to September 5, 2026, including flights and a
+business hotel.'' The orchestrator must first decompose the request into
+flight search and hotel search sub-tasks. It then calls
+\texttt{discover\_agents} for each role, retrieves the relevant Agent
+Cards and OpenAPI specifications with \texttt{fetch\_agent\_spec}, and
+presents candidate providers with prices before any paid execution. Once
+the user approves the selected providers, the orchestrator invokes
+\texttt{execute\_and\_evaluate\_agent} for the flight agent and the hotel
+agent, each with its own x402 payment. A successful run requires two
+payment transaction hashes, two agent results, and a final response that
+combines flight and hotel options into a single business-trip plan. This
+case therefore covers decomposition, provider selection, human approval,
+two paid A2A calls, x402 settlement, quality evaluation, and result
+integration.
 
 Table~\ref{tab:scenarios} reports the success rate per scenario over
 $N=\texttt{XX}$ runs each. We also classify failures into LLM selection
