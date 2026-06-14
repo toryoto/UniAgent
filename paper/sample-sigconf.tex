@@ -702,13 +702,12 @@ Our evaluation asks whether the integrated architecture can carry a
 realistic user task through discovery, delegation, and payment
 end to end. The results reported below are from 20 completed runs:
 ten single-agent hotel tasks and ten multi-agent flight-plus-hotel
-tasks. The fallback scenario remains part of the experimental design but
-has not yet been executed in the current measurement set.
+tasks.
 
 Across all runs we use the same system prompt for the orchestrator. The
 prompt uses standard prompt-engineering patterns, including role
 specification, step-wise workflow decomposition, tool-use constraints,
-safety gates for paid execution, fallback rules, structured output
+safety gates for paid execution, structured output
 formatting, and few-shot examples. These instructions define the common
 operating procedure---agent discovery, specification lookup, candidate
 presentation, user approval before paid execution, execution, and final
@@ -720,12 +719,11 @@ LLM's own self-assessment.
 \subsection{Experimental Setup}
 We deploy UniAgent on the Base Sepolia testnet with two categories of
 external A2A agents, flight and hotel. We define a task set spanning
-three classes: single-agent tasks, multi-agent tasks that require
-chaining two agents, and error-handling tasks designed to trigger
-fallback behavior. For each task we measure the end-to-end success
+two classes: single-agent tasks and multi-agent tasks that require
+chaining two agents. For each task we measure the end-to-end success
 rate.
 
-The task set contains ten prompts per scenario. We vary destination,
+The task set contains ten prompts per scenario class. We vary destination,
 travel dates, party size, and travel intent (budget, business, family,
 or luxury travel) while keeping the required agent categories fixed. The
 prompts are ordinary natural-language requests; they do not include
@@ -743,15 +741,15 @@ full approval-mediated path: discovery, specification lookup, candidate
 presentation, user approval, paid execution, x402 settlement, and final
 result reporting.
 
-We record the selected agent, number of conversation turns, whether
-fallback was needed, payment amount, transaction hash, latency, and a
+We record the selected agent, number of conversation turns, payment
+amount, transaction hash, latency, and a
 manual success label derived from the execution log. A failure is
 classified as an LLM selection error, A2A communication error, x402
-payment timeout or failure, agent runtime error, fallback failure, or
-unknown error.
+payment timeout or failure, agent runtime error, provider quality issue,
+or unknown error.
 
 \subsection{Scenarios and End-to-End Success Rate}
-We use three scenario classes. S1 tests a single paid agent call using
+We use two scenario classes. S1 tests a single paid agent call using
 hotel-search tasks. A representative prompt is: ``Search for a hotel in
 Tokyo for 2 adults from July 24 to July 26, 2026.'' A successful S1 run
 requires that one hotel agent be discovered, approved, paid, executed,
@@ -762,13 +760,7 @@ travel-planning request into flight and hotel sub-tasks, discover and
 inspect providers for each role, execute both providers, and integrate
 their results. A representative prompt is: ``Plan a business trip from
 Tokyo to London from September 3 to September 5, 2026, including
-flights and a business hotel.'' S3 tests recovery from controlled
-provider failures. For example: ``Search for a hotel in Tokyo. If the
-selected agent fails, use an alternative.'' In S3, the primary provider
-is configured to return an error, timeout, malformed response, or
-payment failure; the injected primary failure is not counted as a
-UniAgent failure if the orchestrator recovers with an alternative
-provider.
+flights and a business hotel.''
 
 Table~\ref{tab:scenarios} reports the observed completion rates for
 these scenario classes.
@@ -784,7 +776,6 @@ these scenario classes.
     \midrule
     S1 & single agent & 10 & 10/10 & 10/10 \\
     S2 & multi-agent  & 10 & 10/10 & 8/10 \\
-    S3 & fallback     & -- & -- & -- \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -884,7 +875,10 @@ real economic incentives and adversarial behavior are not yet exercised.
 The evaluation uses two agent categories (flight and hotel); broader
 domains and a larger agent population remain to be tested. The discovery
 ranking and the EAS-based reputation feedback are presented here as
-design elements and have not been validated at scale. Finally,
+design elements and have not been validated at scale. Controlled
+provider-failure recovery is also left to future evaluation, since the
+reported runs focus on the completed single-agent and multi-agent
+execution paths. Finally,
 end-to-end quality depends on the LLM's selection accuracy: prior
 benchmarks show that reasoning, decision-making, and instruction
 following remain key failure modes for LLM
@@ -892,10 +886,10 @@ agents~\cite{liu2024agentbench}, so a poor choice among candidates can
 lower task success even when every protocol behaves correctly.
 
 Future work includes large-scale evaluation of the discovery and
-reputation mechanisms, hardening the system for mainnet (security and
-key management for delegated payments), refining the economic model for
-staking and pricing, and extending orchestration to richer multi-agent
-workflows.
+reputation mechanisms, controlled failure-recovery experiments,
+hardening the system for mainnet (security and key management for
+delegated payments), refining the economic model for staking and
+pricing, and extending orchestration to richer multi-agent workflows.
 
 \section{Conclusion}
 \label{sec:conclusion}
