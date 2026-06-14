@@ -770,7 +770,11 @@ payment failure; the injected primary failure is not counted as a
 UniAgent failure if the orchestrator recovers with an alternative
 provider.
 
-\begin{table}[t]
+Table~\ref{tab:scenarios} reports the observed completion rates for
+these scenario classes.
+
+\begin{table}[H]
+  \centering
   \caption{Observed end-to-end results by scenario.}
   \label{tab:scenarios}
   \small
@@ -803,7 +807,7 @@ case therefore covers decomposition, provider selection, human approval,
 two paid A2A calls, x402 settlement, quality evaluation, and result
 integration.
 
-The observed-results table separates protocol completion from task-level
+The table separates protocol completion from task-level
 success. Protocol completion means that UniAgent reached paid execution,
 settled the x402 payment, returned transaction hashes, and produced a
 final report. Task success additionally requires the external provider
