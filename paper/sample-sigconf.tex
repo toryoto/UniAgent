@@ -20,6 +20,7 @@
 %% Figure assets live in paper/images/
 \graphicspath{{images/}}
 \usepackage{subcaption}
+\usepackage{cuted}
 
 %% Give LaTeX more freedom when placing floats so that figures and tables
 %% stay on (or nearer) the page that references them instead of drifting.
@@ -33,6 +34,16 @@
 \renewcommand{\textfraction}{0.07}
 \renewcommand{\floatpagefraction}{0.72}
 \renewcommand{\dblfloatpagefraction}{0.72}
+
+%% dblfloatfix corrects the placement order of deferred double-column
+%% (table*/figure*) floats and enables bottom [b] placement, so a wide
+%% table is not stranded on the last page above the references.
+\usepackage{dblfloatfix}
+
+%% placeins/\FloatBarrier lets us keep a float inside the section that
+%% references it (used to pin the comparison table to the Evaluation
+%% section instead of letting it drift past the references).
+\usepackage{placeins}
 
 %% Rights management information. Replace the SAMPLE values below with
 %% the commands provided when the rights form is completed.
@@ -88,7 +99,7 @@
   three tools), and a \emph{payment layer} (x402 with delegated EIP-3009
   signatures). We describe a working
   prototype deployed on the Base Sepolia testnet and report an
-  end-to-end evaluation over flight- and hotel-search agents. UniAgent
+  end-to-end evaluation over 20 flight- and hotel-search tasks. UniAgent
   shows that open communication, on-chain identity, and
   protocol-native micropayments can be combined into a coherent,
   vendor-neutral marketplace in which user tasks are carried out
@@ -689,9 +700,10 @@ displays on-chain ERC-8004 metadata and an x402 price badge.
 
 Our evaluation asks whether the integrated architecture can carry a
 realistic user task through discovery, delegation, and payment
-end to end. \emph{The quantitative results in this
-section are placeholders to be replaced with measured values
-(marked \texttt{XX}).}
+end to end. The results reported below are from 20 completed runs:
+ten single-agent hotel tasks and ten multi-agent flight-plus-hotel
+tasks. The fallback scenario remains part of the experimental design but
+has not yet been executed in the current measurement set.
 
 Across all runs we use the same system prompt for the orchestrator. The
 prompt uses standard prompt-engineering patterns, including role
@@ -717,15 +729,19 @@ The task set contains ten prompts per scenario. We vary destination,
 travel dates, party size, and travel intent (budget, business, family,
 or luxury travel) while keeping the required agent categories fixed. The
 prompts are ordinary natural-language requests; they do not include
-agent identifiers, endpoint URLs, transaction hashes, expected outputs,
-or success labels. For paid execution, UniAgent first presents candidate
-agents and requires the user to approve the selected provider before
-calling \texttt{execute\_and\_evaluate\_agent}. We therefore count a run
-as successful only if the system completes the full approval-mediated
-path: discovery, specification lookup, candidate presentation, user
-approval, paid execution, x402 settlement, and final result reporting.
-This evaluates an end-to-end workflow with human approval before
-payment, not a fully unattended one-turn automation.
+endpoint URLs, transaction hashes, expected outputs, or success labels.
+For paid execution, UniAgent first presents candidate agents and
+requires the user to approve the selected provider before calling
+\texttt{execute\_and\_evaluate\_agent}. In many runs, the user approved
+the orchestrator-recommended provider by name (for example,
+\texttt{HotelSearchAgent}) rather than with a generic confirmation. This
+matches the system's human-in-the-loop payment design, but it means the
+reported results evaluate the approval-mediated end-to-end workflow
+rather than independently stress-testing provider-selection accuracy.
+We therefore count a run as successful only if the system completes the
+full approval-mediated path: discovery, specification lookup, candidate
+presentation, user approval, paid execution, x402 settlement, and final
+result reporting.
 
 We record the selected agent, number of conversation turns, whether
 fallback was needed, payment amount, transaction hash, latency, and a
@@ -735,35 +751,39 @@ payment timeout or failure, agent runtime error, fallback failure, or
 unknown error.
 
 \subsection{Scenarios and End-to-End Success Rate}
-We use three scenario classes, summarized in
-Table~\ref{tab:scenario-design}. S1 tests a single paid agent call, S2
-tests task decomposition and sequential execution of two independent
-providers, and S3 tests recovery from controlled provider failures. In
-S3, the primary provider is configured to return an error, timeout,
-malformed response, or payment failure; the injected primary failure is
-not counted as a UniAgent failure if the orchestrator recovers with an
-alternative provider.
+We use three scenario classes. S1 tests a single paid agent call using
+hotel-search tasks. A representative prompt is: ``Search for a hotel in
+Tokyo for 2 adults from July 24 to July 26, 2026.'' A successful S1 run
+requires that one hotel agent be discovered, approved, paid, executed,
+and returned in the final response with hotel results.
 
-\begin{table*}[t]
-  \caption{Evaluation scenario classes.}
-  \label{tab:scenario-design}
+S2 tests multi-agent composition. The orchestrator must decompose a
+travel-planning request into flight and hotel sub-tasks, discover and
+inspect providers for each role, execute both providers, and integrate
+their results. A representative prompt is: ``Plan a business trip from
+Tokyo to London from September 3 to September 5, 2026, including
+flights and a business hotel.'' S3 tests recovery from controlled
+provider failures. For example: ``Search for a hotel in Tokyo. If the
+selected agent fails, use an alternative.'' In S3, the primary provider
+is configured to return an error, timeout, malformed response, or
+payment failure; the injected primary failure is not counted as a
+UniAgent failure if the orchestrator recovers with an alternative
+provider.
+
+\begin{table}[t]
+  \caption{Observed end-to-end results by scenario.}
+  \label{tab:scenarios}
   \small
-  \begin{tabular}{@{}p{0.08\textwidth}p{0.18\textwidth}p{0.43\textwidth}p{0.22\textwidth}@{}}
+  \begin{tabular}{@{}llccc@{}}
     \toprule
-    Scenario & Purpose & Representative prompt & Success condition \\
+    Scenario & Type & Runs & Protocol & Task \\
     \midrule
-    S1 & Single-agent execution
-      & Search for a hotel in Tokyo for 2 adults from July 24 to July 26, 2026.
-      & One hotel agent is discovered, approved, paid, executed, and returns hotel results. \\
-    S2 & Multi-agent composition
-      & Plan a business trip from Tokyo to London from September 3 to September 5, 2026, including flights and a business hotel.
-      & Flight and hotel agents are both discovered, approved, paid, executed, and their results are integrated. \\
-    S3 & Failure recovery
-      & Search for a hotel in Tokyo. If the selected agent fails, use an alternative.
-      & A controlled primary failure is observed and an alternative provider completes the task. \\
+    S1 & single agent & 10 & 10/10 & 10/10 \\
+    S2 & multi-agent  & 10 & 10/10 & 8/10 \\
+    S3 & fallback     & -- & -- & -- \\
     \bottomrule
   \end{tabular}
-\end{table*}
+\end{table}
 
 \paragraph{Representative case.}
 We describe S2-02 in detail because it exercises the full
@@ -783,24 +803,20 @@ case therefore covers decomposition, provider selection, human approval,
 two paid A2A calls, x402 settlement, quality evaluation, and result
 integration.
 
-Table~\ref{tab:scenarios} reports the success rate per scenario over
-$N=\texttt{XX}$ runs each. We also classify failures into LLM selection
-errors, A2A communication errors, and x402 payment timeouts.
-
-\begin{table}[t]
-  \caption{End-to-end success rate by scenario (placeholder values).}
-  \label{tab:scenarios}
-  \small
-  \begin{tabular}{@{}llcc@{}}
-    \toprule
-    Scenario & Type & Runs & Success rate \\
-    \midrule
-    S1 & single agent     & \texttt{XX} & \texttt{XX}\% \\
-    S2 & multi-agent       & \texttt{XX} & \texttt{XX}\% \\
-    S3 & agent failure     & \texttt{XX} & \texttt{XX}\% \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+The observed-results table separates protocol completion from task-level
+success. Protocol completion means that UniAgent reached paid execution,
+settled the x402 payment, returned transaction hashes, and produced a
+final report. Task success additionally requires the external provider
+results to match the requested city, dates, and role. All S1 and S2 runs
+completed the protocol path. S1 also achieved 10/10 task success. S2
+achieved 8/10 task success: in S2-03, the hotel provider returned mainly
+Johor Bahru results for a Singapore family trip, and in S2-07 the flight
+provider returned a Tokyo--London route for a Tokyo--New York request.
+In both cases, UniAgent still completed discovery, payment, execution,
+and final reporting, and the orchestrator surfaced the mismatch rather
+than presenting the output as fully correct. Minor provider-quality
+issues, such as duplicate flight listings or mixed nearby-city hotel
+results, were recorded separately from task failures.
 
 \subsection{Comparison with Existing Approaches}
 Table~\ref{tab:comparison} compares UniAgent feature-by-feature with the
@@ -817,23 +833,37 @@ orchestration layer that the protocol-level study lacks. The centralized
 platforms achieve an end-to-end flow only within closed environments,
 whereas UniAgent does so across independent providers.
 
-\begin{table*}[t]
-  \caption{Feature comparison.}
+The evaluation results should be read in this context. UniAgent's
+strongest measured result is protocol completion: every observed S1 and
+S2 run reached paid execution and returned verifiable x402 transaction
+hashes. The task-level failures in S2 were not caused by the marketplace,
+payment, or A2A integration layers, but by provider output quality. This
+distinction is important for an open marketplace architecture. The
+framework can make discovery, payment, execution, and reporting
+auditable across providers, while still exposing quality differences
+among independently operated agents. In contrast, centralized
+marketplaces can hide those boundaries behind a platform-specific
+runtime, but they also bind discovery, billing, and orchestration to a
+single vendor.
+
+\begin{strip}
+  \centering
+  \captionof{table}{Feature comparison.}
   \label{tab:comparison}
   \small
   \begin{tabular}{@{}p{0.16\textwidth}p{0.17\textwidth}p{0.17\textwidth}p{0.18\textwidth}p{0.20\textwidth}@{}}
     \toprule
     Feature & Vaziry et al. & UniAgent & GPT Store & Oracle Marketplace \\
     \midrule
-    Registration & Custom contract & ERC-8004 & Platform-specific & PartnerNetwork / validated templates \\
+    Registration & Custom contract & ERC-8004 & Platform-specific & Validated templates \\
     Discovery & Proposed, not integrated & Registry + cache & In-platform search & Within Fusion Apps \\
-    Payment & x402 PoC & x402 + delegated signing & Platform billing & Oracle / platform billing \\
-    Orchestration & None & LLM ReAct & Platform-dependent & No-code Studio / app-embedded \\
+    Payment & x402 PoC & x402 + delegated signing & Platform billing & Platform billing \\
+    Orchestration & None & LLM ReAct & Platform-dependent & App-embedded \\
     End-to-end flow & No & Yes & Yes (closed) & Yes (closed) \\
     Vendor-neutral & Yes & Yes & No & No \\
     \bottomrule
   \end{tabular}
-\end{table*}
+\end{strip}
 
 \section{Discussion}
 \label{sec:discussion}
