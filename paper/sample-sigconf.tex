@@ -62,7 +62,7 @@
 \author{Ryoto Taga}
 \email{ryoto.taga12@gmail.com}
 \affiliation{%
-  \institution{Independent Researcher}
+  \institution{Accenture}
   \city{Tokyo}
   \country{Japan}
 }
@@ -138,51 +138,34 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Large language models (LLMs) have made it practical to build
-autonomous agents that plan, call tools, and complete multi-step tasks
-on behalf of a user. As these agents proliferate, a natural next step
-is for one agent to delegate work to another: a travel assistant might
-hire a specialized flight agent and a separate hotel agent, each
-operated by a different organization. Realizing this vision requires
-three capabilities that cut across trust boundaries: agents must be
-able to \emph{communicate} with one another, to be \emph{discovered}
-and \emph{identified}, and to \emph{pay} for services without a shared
-account or a manual contract.
+\paragraph{Problem setting.}
+LLM agents can increasingly plan, call tools, and complete multi-step
+tasks for users. A natural next step is cross-organizational delegation:
+for example, a travel assistant should be able to discover, hire, and
+pay specialized flight and hotel agents operated by different providers.
+This requires open mechanisms for communication, identity and discovery,
+and payment across trust boundaries.
 
-Open standards have recently emerged for each of these capabilities.
-The Agent2Agent (A2A) protocol~\cite{a2a2025} defines how agents
-describe themselves through an \emph{Agent Card} and exchange messages
-over JSON-RPC. The x402 protocol~\cite{x402whitepaper} reuses the long-dormant
-HTTP~402 ``Payment Required'' status code to attach stablecoin
-micropayments to ordinary web requests. ERC-8004~\cite{erc8004}
-provides an on-chain registry of agent identities, building on the
-ERC-721 token standard so that any party can look up an
-agent without trusting a central directory. Individually, these
-protocols are compelling; together, they suggest a decentralized
-alternative to the closed agent stores offered by today's platforms.
+\paragraph{Gap.}
+Relevant building blocks now exist: A2A standardizes agent-to-agent
+communication~\cite{a2a2025}, ERC-8004 provides on-chain agent
+identity~\cite{erc8004}, and x402 attaches micropayments to HTTP
+requests~\cite{x402whitepaper}. Yet these protocols do not by themselves
+provide an end-to-end marketplace. A2A leaves discovery to applications;
+Vaziry et al.~\cite{vaziry2025} demonstrate protocol feasibility only in
+fixed one-to-one interactions; and centralized agent stores such as the
+GPT Store~\cite{gptstore} provide smooth experiences only inside
+platform-specific registration, discovery, and billing systems.
+Moreover, combining these protocols is not straightforward: A2A
+deliberately excludes discovery from its scope, so a registry mechanism
+must be added externally; ERC-8004 provides identity but defines no
+interface for capability-based search; and x402 settles payments
+independently of agent identity, requiring an integration point that
+binds payment authorization to a verified registry entry. No existing
+design addresses these gaps together.
 
-Despite this progress, three gaps remain. \textbf{First}, A2A
-standardizes communication but explicitly leaves \emph{discovery}---how
-a client finds an appropriate agent in the first place---outside its
-scope. \textbf{Second}, recent work by Vaziry et
-al.~\cite{vaziry2025} demonstrated the technical feasibility of
-combining A2A, x402, and on-chain Agent Cards, but did so at the
-protocol level, as one-to-one interactions between a fixed pair of
-agents; it did not provide a service architecture that takes a
-user's high-level task and autonomously drives discovery, delegation,
-and payment to completion. \textbf{Third}, centralized platforms such
-as the OpenAI GPT Store~\cite{gptstore} do offer end-to-end
-experiences, but they confine the agent ecosystem to plug-ins inside a
-single vendor's walled garden~\cite{frieden2016platforms}, with
-platform-specific registration, discovery, and billing.
-
-The result is a missing middle: the individual protocols exist, and
-closed platforms show what a smooth user experience looks like, but no
-\emph{open} architecture connects the protocols through an
-orchestration layer that can turn a natural-language request into
-cross-organizational agent transactions. This motivates our research
-question:
-
+\paragraph{Research question.}
+This motivates our research question:
 \begin{quote}
 \itshape How can open agent communication, on-chain identity, and
 protocol-level micropayments be integrated into a cohesive marketplace
@@ -191,46 +174,33 @@ task is autonomously decomposed into agent discovery, delegation, and
 payment across organizational boundaries?
 \end{quote}
 
+\paragraph{UniAgent overview.}
 We answer this question with \emph{UniAgent}, a decentralized agent
-marketplace whose architecture is summarized in
-Figure~\ref{fig:arch}. UniAgent takes the registration, discovery, and
-payment functions that a centralized platform bundles together and
-re-implements them on open protocols---A2A and x402---and a
-standardized on-chain identity layer---ERC-8004. On top of these, an
-LLM ReAct agent~\cite{yao2023react} acts as an orchestration layer that
-analyzes the task, discovers candidate agents, inspects their
-specifications, selects among them, and executes them with automatic
-payment.
+marketplace summarized in Figure~\ref{fig:arch}. UniAgent re-implements
+the registration, discovery, and payment functions of a closed platform
+using A2A, ERC-8004, and x402, and places an LLM ReAct
+orchestrator~\cite{yao2023react} above them to analyze the user's task,
+discover candidate agents, inspect their specifications, select
+providers, and execute paid calls.
 
-\paragraph{Contributions.} This paper makes three contributions:
+\paragraph{Contributions.}
+This paper makes three contributions:
 \begin{enumerate}
   \item \textbf{An integrated marketplace architecture} that unifies
-    A2A, x402, and ERC-8004 behind an orchestration layer, organized
-    as three loosely coupled layers (marketplace, orchestration,
-    payment).
+    A2A, x402, and ERC-8004 behind three loosely coupled layers:
+    marketplace, orchestration, and payment.
   \item \textbf{An autonomous LLM pipeline} in which a ReAct agent
-    drives task analysis, agent discovery, specification inspection,
-    and paid execution through three tools (\texttt{discover\_agents},
+    drives task analysis, discovery, specification inspection, and paid
+    execution through \texttt{discover\_agents},
     \texttt{fetch\_agent\_spec}, and
-    \texttt{execute\_and\_evaluate\_agent}).
+    \texttt{execute\_and\_evaluate\_agent}.
   \item \textbf{A working prototype and end-to-end
     demonstration}\footnote{Source code:
     \url{https://github.com/toryoto/UniAgent}; live demo:
-    \url{https://uni-agent-web.vercel.app/}.} on
-    the Base Sepolia testnet, exercising the full flow over external
-    flight- and hotel-search services and reporting end-to-end success
-    rate.
+    \url{https://uni-agent-web.vercel.app/}.} on Base Sepolia,
+    exercising the full flow over external flight- and hotel-search
+    services and reporting end-to-end success rate.
 \end{enumerate}
-
-The rest of the paper is organized as follows.
-Section~\ref{sec:background} reviews the protocols UniAgent builds on.
-Section~\ref{sec:related} positions our work against related research,
-with particular attention to Vaziry et al.
-Section~\ref{sec:architecture} presents the three-layer architecture,
-the core of our contribution. Section~\ref{sec:implementation}
-describes the prototype, and Section~\ref{sec:evaluation} evaluates it.
-Section~\ref{sec:discussion} discusses limitations and future work, and
-Section~\ref{sec:conclusion} concludes.
 
 \section{Background}
 \label{sec:background}
@@ -263,16 +233,9 @@ the Model Context Protocol (MCP), which connects a single
 agent to tools and data sources, with peer-to-peer protocols such as
 A2A and the Agent Network Protocol (ANP). UniAgent adopts A2A for
 inter-agent communication because it is designed for cross-organization
-delegation, and uses an MCP-style tool interface only \emph{inside} the
-orchestrator. None of these communication protocols specifies discovery
-or payment, which is precisely what our marketplace layer adds.
-
-\paragraph{Agent payment systems.}
-x402~\cite{x402whitepaper} attaches stablecoin transfers to ordinary
-HTTP requests and settles them on a smart-contract chain. We build on
-x402 because it is open, HTTP-native, and requires no proprietary
-intermediary, and we extend it with delegated signing through Privy
-(Section~\ref{sec:payment-layer}).
+delegation. None of these communication protocols specifies discovery
+or payment, which is precisely what UniAgent's marketplace and payment
+layers add.
 
 \paragraph{Decentralized agent identity and closest prior work.}
 Vaziry et al.~\cite{vaziry2025} represent each agent's card as an
@@ -282,41 +245,15 @@ standardized ERC-8004 registry~\cite{erc8004} rather than per-agent
 contracts, and---more importantly---builds a full marketplace and
 orchestration layer on top, as detailed below.
 
-\paragraph{Difference from Vaziry et al.}
-Table~\ref{tab:vaziry} summarizes the contrast.
-
-\begin{table}[H]
-  \caption{UniAgent compared with Vaziry et al.~\cite{vaziry2025}.}
-  \label{tab:vaziry}
-  \small
-  \begin{tabular}{@{}p{0.20\linewidth}p{0.33\linewidth}p{0.33\linewidth}@{}}
-    \toprule
-    Aspect & Vaziry et al. & UniAgent \\
-    \midrule
-    Positioning & Protocol-level feasibility study
-      & Marketplace architecture integrating the protocols \\
-    Identity & Per-agent smart contracts
-      & Single ERC-8004 standard registry \\
-    Discovery & Four methods proposed, not integrated
-      & Registry plus webhook-synced cache \\
-    Payment & x402 over A2A, demonstrated
-      & x402 with delegated signing \\
-    Orchestration & None (fixed agent A\,$\to$\,B)
-      & LLM ReAct agent discovers, selects, executes \\
-    User experience & Protocol-level proof of concept
-      & Chat UI and SSE streaming \\
-    \bottomrule
-  \end{tabular}
-\end{table}
-
 Vaziry et al. establish the technical \emph{feasibility} of the
 protocol combination through one-to-one agent interactions. UniAgent
-treats those protocols as building blocks and contributes the missing
-layer above them: an LLM orchestrator that, given a single user task,
-autonomously discovers agents from a standardized registry, selects
-among them, pays them over x402, and returns an integrated
-result---together with the user-facing experience (chat and streaming)
-that this requires.
+treats those protocols as building blocks for a marketplace
+architecture: a standardized ERC-8004 registry and synchronized cache
+support discovery, while an LLM orchestrator starts from a user's
+natural-language task, selects providers, pays them over x402, and
+returns an integrated result. Thus, Vaziry et al. demonstrate protocol
+feasibility, whereas UniAgent contributes the end-to-end service layer
+above those protocols.
 
 \paragraph{LLM multi-agent orchestration.}
 AutoGen~\cite{wu2023autogen} shows how multiple LLM-based agents can
@@ -327,24 +264,16 @@ protocol-native payment---as the object of orchestration.
 
 \paragraph{Centralized marketplaces.}
 Centralized agent stores such as the OpenAI GPT Store~\cite{gptstore}
-offer registration, discovery, and billing as a smooth, integrated
-experience, but only within one vendor's platform: agents are listed,
-ranked, and charged according to platform-specific rules, and there is
-no portability across providers. Enterprise vendors are moving in the
-same direction: Oracle AI Agent Marketplace embeds validated,
-partner-built agent templates directly inside Oracle Fusion
-Applications and adopts A2A for agent interoperability within that
-environment~\cite{oracleAgentMarketplace2025}. Such systems reinforce
-the demand for agent marketplaces, but they also show why A2A alone is
-insufficient: communication may be standardized while registration,
-discovery, deployment, and billing remain confined to a single vendor's
-application layer. They also rely on platform-managed billing rather
-than protocol-native micropayments. This resembles the broader platform
-pattern of walled gardens, where openness and neutrality are limited by
-the platform
-operator~\cite{frieden2016platforms}. UniAgent aims to reproduce the
-convenience of such platforms while keeping each function open and
-vendor-neutral.
+and Oracle AI Agent Marketplace~\cite{oracleAgentMarketplace2025} show
+the demand for integrated agent marketplaces. Oracle's adoption of A2A
+also suggests that agent-interface standards are becoming commercially
+relevant. However, in these systems, registration, discovery,
+deployment, and billing remain confined to vendor platforms and rely on
+platform-managed payment rather than protocol-native micropayments.
+Rothschild et al.~\cite{rothschild2025agentic} frame the broader tension as a choice
+between closed ``agentic walled gardens'' and an open ``web of agents.''
+UniAgent targets the latter by combining open protocols for
+communication, identity, discovery, and payment.
 
 \section{System Architecture}
 \label{sec:architecture}
@@ -361,7 +290,7 @@ in turn and then explain how they combine into an end-to-end flow.
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{uniagent-system-arch}
+  \includegraphics[width=0.9\textwidth]{uniagent-system-arch}
   \caption{Overview of the UniAgent architecture. A user issues a
     natural-language task through the web application; an LLM-based
     agent service discovers candidate agents from an ERC-8004 registry
@@ -432,19 +361,12 @@ plan or a hard-coded list of agents---both the decomposition and the
 choice of providers emerge from the ReAct loop at run time.
 
 \paragraph{Discovery ranking.}
-To keep the candidate list short and useful, \texttt{discover\_agents}
-does not return every matching agent. Instead, the marketplace ranks
-candidates from the cache using a composite score that combines an
-agent's reliability and quality (estimated from past attestations), the
-size of its on-chain deposit, and a small bonus for newly registered
-agents, and returns the top three. The reliability and quality
-estimates are smoothed toward a global average so that agents with few
-reviews are neither unfairly promoted nor permanently excluded
-(mitigating the cold-start problem), and a small exploration term
-occasionally surfaces a new agent so that it can accumulate a track
-record. We describe the ranking qualitatively here, as a way to give the
-LLM a manageable and balanced set of options; its exact form is an
-engineering parameter rather than a contribution of this paper.
+The ranking logic is an implementation detail rather than a contribution
+of this paper. In the prototype, \texttt{discover\_agents} returns up to
+three candidates from the marketplace cache, prioritizing agents with
+higher observed reliability and quality, larger deposits, and recent
+registration. This keeps the LLM's choice set small while preserving a
+basic signal of provider trustworthiness.
 
 \subsection{Payment Layer}
 \label{sec:payment-layer}
@@ -452,7 +374,7 @@ engineering parameter rather than a contribution of this paper.
 The payment layer settles each paid invocation using the x402
 verify-and-settle pattern~\cite{x402whitepaper}. When the orchestrator
 calls an external A2A agent, the agent responds with HTTP~402 and a
-\texttt{PAYMENT-REQUIRED} header specifying the price and recipient. The
+\texttt{PAYMENT\allowbreak-\allowbreak REQUIRED} header specifying the price and recipient. The
 agent service obtains a delegated payment signature from a Privy wallet
 without exposing the user's private key, and retries the request with
 the signed payload. The external agent verifies and settles the payment
@@ -461,8 +383,8 @@ The main UniAgent extension to the standard x402 pattern is
 \emph{delegated signing} through Privy, which makes payments gasless and
 non-custodial. After a successful execution, the system records an
 off-chain quality and reliability attestation using the Ethereum
-Attestation Service (EAS)~\cite{eas}; these attestations feed back into
-the discovery ranking, closing the loop between payment and reputation.
+Attestation Service (EAS)~\cite{eas}; these attestations can be used as
+reputation signals in future discovery and ranking.
 
 \subsection{Integration Design}
 \label{sec:integration-design}
@@ -499,29 +421,10 @@ Smart contracts are written in Solidity and developed with Hardhat.
 Payments use the x402 protocol with USDC on the Base Sepolia testnet.
 
 \paragraph{Deployment.}
-The prototype runs on the Base Sepolia testnet (chain ID~84532).
-Table~\ref{tab:deployment} lists the main on-chain components: the
-ERC-8004 \texttt{AgentIdentityRegistry} that anchors agent identity, the
-\texttt{AgentStaking} contract that holds agent deposits, and the EAS
-schema used to record per-interaction quality
-and reliability attestations.
-
-\begin{table}[H]
-  \caption{Primary on-chain deployments (Base Sepolia, chain ID~84532).}
-  \label{tab:deployment}
-  \small
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{@{}lp{0.52\linewidth}@{}}
-    \toprule
-    Contract & Address \\
-    \midrule
-    AgentIdentityRegistry
-      & \texttt{0x864A0C05\allowbreak 4AA6E9DBcC\allowbreak DB36a44a14\allowbreak A5A7bc81EB\allowbreak 92} \\
-    AgentStaking
-      & \texttt{0xC034e56E\allowbreak De7FC31579\allowbreak E41095A4e9\allowbreak 63D499e85d\allowbreak 39} \\
-    \bottomrule
-  \end{tabular}
-\end{table}
+The prototype runs on the Base Sepolia testnet (chain ID~84532), with an
+ERC-8004 \texttt{AgentIdentityRegistry} for agent identity and an
+\texttt{AgentStaking} contract for deposits. An EAS schema records
+per-interaction quality and reliability attestations.
 
 \paragraph{Demonstration scenario.}
 For the prototype we focus on a travel-planning use case with two agent
@@ -536,92 +439,34 @@ and ten dummy A2A agents to exercise discovery, ranking, and
 provider-quality variation. Thus the evaluation measures protocol-level
 cross-service integration rather than production-scale provider coverage.
 
-Figures~\ref{fig:ui-chat} and~\ref{fig:ui-market} illustrate the web
-interface. Figure~\ref{fig:ui-chat} shows the chat view: the user enters
-a task in natural language and observes the orchestrator's tool calls---
-\texttt{discover\_agents} to rank candidates,
-\texttt{fetch\_agent\_spec} to compare Agent Cards, and eventually
-\texttt{execute\_and\_evaluate\_agent}---streamed over SSE.
-Figure~\ref{fig:ui-market} shows the marketplace view, where users
-browse registered agents with category and price filters; each card
-displays on-chain ERC-8004 metadata and an x402 price badge.
-
-\begin{figure*}[t]
-  \centering
-  \begin{subfigure}[t]{0.49\textwidth}
-    \centering
-    \includegraphics[width=\linewidth]{chat-ui}
-    \caption{Chat view: natural-language task input with streamed tool
-      calls and ranked agent recommendations.}
-    \label{fig:ui-chat}
-  \end{subfigure}
-  \hfill
-  \begin{subfigure}[t]{0.49\textwidth}
-    \centering
-    \includegraphics[width=\linewidth]{marketplace}
-    \caption{Marketplace view: searchable listing of registered agents
-      with ERC-8004 metadata and x402 price badges.}
-    \label{fig:ui-market}
-  \end{subfigure}
-  \caption{The UniAgent web interface.}
-  \Description{Two screenshots of the UniAgent web interface. The left
-    panel is the chat view, showing a hotel search query in Japanese, a
-    log of completed discover and fetch\_agent\_spec tool calls, and
-    ranked hotel agent candidates with prices and ratings. The right
-    panel is the marketplace view, showing category and price filters, a
-    grid of agent cards for flight and hotel services, and x402 price
-    badges on each listing.}
-  \label{fig:ui}
-\end{figure*}
+The web interface includes a chat view for natural-language task
+submission and a marketplace view for browsing registered agents by
+category and price. During execution, the chat view streams tool calls,
+candidate recommendations, human-in-the-loop approval prompts, payment
+events, and final results over SSE.
 
 \section{Evaluation}
 \label{sec:evaluation}
 
-Our evaluation asks whether the integrated architecture can carry a
-realistic user task through discovery, delegation, and payment
-end to end. The results reported below are from 20 completed runs:
-ten single-agent hotel tasks and ten multi-agent flight-plus-hotel
-tasks.
-
-Across all runs we use the same system prompt, which defines the common
-workflow for discovery, specification lookup, user approval, paid
-execution, and final reporting. The prompt does not encode
-scenario-specific answers, fixed agent choices, expected outputs, or
-success labels; success is judged from execution logs rather than from
-the LLM's self-assessment.
+Our evaluation asks whether UniAgent can carry a realistic user task
+through discovery, delegation, and payment end to end. We report 20
+completed runs---ten single-agent hotel tasks (S1) and ten multi-agent
+flight-plus-hotel tasks (S2)---on Base Sepolia with flight and hotel A2A
+services (one API-backed agent and ten dummy agents per category). Each
+scenario class uses ten natural-language prompts with varied destinations,
+dates, and travel intent.
 
 \subsection{Experimental Setup}
-We deploy UniAgent on the Base Sepolia testnet with two categories of
-externally callable A2A services, flight and hotel. Each category
-contains one API-backed search agent and ten dummy A2A agents used to
-populate the marketplace and provide alternative discovery candidates.
-We define a task set spanning
-two classes: single-agent tasks and multi-agent tasks that require
-chaining two agents. For each task we measure the end-to-end success
-rate.
-
-The task set contains ten prompts per scenario class. We vary destination,
-travel dates, party size, and travel intent (budget, business, family,
-or luxury travel) while keeping the required agent categories fixed. The
-prompts are ordinary natural-language requests; they do not include
-endpoint URLs, transaction hashes, expected outputs, or success labels.
-For paid execution, UniAgent first presents candidate agents and
-requires the user to approve the selected provider before calling
-\texttt{execute\_and\_evaluate\_agent}. In many runs, the user approved
-the orchestrator-recommended provider by name (for example,
-\texttt{HotelSearchAgent}) rather than with a generic confirmation. This
-matches the system's human-in-the-loop payment design, but it means the
-reported results evaluate the approval-mediated end-to-end workflow
-rather than independently stress-testing provider-selection accuracy.
-We therefore count a run as successful only if the system completes the
-full approval-mediated path: discovery, specification lookup, candidate
-presentation, user approval, paid execution, x402 settlement, and final
-result reporting.
-
-For each run, we record the selected agents, x402 transaction hashes,
-and final execution logs, then manually label protocol completion and
-task success. Provider-output mismatches are noted separately from
-protocol failures.
+All runs use the same orchestrator prompt, which defines discovery,
+specification lookup, user approval, paid execution, and final reporting
+without encoding fixed answers or success labels. Before paid execution,
+the chat view presents candidate providers and requires explicit user
+approval; we therefore measure an approval-mediated end-to-end workflow
+rather than autonomous provider selection alone. A run succeeds only if it
+completes discovery, specification lookup, candidate presentation, user
+approval, paid execution, x402 settlement, and final reporting. We record
+transaction hashes and execution logs, then manually label protocol
+completion and task success separately.
 
 \subsection{Scenarios and End-to-End Success Rate}
 We use two scenario classes. S1 tests a single paid agent call using
@@ -679,12 +524,32 @@ than presenting the output as fully correct. Minor provider-quality
 issues, such as duplicate flight listings or mixed nearby-city hotel
 results, were recorded separately from task failures.
 
-\subsection{Comparison with Existing Approaches}
 Table~\ref{tab:comparison} compares UniAgent feature-by-feature with the
 protocol-level study of Vaziry et al.~\cite{vaziry2025} and with
 centralized platforms such as the GPT Store~\cite{gptstore} and Oracle
-AI Agent Marketplace~\cite{oracleAgentMarketplace2025}. Oracle's
-adoption of A2A illustrates that agent-interface standards are becoming
+AI Agent Marketplace~\cite{oracleAgentMarketplace2025}.
+
+\begin{table*}[t]
+  \centering
+  \caption{Feature comparison.}
+  \label{tab:comparison}
+  \small
+  \begin{tabular}{@{}p{0.16\textwidth}p{0.17\textwidth}p{0.17\textwidth}p{0.18\textwidth}p{0.20\textwidth}@{}}
+    \toprule
+    Feature & Vaziry et al. & UniAgent & GPT Store & Oracle Marketplace \\
+    \midrule
+    Registration & Custom contract & ERC-8004 & Platform-specific & Validated templates \\
+    Discovery & Proposed, not integrated & Registry + cache & In-platform search & Within Fusion Apps \\
+    Payment & x402 PoC & x402 + delegated signing & Platform billing & Platform billing \\
+    Orchestration & None & LLM ReAct & Platform-dependent & App-embedded \\
+    End-to-end flow & No & Yes & Yes (closed) & Yes (closed) \\
+    Vendor-neutral & Yes & Yes & No & No \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\subsection{Comparison with Existing Approaches}
+Oracle's adoption of A2A illustrates that agent-interface standards are becoming
 commercially relevant, but the benefit remains limited if registration,
 discovery, billing, and deployment stay inside a single vendor's
 application layer. UniAgent matches the end-to-end
@@ -707,55 +572,25 @@ marketplaces can hide those boundaries behind a platform-specific
 runtime, but they also bind discovery, billing, and orchestration to a
 single vendor.
 
-\begin{strip}
-  \centering
-  \captionof{table}{Feature comparison.}
-  \label{tab:comparison}
-  \small
-  \begin{tabular}{@{}p{0.16\textwidth}p{0.17\textwidth}p{0.17\textwidth}p{0.18\textwidth}p{0.20\textwidth}@{}}
-    \toprule
-    Feature & Vaziry et al. & UniAgent & GPT Store & Oracle Marketplace \\
-    \midrule
-    Registration & Custom contract & ERC-8004 & Platform-specific & Validated templates \\
-    Discovery & Proposed, not integrated & Registry + cache & In-platform search & Within Fusion Apps \\
-    Payment & x402 PoC & x402 + delegated signing & Platform billing & Platform billing \\
-    Orchestration & None & LLM ReAct & Platform-dependent & App-embedded \\
-    End-to-end flow & No & Yes & Yes (closed) & Yes (closed) \\
-    Vendor-neutral & Yes & Yes & No & No \\
-    \bottomrule
-  \end{tabular}
-\end{strip}
-
 \section{Discussion}
 \label{sec:discussion}
 
 The prototype shows that an open, integrated marketplace is feasible:
-once registration, discovery, communication, and payment are each
-expressed as open protocols, an LLM orchestrator can stitch them into an
-autonomous end-to-end flow. We expect the dominant cost to be LLM
-reasoning and external-agent execution rather than payment, since x402
-settlement adds only a single signed request and one on-chain transfer.
+open registration, discovery, communication, and payment protocols can
+be composed into an end-to-end marketplace when connected by an LLM
+orchestrator. Its main limitation is scale: the system currently runs on
+a testnet, uses two travel-related agent categories, and evaluates a
+small population of external A2A services. The discovery ranking and
+EAS-based reputation feedback are implemented as design elements but
+have not yet been validated under large-scale or adversarial marketplace
+conditions.
 
-UniAgent has several limitations. It currently runs on a testnet, so
-real economic incentives and adversarial behavior are not yet exercised.
-The evaluation uses two agent categories (flight and hotel); broader
-domains and a larger agent population remain to be tested. The discovery
-ranking and the EAS-based reputation feedback are presented here as
-design elements and have not been validated at scale. Controlled
-provider-failure recovery is also left to future evaluation, since the
-reported runs focus on the completed single-agent and multi-agent
-execution paths. Finally,
-end-to-end quality depends on the LLM's selection accuracy: prior
-benchmarks show that reasoning, decision-making, and instruction
-following remain key failure modes for LLM
-agents~\cite{liu2024agentbench}, so a poor choice among candidates can
-lower task success even when every protocol behaves correctly.
-
-Future work includes large-scale evaluation of the discovery and
-reputation mechanisms, controlled failure-recovery experiments,
-hardening the system for mainnet (security and key management for
-delegated payments), refining the economic model for staking and
-pricing, and extending orchestration to richer multi-agent workflows.
+End-to-end quality also depends on provider output quality and the
+orchestrator's selection accuracy. In our evaluation, protocol
+completion remained high even when task-level success was reduced by
+provider mismatches, suggesting that future work should focus on failure
+recovery, stronger reputation signals, mainnet hardening, and larger
+multi-agent workflows.
 
 \section{Conclusion}
 \label{sec:conclusion}
