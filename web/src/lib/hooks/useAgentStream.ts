@@ -33,10 +33,6 @@ export interface UseAgentStreamReturn {
   conversationId: string | null;
 }
 
-function generateId(): string {
-  return crypto.randomUUID();
-}
-
 export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamReturn {
   const { walletId, walletAddress, getAccessToken, initialMessages } = options;
 
@@ -311,4 +307,8 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       conversationId,
     ],
   );
+}
+
+function generateId(): string {
+  return crypto.randomUUID();
 }

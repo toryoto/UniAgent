@@ -24,38 +24,6 @@ app.use((req, _res, next) => {
   next();
 });
 
-// ── SSE helpers ───────────────────────────────────────────────────────────
-
-function beginSseResponse(res: Response): void {
-  res.setHeader('Content-Type', SSE_RESPONSE_HEADERS['Content-Type']);
-  res.setHeader('Cache-Control', SSE_RESPONSE_HEADERS['Cache-Control']);
-  res.setHeader('Connection', SSE_RESPONSE_HEADERS.Connection);
-  res.setHeader('X-Accel-Buffering', SSE_RESPONSE_HEADERS['X-Accel-Buffering']);
-  res.flushHeaders();
-}
-
-/** StreamEvent（shared 契約）を SSE フレームとして書き込む */
-function writeSseEvent(res: Response, event: StreamEvent): void {
-  res.write(encodeSseEvent(event));
-}
-
-/** core のイベントストリームを SSE として送り切る（クライアント切断で中断） */
-async function pipeStreamToSse(
-  res: Response,
-  stream: AsyncGenerator<StreamEvent>,
-): Promise<void> {
-  for await (const event of stream) {
-    writeSseEvent(res, event);
-    if (res.closed) break;
-  }
-  res.end();
-}
-
-function endSseWithError(res: Response, error: string): void {
-  writeSseEvent(res, { type: 'error', data: { error } });
-  res.end();
-}
-
 // ── Routes ────────────────────────────────────────────────────────────────
 
 app.get('/health', (_req, res) => {
@@ -110,6 +78,38 @@ app.post('/api/agent/resume', async (req, res) => {
     endSseWithError(res, errorMessage);
   }
 });
+
+// ── Private: SSE helpers ──────────────────────────────────────────────────
+
+function beginSseResponse(res: Response): void {
+  res.setHeader('Content-Type', SSE_RESPONSE_HEADERS['Content-Type']);
+  res.setHeader('Cache-Control', SSE_RESPONSE_HEADERS['Cache-Control']);
+  res.setHeader('Connection', SSE_RESPONSE_HEADERS.Connection);
+  res.setHeader('X-Accel-Buffering', SSE_RESPONSE_HEADERS['X-Accel-Buffering']);
+  res.flushHeaders();
+}
+
+/** StreamEvent（shared 契約）を SSE フレームとして書き込む */
+function writeSseEvent(res: Response, event: StreamEvent): void {
+  res.write(encodeSseEvent(event));
+}
+
+/** core のイベントストリームを SSE として送り切る（クライアント切断で中断） */
+async function pipeStreamToSse(
+  res: Response,
+  stream: AsyncGenerator<StreamEvent>,
+): Promise<void> {
+  for await (const event of stream) {
+    writeSseEvent(res, event);
+    if (res.closed) break;
+  }
+  res.end();
+}
+
+function endSseWithError(res: Response, error: string): void {
+  writeSseEvent(res, { type: 'error', data: { error } });
+  res.end();
+}
 
 // ── Startup ───────────────────────────────────────────────────────────────
 

@@ -11,100 +11,6 @@ import {
 import type { HITLDecision } from '@agent-marketplace/shared';
 import type { AgentApproval } from '@/lib/types';
 
-function ActionDetail({
-  action,
-}: {
-  action: { name: string; args: Record<string, unknown>; description?: string };
-}) {
-  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
-
-  if (action.description) {
-    return <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>;
-  }
-
-  return (
-    <>
-      <div className="flex gap-2">
-        <span className="text-slate-500">Tool:</span>
-        <span className="font-mono text-slate-200">{action.name}</span>
-      </div>
-      {agentId != null && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Agent ID:</span>
-          <span className="font-mono text-slate-200">{String(agentId)}</span>
-        </div>
-      )}
-      {agentUrl != null && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Agent URL:</span>
-          <span className="font-mono text-slate-200">{String(agentUrl)}</span>
-        </div>
-      )}
-      {task != null && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Task:</span>
-          <span className="text-slate-200">{String(task)}</span>
-        </div>
-      )}
-      {data != null && typeof data === 'object' && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Params:</span>
-          <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        </div>
-      )}
-      {maxPrice !== undefined && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Max Price:</span>
-          <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
-        </div>
-      )}
-    </>
-  );
-}
-
-function ActionEditor({
-  args,
-  onChange,
-}: {
-  args: Record<string, unknown>;
-  onChange: (updated: Record<string, unknown>) => void;
-}) {
-  return (
-    <div className="mt-2 space-y-2">
-      {args.task !== undefined && (
-        <>
-          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
-          <textarea
-            value={String(args.task ?? '')}
-            onChange={(e) => onChange({ ...args, task: e.target.value })}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-            rows={2}
-          />
-        </>
-      )}
-      {args.data !== undefined && (
-        <>
-          <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
-          <textarea
-            value={typeof args.data === 'string' ? args.data : JSON.stringify(args.data, null, 2)}
-            onChange={(e) => {
-              try {
-                onChange({ ...args, data: JSON.parse(e.target.value) });
-              } catch {
-                onChange({ ...args, data: e.target.value });
-              }
-            }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-            rows={4}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
 export function ApprovalCard({
   approval,
   onResume,
@@ -309,6 +215,100 @@ export function ApprovalCard({
           <Loader2 className="h-3 w-3 animate-spin" />
           Processing decision...
         </div>
+      )}
+    </div>
+  );
+}
+
+function ActionDetail({
+  action,
+}: {
+  action: { name: string; args: Record<string, unknown>; description?: string };
+}) {
+  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
+
+  if (action.description) {
+    return <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>;
+  }
+
+  return (
+    <>
+      <div className="flex gap-2">
+        <span className="text-slate-500">Tool:</span>
+        <span className="font-mono text-slate-200">{action.name}</span>
+      </div>
+      {agentId != null && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Agent ID:</span>
+          <span className="font-mono text-slate-200">{String(agentId)}</span>
+        </div>
+      )}
+      {agentUrl != null && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Agent URL:</span>
+          <span className="font-mono text-slate-200">{String(agentUrl)}</span>
+        </div>
+      )}
+      {task != null && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Task:</span>
+          <span className="text-slate-200">{String(task)}</span>
+        </div>
+      )}
+      {data != null && typeof data === 'object' && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Params:</span>
+          <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      )}
+      {maxPrice !== undefined && (
+        <div className="flex gap-2">
+          <span className="text-slate-500">Max Price:</span>
+          <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ActionEditor({
+  args,
+  onChange,
+}: {
+  args: Record<string, unknown>;
+  onChange: (updated: Record<string, unknown>) => void;
+}) {
+  return (
+    <div className="mt-2 space-y-2">
+      {args.task !== undefined && (
+        <>
+          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
+          <textarea
+            value={String(args.task ?? '')}
+            onChange={(e) => onChange({ ...args, task: e.target.value })}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+            rows={2}
+          />
+        </>
+      )}
+      {args.data !== undefined && (
+        <>
+          <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
+          <textarea
+            value={typeof args.data === 'string' ? args.data : JSON.stringify(args.data, null, 2)}
+            onChange={(e) => {
+              try {
+                onChange({ ...args, data: JSON.parse(e.target.value) });
+              } catch {
+                onChange({ ...args, data: e.target.value });
+              }
+            }}
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
+            rows={4}
+          />
+        </>
       )}
     </div>
   );

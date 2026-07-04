@@ -19,37 +19,6 @@ import {
   deleteConversation,
 } from '@/lib/db/conversations';
 
-async function resolveOwnedConversation(
-  request: NextRequest,
-  conversationId: string,
-): Promise<
-  | { ok: true; userId: string }
-  | { ok: false; response: NextResponse }
-> {
-  const auth = await verifyPrivyToken(request);
-  if (!auth) {
-    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  }
-
-  const userId = await findUserIdByPrivyId(auth.privyUserId);
-  if (!userId) {
-    return { ok: false, response: NextResponse.json({ error: 'User not found' }, { status: 404 }) };
-  }
-
-  const conversation = await findConversationOwner(conversationId);
-  if (!conversation) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: 'Conversation not found' }, { status: 404 }),
-    };
-  }
-  if (conversation.userId !== userId) {
-    return { ok: false, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
-  }
-
-  return { ok: true, userId };
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
@@ -107,4 +76,35 @@ export async function DELETE(
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+async function resolveOwnedConversation(
+  request: NextRequest,
+  conversationId: string,
+): Promise<
+  | { ok: true; userId: string }
+  | { ok: false; response: NextResponse }
+> {
+  const auth = await verifyPrivyToken(request);
+  if (!auth) {
+    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const userId = await findUserIdByPrivyId(auth.privyUserId);
+  if (!userId) {
+    return { ok: false, response: NextResponse.json({ error: 'User not found' }, { status: 404 }) };
+  }
+
+  const conversation = await findConversationOwner(conversationId);
+  if (!conversation) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Conversation not found' }, { status: 404 }),
+    };
+  }
+  if (conversation.userId !== userId) {
+    return { ok: false, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  }
+
+  return { ok: true, userId };
 }

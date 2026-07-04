@@ -13,15 +13,6 @@ interface UploadMetadataRequest {
   category?: string;
 }
 
-function validateUrl(url: string, allowedProtocols = ['https:', 'http:']): boolean {
-  try {
-    const parsed = new URL(url);
-    return allowedProtocols.includes(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as UploadMetadataRequest;
@@ -76,5 +67,14 @@ export async function POST(req: NextRequest) {
       { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 }
     );
+  }
+}
+
+function validateUrl(url: string, allowedProtocols = ['https:', 'http:']): boolean {
+  try {
+    const parsed = new URL(url);
+    return allowedProtocols.includes(parsed.protocol);
+  } catch {
+    return false;
   }
 }

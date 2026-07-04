@@ -11,6 +11,27 @@ import { AuthGuard } from '@/components/auth/auth-guard';
 import { ChatView } from '@/components/chat/ChatView';
 import type { AgentStreamMessage, AgentToolCall } from '@/lib/types';
 
+export default function ConversationPage() {
+  const params = useParams<{ conversationId: string }>();
+  const conversationId = params.conversationId;
+
+  return (
+    <AppLayout>
+      <AuthGuard>
+        <div className="flex h-full flex-col">
+          {conversationId ? (
+            <ConversationChatLoader conversationId={conversationId} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+            </div>
+          )}
+        </div>
+      </AuthGuard>
+    </AppLayout>
+  );
+}
+
 function ConversationChatLoader({ conversationId }: { conversationId: string }) {
   const { getAccessToken } = usePrivy();
 
@@ -84,26 +105,5 @@ function ConversationChatLoader({ conversationId }: { conversationId: string }) 
       conversationId={conversationId}
       initialMessages={initialMessages}
     />
-  );
-}
-
-export default function ConversationPage() {
-  const params = useParams<{ conversationId: string }>();
-  const conversationId = params.conversationId;
-
-  return (
-    <AppLayout>
-      <AuthGuard>
-        <div className="flex h-full flex-col">
-          {conversationId ? (
-            <ConversationChatLoader conversationId={conversationId} />
-          ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
-            </div>
-          )}
-        </div>
-      </AuthGuard>
-    </AppLayout>
   );
 }

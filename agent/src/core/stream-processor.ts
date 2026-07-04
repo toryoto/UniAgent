@@ -13,8 +13,6 @@ import type { StreamProcessingContext } from '../types/index.js';
 import { shouldAutoApprove } from './auto-approve.js';
 import { logger } from '@agent-marketplace/shared/logger';
 
-// ── Public ────────────────────────────────────────────────────────────────
-
 /**
  * LangGraph のストリームを処理し、クライアント向け StreamEvent を yield する。
  * HITL 割り込み検出時は自動承認判定を行い、閾値以内であれば再帰的に処理を継続する。
@@ -40,8 +38,6 @@ export async function* processAgentStream(
     }
   }
 }
-
-// ── Private ───────────────────────────────────────────────────────────────
 
 /**
  * AIMessage.content（string | ContentBlock[]）からテキストを抽出する。
