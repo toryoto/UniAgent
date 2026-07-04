@@ -1,12 +1,10 @@
 /**
- * @module tools/execute-agent
- * LangChain execute_agent ツール定義。
- * x402 v2 決済を使用して外部エージェントを実行する。
- * Privy delegated wallet でユーザーのウォレット署名を行う。
+ * @module services/agent-execution
+ * 外部 A2A エージェントの実行本体（x402 v2 決済付き）。
+ * tools 層（execute_and_evaluate_agent）から直接呼び出されるビジネス実行ロジックで、
+ * URL 解決 → A2A リクエスト送信 → 決済リトライ → 決済結果検証までを担う。
  */
 
-import { tool } from 'langchain';
-import { z } from 'zod';
 import type { JsonRpcResponse } from '@agent-marketplace/shared';
 import { logger } from '@agent-marketplace/shared/logger';
 import type { ExecuteAgentInput, ExecuteAgentResult, PaymentRequiredData } from '../types/index.js';
@@ -25,73 +23,15 @@ import { handle402Error, handlePaymentSettlementError } from '../lib/payment/err
 
 // ── Public ────────────────────────────────────────────────────────────────
 
-const executeAgentSchema = z
-  .object({
-    agentId: z.string().describe('エージェントID（discover_agents の結果の agentId。Base URL はサーバーが解決）'),
-    task: z
-      .string()
-      .optional()
-      .describe('自然言語テキスト（A2A TextPart）。テキスト入力を受け付けるエージェント向け。'),
-    data: z
-      .record(z.unknown())
-      .optional()
-      .describe(
-        '構造化パラメータ（A2A DataPart）。fetch_agent_spec の inputSchema / OpenAPI に基づいて構築。',
-      ),
-    maxPrice: z.number().describe('許容する最大価格 (USDC) - 参考値'),
-    walletId: z.string().describe('Privyウォレット ID'),
-    walletAddress: z.string().describe('ウォレットアドレス (0x...)'),
-  })
-  .refine((d) => d.task || (d.data && Object.keys(d.data).length > 0), {
-    message: 'task または data の少なくとも一方が必要です',
-  });
-
 /**
- * execute_agent ツール。
- * x402 v2 決済付きで外部エージェントを実行する（A2A Protocol 準拠）。
+ * 外部エージェントを x402 v2 決済付きで実行する（A2A Protocol 準拠）。
+ * agentId は AgentCache から Base URL に解決されるため、URL の直接指定は受け付けない。
+ * 失敗しても throw せず `success: false` の結果を返す。
+ *
+ * @param input - agentId / task / data / maxPrice / Privy ウォレット情報
+ * @returns 実行結果（応答本体・決済額・トランザクションハッシュ）
  */
-export const executeAgentTool = tool(
-  async (input: z.infer<typeof executeAgentSchema>) => {
-    try {
-      const result = await executeAgentImpl(input);
-      return JSON.stringify(result, null, 2);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.agent.error('execute_agent tool error', { error: message });
-      return JSON.stringify({ success: false, error: message });
-    }
-  },
-  {
-    name: 'execute_agent',
-    description: `外部エージェントをx402 v2決済付きで実行します（A2A Protocol準拠）。
-agentId は discover_agents で得た値のみを指定すること。Base URL は AgentCache から自動解決される。
-
-【A2Aリクエスト構築 — task / data の使い分け】
-fetch_agent_spec で取得した仕様に基づき、エージェントが必要とする Part だけを送る:
-- task (TextPart): 自然言語テキスト入力を受け付けるエージェント向け
-- data (DataPart): inputSchema / OpenAPI でスキーマが定義されているエージェント向け
-- 両方指定も可。ただし少なくとも一方は必須。
-
-【判断基準】
-1. inputSchema / OpenAPI がある → data にスキーマ準拠のオブジェクトを渡す。task は省略可。
-2. スキーマがなくテキスト入力のみ → task だけを渡す。
-3. スキーマ＋テキスト補足が有効 → 両方渡す。
-
-【使用例1: テキストのみ（スキーマなし）】
-{ "task": "東京の天気を教えて", ... }
-
-【使用例2: 構造化データのみ（inputSchemaあり）】
-{ "data": { "origin": "TYO", "destination": "OKA", "date": "2026-03-15" }, ... }
-
-【使用例3: 両方】
-{ "task": "東京から沖縄へのフライトを検索", "data": { "origin": "TYO", "destination": "OKA" }, ... }`,
-    schema: executeAgentSchema,
-  },
-);
-
-// ── Private ───────────────────────────────────────────────────────────────
-
-async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
+export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
   const { agentId, task, data, maxPrice, walletId, walletAddress } = input;
 
   logger.agent.info('Executing agent with x402 v2', {
@@ -161,11 +101,17 @@ async function executeAgentImpl(input: ExecuteAgentInput): Promise<ExecuteAgentR
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('execute_agent failed', { error: message });
+    logger.agent.error('executeAgent failed', { error: message });
     return { success: false, error: message };
   }
 }
 
+// ── Private ───────────────────────────────────────────────────────────────
+
+/**
+ * facilitator 競合（PAYMENT-REQUIRED ヘッダなしの 402）時に、
+ * 新しい署名クライアントで最大 MAX_PAYMENT_RETRIES 回まで再送する。
+ */
 async function sendWithRetry(
   fetchWithPayment: ReturnType<typeof createX402FetchClient>,
   endpoint: string | undefined,
@@ -226,6 +172,10 @@ function logResponse(
   });
 }
 
+/**
+ * PAYMENT-RESPONSE ヘッダから決済結果を検証し、決済額 (USDC) と tx hash を抽出する。
+ * 決済失敗時は throw して呼び出し元でエラー結果に変換させる。
+ */
 async function processPaymentResponse(
   response: Response,
   paymentRequiredDecoded: PaymentRequiredData | null,

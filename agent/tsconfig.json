@@ -27,7 +27,6 @@
     "dist",
     "../web",
     "../contracts",
-    "../mcp",
     "../packages/shared/node_modules"
   ],
   "references": [

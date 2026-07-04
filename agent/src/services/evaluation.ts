@@ -1,12 +1,13 @@
 /**
  * @module services/evaluation
  * LLM-as-a-Judge による評価 + EAS アテステーション署名・保存の統合サービス。
- * evaluate-agent ツールと execute-and-evaluate-agent ツールの共通ロジックを一元化する。
+ * execute-and-evaluate-agent ツールの評価ロジックを一元化する。
  */
 
 import { initChatModel } from 'langchain';
 import { z } from 'zod';
 import { logger } from '@agent-marketplace/shared/logger';
+import { AGENT_MODEL } from '../config/constants.js';
 import { getEvaluationPrompt, RAW_SCORE_TO_100, scaleToUint8 } from '../prompts/evaluation-prompt.js';
 import { signAndStoreAttestation } from './eas-attestation.js';
 import type { AgentCategory, EvaluationScores, EvaluationWithAttestation } from '../types/index.js';
@@ -50,7 +51,7 @@ export async function evaluateAndAttest(input: EvaluateAndAttestInput): Promise<
 
   logger.eval.info('Starting structured agent evaluation', { agentId, category });
 
-  const baseModel = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
+  const baseModel = await initChatModel(AGENT_MODEL, { temperature: 0 });
   const evaluationModel = baseModel.withStructuredOutput(evaluationResponseSchema);
 
   const systemPrompt = getEvaluationPrompt(category);

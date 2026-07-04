@@ -1,6 +1,7 @@
 /**
  * Conversation API
  *
+ * GET    /api/conversations/[conversationId]  → 会話取得（所有者のみ）
  * DELETE /api/conversations/[conversationId]  → 会話削除（所有者のみ）
  *
  * Authorization: Bearer <privy-auth-token>
@@ -12,32 +13,54 @@ import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
 const log = createLogger('Conversations API');
 import { findUserIdByPrivyId } from '@/lib/db/users';
-import { findConversationOwner, deleteConversation } from '@/lib/db/conversations';
+import {
+  findConversationOwner,
+  findConversationWithMessages,
+  deleteConversation,
+} from '@/lib/db/conversations';
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ conversationId: string }> },
+) {
+  try {
+    const { conversationId } = await params;
+    const owned = await resolveOwnedConversation(request, conversationId);
+    if (!owned.ok) return owned.response;
+
+    const conversation = await findConversationWithMessages(conversationId);
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      conversation: {
+        id: conversation.id,
+        title: conversation.title,
+        messages: conversation.messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          toolRounds: m.toolRounds,
+          totalCost: m.totalCost?.toString() ?? null,
+          createdAt: m.createdAt.toISOString(),
+        })),
+      },
+    });
+  } catch (error) {
+    log.error('GET error', { error: error instanceof Error ? error.message : String(error) });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
   try {
-    const auth = await verifyPrivyToken(request);
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { conversationId } = await params;
-
-    const userId = await findUserIdByPrivyId(auth.privyUserId);
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-
-    const conversation = await findConversationOwner(conversationId);
-    if (!conversation) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
-    }
-    if (conversation.userId !== userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const owned = await resolveOwnedConversation(request, conversationId);
+    if (!owned.ok) return owned.response;
 
     await deleteConversation(conversationId);
 
@@ -53,4 +76,35 @@ export async function DELETE(
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+async function resolveOwnedConversation(
+  request: NextRequest,
+  conversationId: string,
+): Promise<
+  | { ok: true; userId: string }
+  | { ok: false; response: NextResponse }
+> {
+  const auth = await verifyPrivyToken(request);
+  if (!auth) {
+    return { ok: false, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const userId = await findUserIdByPrivyId(auth.privyUserId);
+  if (!userId) {
+    return { ok: false, response: NextResponse.json({ error: 'User not found' }, { status: 404 }) };
+  }
+
+  const conversation = await findConversationOwner(conversationId);
+  if (!conversation) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Conversation not found' }, { status: 404 }),
+    };
+  }
+  if (conversation.userId !== userId) {
+    return { ok: false, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  }
+
+  return { ok: true, userId };
 }

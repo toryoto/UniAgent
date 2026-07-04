@@ -20,15 +20,6 @@ export interface UnstakeRequest {
   isReady: boolean;
 }
 
-function toShortError(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e);
-  if (/user rejected|user denied/i.test(msg)) return 'Transaction was rejected.';
-  if (/insufficient funds/i.test(msg)) return 'Insufficient funds.';
-  if (/exceeds allowance/i.test(msg)) return 'USDC allowance exceeded.';
-  const first = msg.split('\n')[0];
-  return first.length > 120 ? `${first.slice(0, 120)}…` : first;
-}
-
 export function useAgentStaking(agentId: string | undefined) {
   const [error, setError] = useState<string | null>(null);
 
@@ -240,4 +231,13 @@ export function useAgentStaking(agentId: string | undefined) {
     refetch,
     refetchAllowance,
   };
+}
+
+function toShortError(e: unknown): string {
+  const msg = e instanceof Error ? e.message : String(e);
+  if (/user rejected|user denied/i.test(msg)) return 'Transaction was rejected.';
+  if (/insufficient funds/i.test(msg)) return 'Insufficient funds.';
+  if (/exceeds allowance/i.test(msg)) return 'USDC allowance exceeded.';
+  const first = msg.split('\n')[0];
+  return first.length > 120 ? `${first.slice(0, 120)}…` : first;
 }

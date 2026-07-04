@@ -1,15 +1,15 @@
 /**
  * @module tools/execute-and-evaluate-agent
- * LangChain execute_and_evaluate_agent ツール定義。
- * execute_agent + evaluate_agent を統合し、1 回の呼び出しで
- * 「実行 → tx 検証 → 評価 → EAS 署名」を完結させる。
+ * LangChain execute_and_evaluate_agent ツール定義（本番実行経路の唯一の課金ツール）。
+ * 1 回の呼び出しで「実行 → tx 検証 → 評価 → EAS 署名」を完結させる。
+ * 実行本体は services/agent-execution、評価は services/evaluation に委譲する。
  * HITL ミドルウェアの対象ツール。
  */
 
 import { tool } from 'langchain';
 import { z } from 'zod';
 import { logger } from '@agent-marketplace/shared/logger';
-import { executeAgentTool } from './execute-agent.js';
+import { executeAgent } from '../services/agent-execution.js';
 import { evaluateAndAttest } from '../services/evaluation.js';
 import { verifyX402TransactionHash } from '../lib/payment/verify-tx.js';
 import type { AgentCategory } from '../types/index.js';
@@ -69,8 +69,8 @@ export const executeAndEvaluateAgentTool = tool(
     description: `外部エージェントを実行し、応答品質を自動評価してEASアテステーションを作成する統合ツールです。
 
 【処理フロー】
-1. execute_agent: x402決済付きで外部エージェントを実行（実行時間を計測）
-2. evaluate_agent: LLM-as-a-Judge で応答品質を評価（Quality / Reliability）
+1. 実行: x402決済付きで外部エージェントを実行（実行時間を計測）
+2. 評価: LLM-as-a-Judge で応答品質を評価（Quality / Reliability）
 3. EAS署名: 評価結果をオフチェーンアテステーションとして署名・DB保存
 
 【入力】
@@ -83,6 +83,11 @@ export const executeAndEvaluateAgentTool = tool(
 - requireUserApproval: true で承認画面を強制（省略時は false。ユーザーが確認を求めた場合や誤実行リスクが高い場合に使う）
 - walletId: Privy ウォレット ID
 - walletAddress: ウォレットアドレス (0x...)
+
+【A2Aリクエスト構築 — task / data の使い分け】
+1. inputSchema / OpenAPI がある → data にスキーマ準拠のオブジェクトを渡す。task は省略可。
+2. スキーマがなくテキスト入力のみ → task だけを渡す。
+3. スキーマ＋テキスト補足が有効 → 両方渡す。
 
 【出力】
 - result: 外部エージェントの応答
@@ -103,17 +108,16 @@ async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
 
   const startTime = Date.now();
 
-  const executeResultRaw = await executeAgentTool.invoke({
+  const executeResult = await executeAgent({
     agentId,
-    ...(task ? { task } : {}),
-    ...(data ? { data } : {}),
+    task,
+    data,
     maxPrice,
     walletId,
     walletAddress,
   });
 
   const latencyMs = Date.now() - startTime;
-  const executeResult = JSON.parse(executeResultRaw);
 
   logger.eval.info('Execution finished', { success: executeResult.success, latencyMs });
 

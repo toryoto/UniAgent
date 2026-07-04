@@ -35,67 +35,6 @@ export const runtime = 'nodejs';
 
 type CandidateLog = { address?: string; data: string; topics: string[]; removed?: boolean };
 
-function timingSafeEqualHex(aHex: string, bHex: string): boolean {
-  const a = Buffer.from(aHex, 'hex');
-  const b = Buffer.from(bHex, 'hex');
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
-
-function getAlchemySigningKeys(): string[] {
-  return [
-    process.env.ALCHEMY_WEBHOOK_SIGNING_KEY,
-    process.env.ALCHEMY_WEBHOOK_SIGNING_KEY_STAKING,
-  ].filter((k): k is string => !!k);
-}
-
-function verifyAlchemySignature(rawBody: string, signatureHeader: string | null) {
-  const keys = getAlchemySigningKeys();
-  if (keys.length === 0) return;
-
-  if (!signatureHeader) throw new Error('Missing X-Alchemy-Signature');
-
-  const signature = signatureHeader.trim().replace(/^sha256=/i, '');
-  if (!/^[0-9a-f]{64}$/i.test(signature)) throw new Error('Invalid X-Alchemy-Signature format');
-
-  const matched = keys.some((key) => {
-    const expected = crypto.createHmac('sha256', key).update(rawBody, 'utf8').digest('hex');
-    return timingSafeEqualHex(expected, signature);
-  });
-  if (!matched) throw new Error('Invalid X-Alchemy-Signature');
-}
-
-function extractLogs(value: unknown, out: CandidateLog[]) {
-  if (!value) return;
-  if (Array.isArray(value)) return value.forEach((v) => extractLogs(v, out));
-  if (typeof value !== 'object') return;
-
-  const obj = value as any;
-  if (
-    typeof obj.data === 'string' &&
-    Array.isArray(obj.topics) &&
-    obj.topics.every((t: any) => typeof t === 'string')
-  ) {
-    const address: string | undefined =
-      typeof obj.address === 'string'
-        ? obj.address
-        : typeof obj?.account?.address === 'string'
-          ? obj.account.address
-          : undefined;
-    out.push({
-      address,
-      data: obj.data,
-      topics: obj.topics,
-      removed: typeof obj.removed === 'boolean' ? obj.removed : undefined,
-    });
-  }
-  Object.values(obj).forEach((v) => extractLogs(v, out));
-}
-
-function toJsonSafe<T>(value: T): unknown {
-  return JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
-}
-
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
@@ -284,4 +223,65 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function timingSafeEqualHex(aHex: string, bHex: string): boolean {
+  const a = Buffer.from(aHex, 'hex');
+  const b = Buffer.from(bHex, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+function getAlchemySigningKeys(): string[] {
+  return [
+    process.env.ALCHEMY_WEBHOOK_SIGNING_KEY,
+    process.env.ALCHEMY_WEBHOOK_SIGNING_KEY_STAKING,
+  ].filter((k): k is string => !!k);
+}
+
+function verifyAlchemySignature(rawBody: string, signatureHeader: string | null) {
+  const keys = getAlchemySigningKeys();
+  if (keys.length === 0) return;
+
+  if (!signatureHeader) throw new Error('Missing X-Alchemy-Signature');
+
+  const signature = signatureHeader.trim().replace(/^sha256=/i, '');
+  if (!/^[0-9a-f]{64}$/i.test(signature)) throw new Error('Invalid X-Alchemy-Signature format');
+
+  const matched = keys.some((key) => {
+    const expected = crypto.createHmac('sha256', key).update(rawBody, 'utf8').digest('hex');
+    return timingSafeEqualHex(expected, signature);
+  });
+  if (!matched) throw new Error('Invalid X-Alchemy-Signature');
+}
+
+function extractLogs(value: unknown, out: CandidateLog[]) {
+  if (!value) return;
+  if (Array.isArray(value)) return value.forEach((v) => extractLogs(v, out));
+  if (typeof value !== 'object') return;
+
+  const obj = value as any;
+  if (
+    typeof obj.data === 'string' &&
+    Array.isArray(obj.topics) &&
+    obj.topics.every((t: any) => typeof t === 'string')
+  ) {
+    const address: string | undefined =
+      typeof obj.address === 'string'
+        ? obj.address
+        : typeof obj?.account?.address === 'string'
+          ? obj.account.address
+          : undefined;
+    out.push({
+      address,
+      data: obj.data,
+      topics: obj.topics,
+      removed: typeof obj.removed === 'boolean' ? obj.removed : undefined,
+    });
+  }
+  Object.values(obj).forEach((v) => extractLogs(v, out));
+}
+
+function toJsonSafe<T>(value: T): unknown {
+  return JSON.parse(JSON.stringify(value, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)));
 }

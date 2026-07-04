@@ -1,15 +1,29 @@
-# @agent-marketplace/shared
+# `@agent-marketplace/shared`
 
-Pure Functions、型定義、ビジネスロジックを提供。  
-DB やフレームワークに依存しない。
+Lowest-layer package: framework-agnostic types, constants, and pure functions shared across workspaces. **No dependencies** — never imports Prisma, React, Next.js, or reads environment-specific state beyond contract-address overrides.
 
-## 提供する機能
+Move code here only when it is used by 2+ workspaces, has no side effects, and is framework-free ([placement rules](../../docs/coding-conventions.md)).
 
-- **`discoverAgentsFromCache`**: エージェント検索ロジック（Pure Function）
-- **`agentCardRowToDiscoveredAgent`**: データ変換ロジック（Pure Function）
-- **型定義**: `DiscoverAgentsInput`, `DiscoverAgentsOutput`, `AgentCacheRow`, etc.
-- **設定・契約**: `CONTRACT_ADDRESSES`, `RPC_URL`, `AGENT_IDENTITY_REGISTRY_ABI`, etc.
+## Contents
 
-## 依存関係
+| Module                     | Provides                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `services/agent-ranking`   | Pure scoring & selection for the [discovery algorithm](../../docs/discovery-algorithm.md) (Bayesian average, stake, freshness, composite score) |
+| `services/agent-discovery` | `discoverAgentsFromCache`, row → `DiscoveredAgent` conversion                                                                                   |
+| `config`                   | `CONTRACT_ADDRESSES` (env-overridable), USDC helpers (`parseUSDC`, 6 decimals)                                                                  |
+| `contract`                 | Contract ABIs                                                                                                                                   |
+| `sse` / `message-history`  | SSE event contract and message-history transforms shared by web and agent                                                                       |
+| `types`                    | `AgentCacheRow`, `DiscoveredAgent`, `ScoredAgent`, etc.                                                                                         |
+| `logger`                   | `createLogger`                                                                                                                                  |
 
-- なし（最下層パッケージ）
+## Setup
+
+Installed and built via the repository root:
+
+```bash
+npm install                                # from repo root
+npm run build --workspace=packages/shared  # other workspaces depend on dist/
+npm run test  --workspace=packages/shared
+```
+
+Build this package first when building workspaces individually.

@@ -71,7 +71,7 @@ npx hardhat verify --network base-sepolia <REGISTRY_ADDRESS>
 **更新するデプロイ先の例:**
 
 - **web**（Vercel 等）: 上記 `NEXT_PUBLIC_*` と、Webhook 用の既存キー
-- **mcp / agent / a2a-agents**（Railway 等）: `AGENT_IDENTITY_REGISTRY`、必要なら `RPC_URL`
+- **agent / a2a-agents**（Railway 等）: `AGENT_IDENTITY_REGISTRY`、必要なら `RPC_URL`
 
 ローカルでは各ワークスペースの `.env` を編集する。
 

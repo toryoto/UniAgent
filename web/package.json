@@ -6,9 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "lint:fix": "eslint --fix",
+    "lint": "eslint src/",
+    "lint:fix": "eslint --fix src/",
     "type-check": "tsc --noEmit",
+    "test": "vitest run",
     "db:generate": "npm run db:generate --workspace=@agent-marketplace/database",
     "db:push": "npm run db:push --workspace=@agent-marketplace/database",
     "db:studio": "npm run db:studio --workspace=@agent-marketplace/database"
@@ -52,7 +53,8 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   },
   "overrides": {
     "@types/react": "19.2.13",

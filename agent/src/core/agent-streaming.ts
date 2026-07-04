@@ -1,61 +1,23 @@
 /**
  * @module core/agent-streaming
- * SSE ストリーミングエージェント実行の公開 API。
- * LangGraph + HITL ミドルウェアを使用し、リアルタイムイベントを yield する。
+ * SSE ストリーミングエージェント実行の公開 API（本番実行経路の入口）。
+ * LangGraph + HITL ミドルウェアを使用し、`StreamEvent` をリアルタイムで yield する。
+ * agent の生成は core/agent-factory、累積コストは core/thread-cost-store に委譲する。
  */
 
-import { initChatModel, createAgent, humanInTheLoopMiddleware } from 'langchain';
 import type { HITLResponse } from 'langchain';
-import { MemorySaver, Command } from '@langchain/langgraph';
+import { Command } from '@langchain/langgraph';
 import { HumanMessage } from '@langchain/core/messages';
 import type { AgentRequest, StreamEvent } from '@agent-marketplace/shared';
+import { logger } from '@agent-marketplace/shared/logger';
+import { getAgent } from './agent-factory.js';
+import { getThreadCost, setThreadCost } from './thread-cost-store.js';
 import { expandHistoryToLangChainMessages } from './history-to-messages.js';
 import { buildStreamingUserMessage } from './message-builder.js';
 import { processAgentStream } from './stream-processor.js';
-import { discoverAgentsTool, executeAndEvaluateAgentTool, fetchAgentSpecTool } from '../tools/index.js';
-import { logger } from '@agent-marketplace/shared/logger';
-import { SYSTEM_PROMPT } from '../prompts/system-prompt.js';
 import type { StreamProcessingContext } from '../types/index.js';
 
 export type { StreamEvent };
-
-// ── Module-level singletons ───────────────────────────────────────────────
-
-const checkpointer = new MemorySaver();
-
-const hitlMiddleware = humanInTheLoopMiddleware({
-  interruptOn: {
-    discover_agents: false,
-    fetch_agent_spec: false,
-    execute_and_evaluate_agent: {
-      allowedDecisions: ['approve', 'edit', 'reject'],
-      description: (toolCall) => {
-        const { agentId, task, data, maxPrice } = toolCall.args as Record<string, unknown>;
-        const lines = [`Execute external agent.`, `Agent ID: ${agentId ?? '(missing)'}`];
-        if (task) lines.push(`Task: ${task}`);
-        if (data) lines.push(`Params: ${JSON.stringify(data, null, 2)}`);
-        lines.push(`Max Price: $${maxPrice} USDC`, '', 'Do you approve?');
-        return lines.join('\n');
-      },
-    },
-  },
-});
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _agent: any = null;
-
-async function getAgent() {
-  if (_agent) return _agent;
-  const model = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
-  _agent = createAgent({
-    model,
-    tools: [discoverAgentsTool, fetchAgentSpecTool, executeAndEvaluateAgentTool],
-    systemPrompt: SYSTEM_PROMPT,
-    checkpointer,
-    middleware: [hitlMiddleware],
-  });
-  return _agent;
-}
 
 // ── Public API ────────────────────────────────────────────────────────────
 
@@ -72,70 +34,34 @@ export async function* runAgentStream(request: AgentRequest): AsyncGenerator<Str
   logger.separator('Agent Execution Start (Streaming)');
   yield { type: 'start', data: { message } };
 
-  let threadId: string | undefined;
+  const threadId = crypto.randomUUID();
 
-  try {
-    const agent = await getAgent();
+  const userMessage = buildStreamingUserMessage({
+    message,
+    walletId,
+    walletAddress,
+    autoApproveThreshold,
+    agentId,
+  });
 
-    const userMessage = buildStreamingUserMessage({
-      message,
-      walletId,
-      walletAddress,
-      autoApproveThreshold,
-      agentId,
-    });
+  const messages = [
+    ...expandHistoryToLangChainMessages(messageHistory),
+    new HumanMessage(userMessage),
+  ];
 
-    const messages = [
-      ...expandHistoryToLangChainMessages(messageHistory),
-      new HumanMessage(userMessage),
-    ];
-
-    threadId = crypto.randomUUID();
-
-    const stream = await agent.stream(
-      { messages },
-      {
-        streamMode: ['messages', 'updates'],
-        configurable: { thread_id: threadId },
-      },
-    );
-
-    const ctx: StreamProcessingContext = {
-      stepCounter: 0,
-      totalCost: 0,
-      autoApproveThreshold,
-      finalResponse: '',
-    };
-
-    for await (const event of processAgentStream(
-      agent,
-      stream as AsyncIterable<[string, unknown]>,
-      ctx,
-      threadId,
-    )) {
-      yield event;
-      if (event.type === 'interrupt') return;
-    }
-
-    logger.separator('Agent Execution End');
-
-    yield {
-      type: 'final',
-      data: {
-        message: ctx.finalResponse,
-        totalCost: ctx.totalCost,
-      },
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Stream model call failed', { error: errorMessage, threadId });
-    yield { type: 'error', data: { error: errorMessage } };
-  }
+  yield* streamAgentTurn({
+    threadId,
+    streamInput: { messages },
+    autoApproveThreshold,
+    initialCost: 0,
+    endLabel: 'Agent Execution End',
+  });
 }
 
 /**
  * HITL 判断を受けてエージェント実行を再開する。
  * ユーザーの approve / edit / reject に基づいて処理を続行する。
+ * 割り込み前までの累積コストを thread-cost-store から復元し、予算判定を継続する。
  *
  * @param threadId - 中断されたスレッドの ID
  * @param decisions - ユーザーの HITL 判断
@@ -150,23 +76,49 @@ export async function* resumeAgentStream(
   logger.separator('Agent Resume (Streaming)');
   logger.agent.info('Resuming agent', { threadId, decisions });
 
+  yield* streamAgentTurn({
+    threadId,
+    streamInput: new Command({ resume: decisions }),
+    autoApproveThreshold,
+    initialCost: getThreadCost(threadId),
+    endLabel: 'Agent Resume End',
+  });
+}
+
+// ── Private ───────────────────────────────────────────────────────────────
+
+interface StreamAgentTurnParams {
+  threadId: string;
+  /** agent.stream の第一引数（初回は messages、resume は Command） */
+  streamInput: unknown;
+  autoApproveThreshold: number;
+  /** ターン開始時点の累積コスト（resume では割り込み前のコストを引き継ぐ） */
+  initialCost: number;
+  endLabel: string;
+}
+
+/**
+ * run / resume 共通のストリーミングループ。
+ * interrupt 発生時はイベントを yield して終了し、正常完了時は final を yield する。
+ * どの終了経路でも累積コストを thread-cost-store に記録する。
+ */
+async function* streamAgentTurn(params: StreamAgentTurnParams): AsyncGenerator<StreamEvent> {
+  const { threadId, streamInput, autoApproveThreshold, initialCost, endLabel } = params;
+
+  const ctx: StreamProcessingContext = {
+    stepCounter: 0,
+    totalCost: initialCost,
+    autoApproveThreshold,
+    finalResponse: '',
+  };
+
   try {
     const agent = await getAgent();
 
-    const stream = await agent.stream(
-      new Command({ resume: decisions }),
-      {
-        streamMode: ['messages', 'updates'],
-        configurable: { thread_id: threadId },
-      },
-    );
-
-    const ctx: StreamProcessingContext = {
-      stepCounter: 0,
-      totalCost: 0,
-      autoApproveThreshold,
-      finalResponse: '',
-    };
+    const stream = await agent.stream(streamInput, {
+      streamMode: ['messages', 'updates'],
+      configurable: { thread_id: threadId },
+    });
 
     for await (const event of processAgentStream(
       agent,
@@ -178,7 +130,7 @@ export async function* resumeAgentStream(
       if (event.type === 'interrupt') return;
     }
 
-    logger.separator('Agent Resume End');
+    logger.separator(endLabel);
 
     yield {
       type: 'final',
@@ -191,5 +143,8 @@ export async function* resumeAgentStream(
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Stream model call failed', { error: errorMessage, threadId });
     yield { type: 'error', data: { error: errorMessage } };
+  } finally {
+    // interrupt / final / error のいずれで抜けても resume 用に累積コストを保存する
+    setThreadCost(threadId, ctx.totalCost);
   }
 }

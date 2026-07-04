@@ -35,7 +35,6 @@
     "node_modules",
     "../agent",
     "../contracts",
-    "../mcp",
     "../packages/shared/node_modules"
   ],
   "references": [

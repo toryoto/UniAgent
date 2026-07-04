@@ -14,11 +14,14 @@ import { logger } from '@agent-marketplace/shared/logger';
  *
  * 以下の条件を全て満たす場合に自動承認:
  * - いずれの action も requireUserApproval !== true
- * - 合計 maxPrice が autoApproveThreshold 以下
  * - 合計 maxPrice が 0 より大きい
+ * - 「既に消費した累積コスト + 今回の合計 maxPrice」が autoApproveThreshold 以下
+ *
+ * 累積コスト (ctx.totalCost) を含めるのは、同一ターン内で複数 execute を行う場合や
+ * HITL resume 後の実行で、予算超過分が自動承認されるのを防ぐため。
  *
  * @param hitlRequest - HITL ミドルウェアからの割り込みリクエスト
- * @param ctx - ストリーム処理コンテキスト（閾値情報を含む）
+ * @param ctx - ストリーム処理コンテキスト（閾値・累積コストを含む）
  * @returns 自動承認すべきなら true
  */
 export function shouldAutoApprove(
@@ -42,9 +45,12 @@ export function shouldAutoApprove(
     return false;
   }
 
-  if (totalMaxPrice > ctx.autoApproveThreshold) {
-    logger.agent.info('HITL required: totalMaxPrice exceeds threshold', {
+  const projectedTotal = ctx.totalCost + totalMaxPrice;
+  if (projectedTotal > ctx.autoApproveThreshold) {
+    logger.agent.info('HITL required: projected total exceeds threshold', {
       totalMaxPrice,
+      spentSoFar: ctx.totalCost,
+      projectedTotal,
       autoApproveThreshold: ctx.autoApproveThreshold,
     });
     return false;
@@ -52,6 +58,7 @@ export function shouldAutoApprove(
 
   logger.agent.info('Auto-approving: within threshold', {
     totalMaxPrice,
+    spentSoFar: ctx.totalCost,
     autoApproveThreshold: ctx.autoApproveThreshold,
   });
   return true;

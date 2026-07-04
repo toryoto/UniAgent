@@ -18,10 +18,6 @@ const FAUCET_WHITELIST = (process.env.FAUCET_WHITELIST || '')
   .map((addr) => addr.trim().toLowerCase())
   .filter((addr) => addr.length > 0);
 
-function isWhitelisted(walletAddress: string): boolean {
-  return FAUCET_WHITELIST.includes(walletAddress.toLowerCase());
-}
-
 const ERC20_ABI = [
   {
     inputs: [
@@ -155,4 +151,8 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function isWhitelisted(walletAddress: string): boolean {
+  return FAUCET_WHITELIST.includes(walletAddress.toLowerCase());
 }

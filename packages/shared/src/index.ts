@@ -1,7 +1,7 @@
 /**
  * @agent-marketplace/shared
  *
- * web、mcp、agentパッケージで使用する共通コード
+ * web、agent パッケージで使用する共通コード
  */
 
 export {
@@ -54,6 +54,15 @@ export type {
 } from './types.js';
 
 export { isToolRoundsArray } from './types.js';
+
+export {
+  encodeSseEvent,
+  createSseEventBuffer,
+  SSE_RESPONSE_HEADERS,
+  type SseEventBuffer,
+} from './sse.js';
+
+export { toAgentMessageHistory, type ConversationMessageRow } from './message-history.js';
 
 // Services
 export {

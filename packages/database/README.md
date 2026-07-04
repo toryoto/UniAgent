@@ -1,23 +1,31 @@
-# @agent-marketplace/database
+# `@agent-marketplace/database`
 
-Prisma Client および DB アクセス層を提供。  
-ビジネスロジックは `@agent-marketplace/shared` に委譲。
+Prisma Client and the DB queries shared by multiple workspaces (e.g. agent discovery reads used by both `web` and `agent`). Transformation and filtering logic is delegated to `@agent-marketplace/shared`; web-only persistence (User, Conversation, BudgetSettings, …) lives in `web/src/lib/db/` instead.
 
-## 提供する機能
+Dependency direction: `shared → database → app workspaces`.
 
-- **Prisma Client のシングルトン**: `prisma` インスタンス
-- **DB 特化の検索関数**: `discoverAgents`（AgentCache テーブルから検索）
+## Contents
 
+- `prisma` — singleton Prisma Client
+- `discovery` — `discoverAgents` / `discoverAgentsWithStats`: raw `agent_cache` + attestation/stake stats for the [ranking algorithm](../../docs/discovery-algorithm.md) (scoring itself happens in `shared`)
 
-## 依存関係
-
-- **`@agent-marketplace/shared`**: ビジネスロジック（`discoverAgentsFromCache` 等）を使用
-
-## 環境変数（Prisma CLI 用）
-
-`db:push` / `db:generate` / `db:studio` 実行時に、`packages/database/.env` が必要です。
+## Setup
 
 ```bash
-cp .env.example .env
-# .env に DATABASE_URL と DIRECT_URL を設定（web/.env と同値でよい）
+npm install   # from repo root
+```
+
+Prisma CLI commands run through the `web` workspace:
+
+```bash
+npm run db:generate --workspace=web
+npm run db:push     --workspace=web
+npm run db:studio   --workspace=web
+```
+
+For running Prisma CLI directly against this package, create a local env file:
+
+```bash
+cp packages/database/.env.example packages/database/.env
+# set DATABASE_URL and DIRECT_URL (same values as web/.env)
 ```

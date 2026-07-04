@@ -39,6 +39,52 @@ interface HotelResultsCardProps {
   totalResults?: number;
 }
 
+export function HotelResultsCard({ hotels, searchParams, totalResults }: HotelResultsCardProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  if (!hotels.length) return null;
+
+  const dateRange =
+    searchParams?.checkIn && searchParams?.checkOut
+      ? `${searchParams.checkIn} → ${searchParams.checkOut}`
+      : null;
+
+  return (
+    <div className="mt-2 rounded-lg border border-blue-500/30 bg-slate-900/80">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-xs"
+      >
+        <Hotel className="h-3.5 w-3.5 text-blue-400" />
+        <span className="font-medium text-blue-300">
+          Hotel Results — {hotels.length} hotels
+          {totalResults && totalResults > hotels.length ? ` (of ${totalResults})` : ''}
+        </span>
+        {dateRange && (
+          <span className="ml-1 text-[10px] text-slate-500">{dateRange}</span>
+        )}
+        <span className="ml-auto text-slate-500">
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="max-h-80 overflow-y-auto px-3 pb-3">
+          <div className="space-y-1.5">
+            {hotels.map((hotel, i) => (
+              <HotelCard key={hotel.code ?? i} hotel={hotel} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function starCount(categoryCode?: string): number {
   if (!categoryCode) return 0;
   // Hotelbeds category codes: 1EST, 2EST, 3EST, 4EST, 5EST, APAR, etc.
@@ -114,52 +160,6 @@ function HotelCard({ hotel }: { hotel: HotelData }) {
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-export function HotelResultsCard({ hotels, searchParams, totalResults }: HotelResultsCardProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  if (!hotels.length) return null;
-
-  const dateRange =
-    searchParams?.checkIn && searchParams?.checkOut
-      ? `${searchParams.checkIn} → ${searchParams.checkOut}`
-      : null;
-
-  return (
-    <div className="mt-2 rounded-lg border border-blue-500/30 bg-slate-900/80">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-xs"
-      >
-        <Hotel className="h-3.5 w-3.5 text-blue-400" />
-        <span className="font-medium text-blue-300">
-          Hotel Results — {hotels.length} hotels
-          {totalResults && totalResults > hotels.length ? ` (of ${totalResults})` : ''}
-        </span>
-        {dateRange && (
-          <span className="ml-1 text-[10px] text-slate-500">{dateRange}</span>
-        )}
-        <span className="ml-auto text-slate-500">
-          {isExpanded ? (
-            <ChevronDown className="h-3 w-3" />
-          ) : (
-            <ChevronRight className="h-3 w-3" />
-          )}
-        </span>
-      </button>
-
-      {isExpanded && (
-        <div className="max-h-80 overflow-y-auto px-3 pb-3">
-          <div className="space-y-1.5">
-            {hotels.map((hotel, i) => (
-              <HotelCard key={hotel.code ?? i} hotel={hotel} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

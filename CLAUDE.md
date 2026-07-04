@@ -19,7 +19,7 @@ User -> web -> agent -> AgentRegistry / DB cache
 ## Repository Rules
 
 - パッケージ管理は npm workspaces + Yarn 1.22.19 です。依存追加や `npm install` は必ずリポジトリルートで実行し、サブワークスペースに lockfile を作らないでください。
-- `web/` は Next.js 16 + React 19、`agent/` は LangChain ReAct Agent、`contracts/` は Hardhat、`a2a-agents/` は外部 A2A HTTP Agent 群です。`mcp/` は legacy workspace で、現在の実行経路では使用しません。
+- `web/` は Next.js 16 + React 19、`agent/` は LangChain ReAct Agent、`contracts/` は Hardhat、`a2a-agents/` は外部 A2A HTTP Agent 群です。
 - LangChain は `@langchain/core` 1.1.19 系です。v0 系から破壊的変更があるため、Agent 実装や LangChain API 変更時は必ず Context7 MCP などで LangChain v1.1 系の最新ドキュメントを確認してください。
 - 共通型・純粋ロジックは `packages/shared/`、Prisma Client と共有 DB アクセスは `packages/database/` に置きます。
 - Web 固有の DB アクセスは `web/src/lib/db/` に閉じ込め、API Route や Server Component から Prisma を直接 import しないでください。
@@ -95,7 +95,7 @@ npm run db:studio --workspace=web
 
 ## External Tooling
 
-ここでいう MCP は Cursor/Supabase/Context7 などの外部 MCP ツールです。リポジトリ内の legacy workspace `mcp/` とは別物です。
+Cursor / Supabase / Context7 などの外部 MCP ツールの使い分けです。
 
 - Supabase MCP: DB 構造確認、ログ、Advisor、SQL 検証に使います。スキーマ変更前は既存テーブルと RLS/権限を確認してください。
 - Vercel MCP/CLI: `web` のデプロイ状況、Preview/Production URL、ログ、環境変数確認に使います。明示依頼なしに本番 deploy や env 変更をしないでください。

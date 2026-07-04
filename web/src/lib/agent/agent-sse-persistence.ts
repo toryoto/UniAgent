@@ -1,5 +1,6 @@
+import { createSseEventBuffer, encodeSseEvent } from '@agent-marketplace/shared';
 import { createLogger } from '@agent-marketplace/shared/logger';
-import { AssistantTurnCollector, createSseEventBuffer } from '@/lib/agent/assistant-turn-collector';
+import { AssistantTurnCollector } from '@/lib/agent/assistant-turn-collector';
 import { touchConversation } from '@/lib/db/conversations';
 import { createMessage } from '@/lib/db/messages';
 import type { Prisma } from '@/lib/db/prisma';
@@ -39,11 +40,9 @@ export function createAgentSsePersistenceTransform(
   return new TransformStream({
     start(controller) {
       if (metaConversationId) {
-        const metaEvent = JSON.stringify({
-          type: 'meta',
-          data: { conversationId: metaConversationId },
-        });
-        controller.enqueue(encoder.encode(`data: ${metaEvent}\n\n`));
+        controller.enqueue(
+          encoder.encode(encodeSseEvent({ type: 'meta', data: { conversationId: metaConversationId } })),
+        );
       }
     },
     transform(chunk, controller) {

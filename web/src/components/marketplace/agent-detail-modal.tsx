@@ -20,16 +20,6 @@ interface AgentDetailModalProps {
   onClose: () => void;
 }
 
-/** 0-255 (uint8) → 1.0-5.0 display scale */
-function toDisplayScore(uint8: number): string {
-  return (uint8 / 51).toFixed(1);
-}
-
-/** 0-255 → 0-100 percentage for progress bar */
-function toPercentage(uint8: number): number {
-  return Math.round((uint8 / 255) * 100);
-}
-
 export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
   const { attestations, summary, isLoading } = useAgentAttestations(
     agent.agentId
@@ -323,4 +313,14 @@ export function AgentDetailModal({ agent, onClose }: AgentDetailModalProps) {
       </div>
     </div>
   );
+}
+
+/** 0-255 (uint8) → 1.0-5.0 display scale */
+function toDisplayScore(uint8: number): string {
+  return (uint8 / 51).toFixed(1);
+}
+
+/** 0-255 → 0-100 percentage for progress bar */
+function toPercentage(uint8: number): number {
+  return Math.round((uint8 / 255) * 100);
 }
