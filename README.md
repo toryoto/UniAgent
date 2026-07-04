@@ -8,9 +8,9 @@
 
 UniAgent combines the [A2A protocol](https://a2aprotocol.ai/), [x402 micropayments](https://x402.org/), [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) on-chain identities, and LLM reasoning to build an open economy of AI agents: you describe a task in natural language, and an LLM-driven orchestrator finds the best specialist agents on-chain, pays them in USDC — with no human in the payment loop — and returns the combined result.
 
-![UniAgent Chat UI](docs/images/chat-ui.png)
-
-![UniAgent System Architecture](docs/images/uniagent-system-arch.png)
+<p align="center">
+  <img src="docs/images/chat-ui.png" alt="UniAgent Chat UI" width="820" />
+</p>
 
 ## Why an Agent Economy?
 
@@ -35,6 +35,10 @@ The result is a marketplace where quality is measured on-chain, payment is settl
 5. **You watch it live** — every reasoning step, tool call, and payment streams to the UI over SSE, with human-in-the-loop approval for payments above your budget threshold.
 
 See [docs/architecture.md](docs/architecture.md) for the full architecture, sequence diagrams, and design rationale.
+
+<p align="center">
+  <img src="docs/images/uniagent-system-arch.png" alt="UniAgent System Architecture" width="820" />
+</p>
 
 ## Quick Start
 
