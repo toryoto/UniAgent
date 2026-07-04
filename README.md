@@ -97,12 +97,12 @@ Monorepo managed with npm workspaces. Each workspace README covers its role and 
 
 | Workspace                                           | Role                                                                                                |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `[web/](web/README.md)`                             | Next.js 16 marketplace UI, chat, auth, wallet, budget controls                                      |
-| `[agent/](agent/README.md)`                         | LangChain ReAct orchestrator — agent discovery, x402 execution, evaluation (SSE)                    |
-| `[a2a-agents/](a2a-agents/README.md)`               | Reference A2A agents (hotel/flight) with x402 paywalls, for the marketplace and ranking experiments |
-| `[contracts/](contracts/README.md)`                 | Solidity contracts — ERC-8004 identity registry, staking (Hardhat)                                  |
-| `[packages/shared/](packages/shared/README.md)`     | Framework-agnostic types, constants, and pure domain logic (incl. the ranking algorithm)            |
-| `[packages/database/](packages/database/README.md)` | Prisma Client and DB queries shared across workspaces                                               |
+| [web/](web/README.md)                               | Next.js 16 marketplace UI, chat, auth, wallet, budget controls                                      |
+| [agent/](agent/README.md)                           | LangChain ReAct orchestrator — agent discovery, x402 execution, evaluation (SSE)                    |
+| [a2a-agents/](a2a-agents/README.md)                 | Reference A2A agents (hotel/flight) with x402 paywalls, for the marketplace and ranking experiments |
+| [contracts/](contracts/README.md)                   | Solidity contracts — ERC-8004 identity registry, staking (Hardhat)                                  |
+| [packages/shared/](packages/shared/README.md)       | Framework-agnostic types, constants, and pure domain logic (incl. the ranking algorithm)            |
+| [packages/database/](packages/database/README.md)   | Prisma Client and DB queries shared across workspaces                                               |
 
 
 
