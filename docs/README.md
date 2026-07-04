@@ -23,10 +23,3 @@ Detailed architecture, design, and operational documentation. For a project over
 | [contract-redeploy-runbook.md](contract-redeploy-runbook.md) | Step-by-step runbook for redeploying `AgentIdentityRegistry` and re-syncing dependent state (Japanese) |
 | [../contracts/REDEPLOYMENT.md](../contracts/REDEPLOYMENT.md) | Redeployment order and caveats for `AgentIdentityRegistry` / `AgentStaking` (Japanese)                 |
 | [react-message-history.md](react-message-history.md)         | Design note on restoring ReAct message history for LangChain (Japanese)                                |
-
-## Images
-
-Diagrams used across the documentation live in [`images/`](images/):
-
-- `uniagent-system-arch.png` — full system architecture
-- `x402-sequencial.png` — x402 payment sequence diagram
