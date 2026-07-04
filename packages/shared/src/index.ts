@@ -1,7 +1,7 @@
 /**
  * @agent-marketplace/shared
  *
- * web、mcp、agentパッケージで使用する共通コード
+ * web、agent パッケージで使用する共通コード
  */
 
 export {

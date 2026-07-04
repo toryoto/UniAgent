@@ -1,7 +1,7 @@
 /**
  * Shared Type Definitions
  *
- * agent, web, mcpパッケージで共有する型定義
+ * agent, web パッケージで共有する型定義
  */
 
 // ============================================================================
@@ -51,7 +51,7 @@ export interface AgentJson {
 }
 
 // ============================================================================
-// Discovered Agent (MCP Response)
+// Discovered Agent
 // ============================================================================
 
 export interface DiscoveredAgent {

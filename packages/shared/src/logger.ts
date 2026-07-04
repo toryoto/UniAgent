@@ -40,7 +40,6 @@ const COLOR_PALETTE: Array<(t: string) => string> = [
 const KNOWN_COLORS: Record<string, (t: string) => string> = {
   agent: chalk.blue,
   llm: chalk.magenta,
-  mcp: chalk.cyan,
   logic: chalk.yellow,
   payment: chalk.green,
   http: chalk.gray,
@@ -129,7 +128,6 @@ function logSeparator(title?: string): void {
 export const logger = {
   agent: createLogger('agent'),
   llm: createLogger('llm'),
-  mcp: createLogger('mcp'),
   logic: createLogger('logic'),
   payment: createLogger('payment'),
   http: createLogger('http'),

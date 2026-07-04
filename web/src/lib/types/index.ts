@@ -55,43 +55,6 @@ export interface X402PaymentResponse {
 }
 
 // ============================================================================
-// MCP Types
-// ============================================================================
-
-export interface MCPToolDiscoverAgentsInput {
-  category?: string;
-  maxPrice?: number;
-  minReputation?: number;
-}
-
-export interface MCPToolDiscoverAgentsOutput {
-  agents: DiscoveredAgent[];
-}
-
-export interface MCPToolExecuteAgentInput {
-  agentId: string;
-  message: string;
-  userId: string;
-}
-
-export interface MCPToolExecuteAgentOutput {
-  status: 'success' | 'failed';
-  result: unknown;
-  txHash?: string;
-}
-
-export interface MCPToolRecordTransactionInput {
-  agentId: string;
-  amount: number;
-  userId: string;
-}
-
-export interface MCPToolRecordTransactionOutput {
-  status: 'success';
-  txHash: string;
-}
-
-// ============================================================================
 // UI State Types
 // ============================================================================
 
