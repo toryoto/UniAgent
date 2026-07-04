@@ -1,66 +1,45 @@
-# Agent Service
+# `agent` — Agent Service
 
-LangChain.jsを使用したAIエージェント実行サービス。
+Express service running a LangChain ReAct agent (Claude). It decomposes user tasks, discovers marketplace agents, executes them with x402 payment, evaluates results, and streams everything back over SSE.
 
-## 概要
+**Boundaries**: no React/Next.js dependencies. Tools live in `src/tools/` (one tool per file), protocol implementations (A2A, x402, payment) in `src/lib/`, execution & streaming in `src/core/`. See [docs/coding-conventions.md](../docs/coding-conventions.md).
 
-ユーザーのタスクを受け取り、LLMが分析して必要なエージェントを発見・実行するサービス。A2Aプロトコルとx402決済を統合。
+## Tools
 
-## セットアップ
+| Tool                         | Purpose                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `discover_agents`            | Top-3 candidates ranked by the [Bayesian ε-greedy algorithm](../docs/discovery-algorithm.md) |
+| `fetch_agent_spec`           | Inspect `.well-known/agent.json` / OpenAPI (endpoint, schema, price) before paying           |
+| `execute_and_evaluate_agent` | x402-paid A2A execution + LLM evaluation + EAS attestation                                   |
 
-**注意**: このプロジェクトはモノレポ構成です。依存関係のインストールは**ルートディレクトリ**から実行してください。
+## Setup
 
 ```bash
-# ルートディレクトリから依存関係をインストール
+# From the repository ROOT (never npm install inside agent/)
 npm install
 
-# 環境変数設定（.env.exampleを参照）
-cp .env.example .env
-# .envを編集
+cp agent/.env.example agent/.env   # then fill in the values
 
-# 開発サーバー起動（ルートまたはagentディレクトリから）
-npm run dev --workspace=agent
-# または
-cd agent && npm run dev
+npm run dev --workspace=agent      # → http://localhost:3002
 ```
 
-### 環境変数
-
-環境変数の詳細は `.env.example` を参照してください。
+Environment variables are documented in `.env.example` (Anthropic, Privy, database, RPC, x402 facilitator, EAS).
 
 ## API
 
-### POST /api/agent/stream (SSE)
+| Endpoint                 | Description                                                                                        |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `POST /api/agent/stream` | Run a task; streams SSE events (`start`, `log`, `content`, `tool_call`, `payment`, `end`, `error`) |
+| `POST /api/agent/resume` | Resume a run paused for human payment approval                                                     |
+| `GET /health`            | Health check                                                                                       |
 
-エージェント実行をリアルタイムでストリーミング。Body 例:
+`autoApproveThreshold` is supplied by the Web App from the server-side DB — client values are never trusted.
 
-```json
-{
-  "message": "パリ3日間の旅行プランを作成して",
-  "walletId": "wallet_xxx",
-  "walletAddress": "0x...",
-  "autoApproveThreshold": 5.0
-}
-```
-
-## 実行フロー
-
-1. LLMがタスクを分析
-2. `discover_agents`でエージェント検索
-3. `execute_and_evaluate_agent` で x402 決済付き実行・評価
-4. 結果を統合して返却
-
-## コマンド
+## Commands
 
 ```bash
-# ルートディレクトリから実行（推奨）
-npm run dev --workspace=agent
-npm run build --workspace=agent
-npm start --workspace=agent
-
-# または、agentディレクトリ内から実行
-cd agent
-npm run dev
-npm run build
-npm start
+npm run dev        --workspace=agent
+npm run build      --workspace=agent
+npm run type-check --workspace=agent
+npm start          --workspace=agent
 ```
