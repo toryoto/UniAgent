@@ -1,19 +1,13 @@
 /**
  * useAgentStream - Agent Service ストリーミング用フック
- *
  */
 
 import { useCallback, useMemo, useRef, useState } from 'react';
-import type {
-  AgentStreamMessage,
-  AgentToolCall,
-  StreamEvent,
-} from '@/lib/types';
-import type { HITLDecision } from '@agent-marketplace/shared';
+import type { AgentStreamMessage } from '@/lib/types';
+import type { HITLDecision, StreamEvent } from '@agent-marketplace/shared';
 import { authFetch } from '@/lib/auth/authFetch';
-
-type MetaEvent = { type: 'meta'; data: { conversationId: string } };
-type ParsedEvent = StreamEvent | MetaEvent;
+import { applyStreamEventToMessage } from '@/lib/agent/apply-stream-event';
+import { readAgentSseStream } from '@/lib/agent/sse-client';
 
 export interface UseAgentStreamOptions {
   walletId: string;
@@ -54,7 +48,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
   const [conversationId, setConversationId] = useState<string | null>(options.conversationId || null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
-  // Track which assistant message is currently being streamed (for resume)
   const currentAssistantIdRef = useRef<string | null>(null);
   const pendingApprovalRef = useRef<{ threadId: string } | null>(null);
 
@@ -65,153 +58,21 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
     setIsWaitingApproval(false);
   }, []);
 
-  /**
-   * SSE イベントを受信してアシスタントメッセージを更新
-   */
-  function applyEvent(assistantId: string, event: StreamEvent) {
+  const applyEvent = useCallback((assistantId: string, event: StreamEvent) => {
     setMessages((prev) =>
       prev.map((m) => {
         if (m.id !== assistantId) return m;
-
-        switch (event.type) {
-          case 'llm_token':
-            return { ...m, content: m.content + event.data.token };
-
-          case 'llm_thinking':
-            return { ...m, content: event.data.content };
-
-          case 'tool_call': {
-            const newToolCall: AgentToolCall = {
-              toolCallId: event.data.toolCallId,
-              name: event.data.name,
-              args: event.data.args,
-              status: 'calling',
-              step: event.data.step,
-            };
-            return {
-              ...m,
-              toolCalls: [...(m.toolCalls ?? []), newToolCall],
-            };
-          }
-
-          case 'tool_result': {
-            const updatedToolCalls = (m.toolCalls ?? []).map((tc) =>
-              tc.toolCallId === event.data.toolCallId && tc.status === 'calling'
-                ? { ...tc, result: event.data.result, status: 'completed' as const }
-                : tc,
-            );
-            return { ...m, toolCalls: updatedToolCalls };
-          }
-
-          case 'payment':
-            return { ...m, payment: event.data };
-
-          case 'interrupt':
-            pendingApprovalRef.current = { threadId: event.data.threadId };
-            return {
-              ...m,
-              isStreaming: false,
-              approval: {
-                threadId: event.data.threadId,
-                actionRequests: event.data.actionRequests,
-                reviewConfigs: event.data.reviewConfigs,
-              },
-            };
-
-          case 'final':
-            return {
-              ...m,
-              content: event.data.message,
-              totalCost: event.data.totalCost,
-              isStreaming: false,
-            };
-
-          case 'error':
-            return {
-              ...m,
-              content: m.content || `Error: ${event.data.error}`,
-              isStreaming: false,
-            };
-
-          case 'start':
-            return m;
-
-          default:
-            return m;
+        const { message, threadId } = applyStreamEventToMessage(m, event);
+        if (threadId) {
+          pendingApprovalRef.current = { threadId };
         }
+        if (event.type === 'error') {
+          setError(event.data.error);
+        }
+        return message;
       }),
     );
-  }
-
-  /**
-   * SSEストリームを読み取ってapplyEventを適用するヘルパー
-   */
-  async function readStream(
-    response: Response,
-    assistantId: string,
-  ): Promise<boolean> {
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error('No response body');
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let interrupted = false;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() ?? '';
-
-      for (const chunk of lines) {
-        if (!chunk.startsWith('data: ')) continue;
-        const data = chunk.slice(6).trim();
-        if (!data) continue;
-
-        try {
-          const event = JSON.parse(data) as ParsedEvent;
-          if (event.type === 'meta') {
-            if (event.data.conversationId) {
-              setConversationId(event.data.conversationId);
-            }
-          } else {
-            applyEvent(assistantId, event);
-
-            if (event.type === 'interrupt') {
-              interrupted = true;
-            }
-          }
-        } catch (parseError) {
-          if (parseError instanceof SyntaxError) continue;
-          throw parseError;
-        }
-      }
-    }
-
-    // 残りのバッファを処理
-    if (buffer.startsWith('data: ')) {
-      const data = buffer.slice(6).trim();
-      if (data) {
-        try {
-          const event = JSON.parse(data) as ParsedEvent;
-          if (event.type === 'meta') {
-            if (event.data.conversationId) {
-              setConversationId(event.data.conversationId);
-            }
-          } else {
-            applyEvent(assistantId, event);
-            if (event.type === 'interrupt') {
-              interrupted = true;
-            }
-          }
-        } catch {}
-      }
-    }
-
-    return interrupted;
-  }
+  }, []);
 
   const sendMessage = useCallback(
     async (content?: string, targetAgentId?: string) => {
@@ -252,23 +113,15 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           walletId,
           walletAddress,
         };
-        if (targetAgentId) {
-          requestBody.agentId = targetAgentId;
-        }
-        if (conversationId) {
-          requestBody.conversationId = conversationId;
-        }
+        if (targetAgentId) requestBody.agentId = targetAgentId;
+        if (conversationId) requestBody.conversationId = conversationId;
 
-        const response = await authFetch(
-          '/api/agent/stream',
-          getAccessToken,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal,
-          },
-        );
+        const response = await authFetch('/api/agent/stream', getAccessToken, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           const errorJson = await response.json().catch(() => ({}));
@@ -277,7 +130,16 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           );
         }
 
-        const interrupted = await readStream(response, assistantId);
+        const interrupted = await readAgentSseStream(response, {
+          onEvent: (event) => {
+            if (event.type === 'meta') {
+              if (event.data.conversationId) setConversationId(event.data.conversationId);
+              return;
+            }
+            applyEvent(assistantId, event);
+          },
+        });
+
         if (interrupted) {
           setIsWaitingApproval(true);
           return;
@@ -300,12 +162,9 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         abortControllerRef.current = null;
       }
     },
-    [input, walletId, walletAddress, conversationId, getAccessToken, abort],
+    [input, walletId, walletAddress, conversationId, getAccessToken, abort, applyEvent],
   );
 
-  /**
-   * HITL承認/編集/拒否後にエージェント実行を再開
-   */
   const resumeAgent = useCallback(
     async (decisions: HITLDecision[]) => {
       const assistantId = currentAssistantIdRef.current;
@@ -320,6 +179,7 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       pendingApprovalRef.current = null;
       setIsWaitingApproval(false);
       setIsStreaming(true);
+      setError(null);
 
       const isRejected = decisions.every((d) => d.type === 'reject');
       setMessages((prev) =>
@@ -327,8 +187,6 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           if (m.id !== assistantId) return m;
 
           let updatedToolCalls = m.toolCalls ?? [];
-
-          // calling 状態のツールをインデックス順で取り出し、decisions と 1:1 対応させる
           const callingIndices = updatedToolCalls
             .map((tc, idx) => (tc.status === 'calling' ? idx : -1))
             .filter((idx) => idx !== -1);
@@ -364,24 +222,15 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       abortControllerRef.current = controller;
 
       try {
-        const requestBody: Record<string, unknown> = {
-          threadId,
-          decisions,
-        };
-        if (conversationId) {
-          requestBody.conversationId = conversationId;
-        }
+        const requestBody: Record<string, unknown> = { threadId, decisions };
+        if (conversationId) requestBody.conversationId = conversationId;
 
-        const response = await authFetch(
-          '/api/agent/resume',
-          getAccessToken,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal,
-          },
-        );
+        const response = await authFetch('/api/agent/resume', getAccessToken, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
 
         if (!response.ok) {
           const errorJson = await response.json().catch(() => ({}));
@@ -390,7 +239,13 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
           );
         }
 
-        const interrupted = await readStream(response, assistantId);
+        const interrupted = await readAgentSseStream(response, {
+          onEvent: (event) => {
+            if (event.type === 'meta') return;
+            applyEvent(assistantId, event);
+          },
+        });
+
         if (interrupted) {
           setIsWaitingApproval(true);
           return;
@@ -412,12 +267,10 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
         abortControllerRef.current = null;
       }
     },
-    [conversationId, getAccessToken],
+    [conversationId, getAccessToken, applyEvent],
   );
 
-  const clearError = useCallback(() => {
-    setError(null);
-  }, []);
+  const clearError = useCallback(() => setError(null), []);
 
   const reset = useCallback(() => {
     abort();
@@ -444,6 +297,18 @@ export function useAgentStream(options: UseAgentStreamOptions): UseAgentStreamRe
       reset,
       conversationId,
     }),
-    [messages, input, sendMessage, resumeAgent, abort, isStreaming, isWaitingApproval, error, clearError, reset, conversationId],
+    [
+      messages,
+      input,
+      sendMessage,
+      resumeAgent,
+      abort,
+      isStreaming,
+      isWaitingApproval,
+      error,
+      clearError,
+      reset,
+      conversationId,
+    ],
   );
 }

@@ -47,7 +47,7 @@ cd agent && npm run dev
 
 1. LLMがタスクを分析
 2. `discover_agents`でエージェント検索
-3. `execute_agent`でx402決済付き実行
+3. `execute_and_evaluate_agent` で x402 決済付き実行・評価
 4. 結果を統合して返却
 
 ## コマンド

@@ -34,6 +34,27 @@ export async function getBudgetSettings(
   };
 }
 
+/**
+ * 当日（UTC）の累積支出を assistant メッセージの totalCost から集計する。
+ * dailyLimit enforcement 用。
+ */
+export async function getSpentToday(userId: string): Promise<number> {
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+
+  const result = await prisma.message.aggregate({
+    _sum: { totalCost: true },
+    where: {
+      role: 'assistant',
+      createdAt: { gte: startOfDay },
+      totalCost: { not: null },
+      conversation: { userId },
+    },
+  });
+
+  return result._sum.totalCost ? Number(result._sum.totalCost) : 0;
+}
+
 export async function upsertBudgetSettings(
   userId: string,
   data: { dailyLimit?: number; autoApproveThreshold?: number },

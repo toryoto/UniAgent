@@ -55,6 +55,15 @@ export type {
 
 export { isToolRoundsArray } from './types.js';
 
+export {
+  encodeSseEvent,
+  createSseEventBuffer,
+  SSE_RESPONSE_HEADERS,
+  type SseEventBuffer,
+} from './sse.js';
+
+export { toAgentMessageHistory, type ConversationMessageRow } from './message-history.js';
+
 // Services
 export {
   discoverAgentsFromCache,

@@ -1,7 +1,6 @@
 /**
  * @module core
- * エージェントコアロジックのバレルエクスポート。
+ * エージェントコアロジック（orchestration）のバレルエクスポート。
  */
 
-export { runAgent } from './agent.js';
 export { runAgentStream, resumeAgentStream, type StreamEvent } from './agent-streaming.js';

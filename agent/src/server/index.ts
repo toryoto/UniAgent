@@ -1,159 +1,118 @@
 /**
- * Agent Service - Express Server
- *
- * UniAgent のエージェントサービスを提供するHTTPサーバー
+ * @module server
+ * Agent Service の Express HTTP サーバー入口。
+ * 責務は「入力検証 → core 呼び出し → SSE 応答」のみで、
+ * 実行ロジックは core/、SSE イベント契約は packages/shared に従う。
  */
 
 import 'dotenv/config';
-import express from 'express';
+import express, { type Response } from 'express';
 import cors from 'cors';
-import type { AgentRequest, AgentResumeRequest } from '@agent-marketplace/shared';
-import { runAgentStream, resumeAgentStream } from '../core/agent-streaming.js';
+import { encodeSseEvent, SSE_RESPONSE_HEADERS, type StreamEvent } from '@agent-marketplace/shared';
 import { logger } from '@agent-marketplace/shared/logger';
+import { runAgentStream, resumeAgentStream } from '../core/index.js';
+import { agentStreamRequestSchema, agentResumeRequestSchema } from './schemas.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3002', 10);
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Request logging
 app.use((req, _res, next) => {
   logger.http.info(`${req.method} ${req.path}`);
   next();
 });
 
-/**
- * Health check endpoint
- */
+// ── SSE helpers ───────────────────────────────────────────────────────────
+
+function beginSseResponse(res: Response): void {
+  res.setHeader('Content-Type', SSE_RESPONSE_HEADERS['Content-Type']);
+  res.setHeader('Cache-Control', SSE_RESPONSE_HEADERS['Cache-Control']);
+  res.setHeader('Connection', SSE_RESPONSE_HEADERS.Connection);
+  res.setHeader('X-Accel-Buffering', SSE_RESPONSE_HEADERS['X-Accel-Buffering']);
+  res.flushHeaders();
+}
+
+/** StreamEvent（shared 契約）を SSE フレームとして書き込む */
+function writeSseEvent(res: Response, event: StreamEvent): void {
+  res.write(encodeSseEvent(event));
+}
+
+/** core のイベントストリームを SSE として送り切る（クライアント切断で中断） */
+async function pipeStreamToSse(
+  res: Response,
+  stream: AsyncGenerator<StreamEvent>,
+): Promise<void> {
+  for await (const event of stream) {
+    writeSseEvent(res, event);
+    if (res.closed) break;
+  }
+  res.end();
+}
+
+function endSseWithError(res: Response, error: string): void {
+  writeSseEvent(res, { type: 'error', data: { error } });
+  res.end();
+}
+
+// ── Routes ────────────────────────────────────────────────────────────────
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'agent' });
 });
 
 /**
- * SSE Streaming endpoint
- *
  * POST /api/agent/stream
- * リアルタイムでエージェントの実行状況をストリーミング
+ * エージェント実行を SSE でストリーミングする。
  */
 app.post('/api/agent/stream', async (req, res) => {
-  // SSEヘッダー設定
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders();
+  beginSseResponse(res);
+
+  const parsed = agentStreamRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    endSseWithError(res, parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
 
   try {
-    const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = req.body as AgentRequest;
-
-    // Validation
-    if (!message || typeof message !== 'string') {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: 'message is required' })}\n\n`);
-      res.end();
-      return;
-    }
-
-    if (!walletId || typeof walletId !== 'string') {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: 'walletId is required' })}\n\n`);
-      res.end();
-      return;
-    }
-
-    if (!walletAddress || typeof walletAddress !== 'string') {
-      res.write(
-        `data: ${JSON.stringify({ type: 'error', error: 'walletAddress is required' })}\n\n`
-      );
-      res.end();
-      return;
-    }
-
-    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
-      res.write(
-        `data: ${JSON.stringify({ type: 'error', error: 'autoApproveThreshold must be a non-negative number' })}\n\n`
-      );
-      res.end();
-      return;
-    }
-
-    // ストリーミング実行
-    const stream = runAgentStream({ message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory });
-
-    for await (const event of stream) {
-      const data = JSON.stringify(event);
-      res.write(`data: ${data}\n\n`);
-
-      // クライアントが切断した場合の処理
-      if (res.closed) {
-        break;
-      }
-    }
-
-    res.end();
+    await pipeStreamToSse(res, runAgentStream(parsed.data));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Streaming request failed', { error: errorMessage });
-    res.write(`data: ${JSON.stringify({ type: 'error', error: errorMessage })}\n\n`);
-    res.end();
+    endSseWithError(res, errorMessage);
   }
 });
 
 /**
- * SSE Resume endpoint (HITL)
- *
  * POST /api/agent/resume
- * 中断されたエージェント実行を再開（Human-in-the-Loop の承認/編集/拒否後）
+ * HITL の承認 / 編集 / 拒否後に、中断されたエージェント実行を再開する。
  */
 app.post('/api/agent/resume', async (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache, no-transform');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
-  res.flushHeaders();
+  beginSseResponse(res);
+
+  const parsed = agentResumeRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    endSseWithError(res, parsed.error.issues[0]?.message ?? 'Invalid request body');
+    return;
+  }
+
+  const { threadId, decisions, autoApproveThreshold } = parsed.data;
 
   try {
-    const { threadId, decisions, autoApproveThreshold } = req.body as AgentResumeRequest;
-
-    if (!threadId || typeof threadId !== 'string') {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'threadId is required' } })}\n\n`);
-      res.end();
-      return;
-    }
-
-    if (!Array.isArray(decisions) || decisions.length === 0) {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'decisions array is required' } })}\n\n`);
-      res.end();
-      return;
-    }
-
-    if (typeof autoApproveThreshold !== 'number' || autoApproveThreshold < 0) {
-      res.write(`data: ${JSON.stringify({ type: 'error', data: { error: 'autoApproveThreshold must be a non-negative number' } })}\n\n`);
-      res.end();
-      return;
-    }
-
-    const stream = resumeAgentStream(threadId, { decisions }, autoApproveThreshold);
-
-    for await (const event of stream) {
-      const data = JSON.stringify(event);
-      res.write(`data: ${data}\n\n`);
-
-      if (res.closed) {
-        break;
-      }
-    }
-
-    res.end();
+    await pipeStreamToSse(
+      res,
+      resumeAgentStream(threadId, { decisions }, autoApproveThreshold),
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.agent.error('Resume request failed', { error: errorMessage });
-    res.write(`data: ${JSON.stringify({ type: 'error', data: { error: errorMessage } })}\n\n`);
-    res.end();
+    endSseWithError(res, errorMessage);
   }
 });
 
-// Start server
+// ── Startup ───────────────────────────────────────────────────────────────
+
 app.listen(PORT, '0.0.0.0', () => {
   logger.separator('UniAgent Agent Service');
   logger.agent.success(`Server running on http://0.0.0.0:${PORT}`);

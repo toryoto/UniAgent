@@ -1,8 +1,7 @@
 /**
  * @module @agent-marketplace/agent
  * UniAgent Agent Service のライブラリ向け公開 API。
+ * 本番実行経路（SSE ストリーミング + HITL）のみを公開する。
  */
 
-export { runAgent } from './core/agent.js';
-export { discoverAgentsTool, executeAgentTool } from './tools/index.js';
-export { logger } from '@agent-marketplace/shared/logger';
+export { runAgentStream, resumeAgentStream, type StreamEvent } from './core/index.js';

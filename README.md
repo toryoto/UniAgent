@@ -122,7 +122,7 @@ graph TB
     subgraph Agent["Agent"]
         LLM[LLM]
         Discover[discover_agents]
-        Execute[execute_agent]
+        Execute[execute_and_evaluate_agent]
         LLM -->|task分析・判断| Discover
         LLM -->|エージェント選択・実行| Execute
         Discover -->|AgentCard返却| LLM
@@ -131,7 +131,7 @@ graph TB
     UI -->|task + wallet_id| LLM
     LLM -->|Privy API| Privy[Privy API]
 
-    Execute -->|execute_agent + x402| ExtAgent[外部エージェント]
+    Execute -->|execute_and_evaluate_agent + x402| ExtAgent[外部エージェント]
     ExtAgent -->|HTTP 402| Execute
     Execute -->|EIP-3009署名作成| Privy
     Execute -->|X-PAYMENT| ExtAgent
@@ -169,7 +169,7 @@ graph TB
 ### 主要コンポーネント
 
 - **Web UI (Next.js)**: ユーザーインターフェース、認証、ウォレット管理
-- **Agent**: [A2A プロトコル](https://a2aprotocol.ai/)（discover_agents、execute_agent）と [x402](https://x402.org/) 決済を統合したエージェント実行エンジン
+- **Agent**: [A2A プロトコル](https://a2aprotocol.ai/)（discover_agents、execute_and_evaluate_agent）と [x402](https://x402.org/) 決済を統合したエージェント実行エンジン
 - **Smart Contracts**: AgentIdentityRegistry（ERC-8004）、EAS による評価 attestation
 - **External Agents**: マーケットプレイスで提供されるエージェント（[A2A](https://a2aprotocol.ai/) + [x402](https://x402.org/) 対応）
 
