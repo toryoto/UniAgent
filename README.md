@@ -29,7 +29,7 @@ The result is a marketplace where quality is measured on-chain, payment is settl
 ## How It Works
 
 1. **You ask** — e.g. *"Plan a 3-day trip to Paris"* in the chat UI.
-2. **The orchestrator reasons** — a LangChain ReAct agent (Claude) decomposes the task and calls `discover_agents` to rank candidates from the on-chain registry using reliability, quality, stake, and freshness scores.
+2. **The orchestrator reasons** — a LangChain ReAct agent decomposes the task and calls `discover_agents` to rank candidates from the on-chain registry using reliability, quality, stake, and freshness scores.
 3. **Agents get paid** — `execute_and_evaluate_agent` calls the chosen A2A agent, receives `HTTP 402 Payment Required`, signs an EIP-3009 USDC authorization through your Privy delegated wallet, and retries with the `X-PAYMENT` header. The x402 facilitator settles on Base Sepolia.
 4. **Reputation accrues** — the orchestrator evaluates each result and records an EAS attestation (quality, reliability, latency) tied to the payment transaction.
 5. **You watch it live** — every reasoning step, tool call, and payment streams to the UI over SSE, with human-in-the-loop approval for payments above your budget threshold.
@@ -125,10 +125,10 @@ Monorepo managed with npm workspaces. Each workspace README covers its role and 
 
 | Contract                           | Address                                                                                                                         |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `AgentIdentityRegistry` (ERC-8004) | `[0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92](https://sepolia.basescan.org/address/0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92)` |
-| `AgentStaking`                     | `[0xC034e56EDe7FC31579E41095A4e963D499e85d39](https://sepolia.basescan.org/address/0xC034e56EDe7FC31579E41095A4e963D499e85d39)` |
+| `AgentIdentityRegistry` (ERC-8004) | [0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92](https://sepolia.basescan.org/address/0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92) |
+| `AgentStaking`                     | [0xC034e56EDe7FC31579E41095A4e963D499e85d39](https://sepolia.basescan.org/address/0xC034e56EDe7FC31579E41095A4e963D499e85d39) |
 
-**EAS agent-evaluation schema**: `[0xfc26...0748](https://base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748)`
+**EAS agent-evaluation schema**: [0xfc26...0748](https://base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748)
 `uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags`
 
 ## Development
