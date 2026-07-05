@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@agent-marketplace/shared/logger';
 import { extractWalletAddress, type PrivyWebhookPayload } from '@/lib/privy/webhook';
 
-const log = createLogger('Privy Webhook');
+const log = createLogger('privy-webhook');
 import { createUser, upsertUserWithWallet, updateUserWallet } from '@/lib/db/users';
 
 export async function POST(request: NextRequest) {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const parsed = JSON.parse(rawBody);
     const payload = parsed as PrivyWebhookPayload;
 
-    log.info(`Event: ${payload.type}`, { userId: payload.user?.id });
+    log.info({ event: payload.type, userId: payload.user?.id }, 'Webhook event received');
 
     switch (payload.type) {
       case 'user.created':
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         break;
 
       case 'user.authenticated':
-        log.info(`User authenticated`, { userId: payload.user.id });
+        log.info({ userId: payload.user.id }, 'User authenticated');
         break;
 
       case 'user.linked_account':
@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        log.warn(`Unhandled event: ${payload.type}`);
+        log.warn({ event: payload.type }, 'Unhandled event');
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'Webhook handling failed');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -54,17 +54,17 @@ export async function POST(request: NextRequest) {
 async function handleUserCreated(privyUserId: string, user: PrivyWebhookPayload['user']) {
   const walletAddress = extractWalletAddress(user);
   await createUser({ privyUserId, walletAddress });
-  log.success('User created', { privyUserId, walletAddress });
+  log.info({ privyUserId, walletAddress }, 'User created');
 }
 
 async function handleAccountLinked(privyUserId: string, user: PrivyWebhookPayload['user']) {
   const walletAddress = extractWalletAddress(user);
   await upsertUserWithWallet({ privyUserId, walletAddress });
-  log.info('Account linked', { privyUserId, walletAddress });
+  log.info({ privyUserId, walletAddress }, 'Account linked');
 }
 
 async function handleAccountUnlinked(privyUserId: string, user: PrivyWebhookPayload['user']) {
   const walletAddress = extractWalletAddress(user);
   await updateUserWallet(privyUserId, walletAddress);
-  log.info('Account unlinked', { privyUserId, remainingWallet: walletAddress });
+  log.info({ privyUserId, remainingWallet: walletAddress }, 'Account unlinked');
 }

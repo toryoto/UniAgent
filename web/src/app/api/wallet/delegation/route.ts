@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@agent-marketplace/shared/logger';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
-const log = createLogger('Delegation API');
+const log = createLogger('delegation-api');
 import { findUserByPrivyId, updateUserDelegation } from '@/lib/db/users';
 
 /**
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       walletAddress: user.walletAddress,
     });
   } catch (error) {
-    log.error('GET error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'GET error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest) {
       walletAddress: user.walletAddress,
     });
   } catch (error) {
-    log.error('PATCH error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'PATCH error');
 
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'P2025') {

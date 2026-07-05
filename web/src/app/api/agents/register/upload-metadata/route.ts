@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { uploadAgentMetadata } from '@agent-marketplace/shared';
 import { createLogger } from '@agent-marketplace/shared/logger';
 
-const log = createLogger('Agent Register');
+const log = createLogger('agent-register');
 import type { ERC8004RegistrationFile, ERC8004Service } from '@agent-marketplace/shared';
 
 interface UploadMetadataRequest {
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ipfsUri });
   } catch (error) {
-    log.error('Failed to upload metadata to IPFS', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'Failed to upload metadata to IPFS');
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Upload failed' },
       { status: 500 }

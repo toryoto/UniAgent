@@ -31,7 +31,7 @@ async function main() {
     try {
       await x402HttpServer.initialize();
     } catch (err) {
-      log.error('x402 initialize failed', { error: err instanceof Error ? err.message : String(err) });
+      log.error({ err }, 'x402 initialize failed');
       process.exit(1);
     }
   }
@@ -44,14 +44,14 @@ async function main() {
     const method = body.method ?? '(none)';
     const start = Date.now();
 
-    log.info(`request`, { id, method });
+    log.info({ id, method }, 'request');
 
     try {
       const response = await handleA2ARequest(body);
       const ms = Date.now() - start;
 
       if (response.error) {
-        log.warn(`response error`, { id, code: response.error.code, msg: response.error.message, ms });
+        log.warn({ id, code: response.error.code, message: response.error.message, ms }, 'response error');
         res.json({
           jsonrpc: '2.0',
           id: response.id,
@@ -66,7 +66,7 @@ async function main() {
 
       const parts = response.result?.parts ?? [];
       const hasData = parts.some((p) => p.kind === 'data');
-      log.success(`response ok`, { id, parts: parts.length, hasData, ms });
+      log.info({ id, parts: parts.length, hasData, ms }, 'response ok');
 
       res.json({
         jsonrpc: '2.0',
@@ -75,7 +75,7 @@ async function main() {
       });
     } catch (err) {
       const ms = Date.now() - start;
-      log.error(`unhandled error`, { id, ms, error: err instanceof Error ? err.message : String(err) });
+      log.error({ err, id, ms }, 'unhandled error');
       res.status(500).json({
         jsonrpc: '2.0',
         id,
@@ -85,11 +85,14 @@ async function main() {
   });
 
   app.listen(PORT, () => {
-    log.success(`Flight Search Agent running on port ${PORT}`, {
-      a2aEndpoint: `http://localhost:${PORT}/flight-agent`,
-      agentCard: `http://localhost:${PORT}/flight-agent/.well-known/agent.json`,
-      x402: process.env.X402_DISABLED === 'true' ? 'disabled' : 'enabled ($0.15 USDC)',
-    });
+    log.info(
+      {
+        a2aEndpoint: `http://localhost:${PORT}/flight-agent`,
+        agentCard: `http://localhost:${PORT}/flight-agent/.well-known/agent.json`,
+        x402: process.env.X402_DISABLED === 'true' ? 'disabled' : 'enabled ($0.15 USDC)',
+      },
+      `Flight Search Agent running on port ${PORT}`,
+    );
     if (process.env.X402_DISABLED === 'true') {
       log.warn('x402 payment verification is DISABLED (dev mode)');
     }
@@ -97,6 +100,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  log.error('Failed to start server', { error: err instanceof Error ? err.message : String(err) });
+  log.error({ err }, 'Failed to start server');
   process.exit(1);
 });

@@ -7,7 +7,9 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('logic');
 import { fetchAgentJson, fetchOpenApiSpec } from '../lib/a2a/agent-json.js';
 import { resolveAgentUrlFromAgentId } from '../lib/a2a/resolve-url.js';
 
@@ -26,7 +28,7 @@ const fetchAgentSpecSchema = z.object({
 export const fetchAgentSpecTool = tool(
   async (input: z.infer<typeof fetchAgentSpecSchema>) => {
     try {
-      logger.logic.info('Fetching agent spec', { agentId: input.agentId });
+      log.info({ agentId: input.agentId }, 'Fetching agent spec');
 
       const agentUrl = await resolveAgentUrlFromAgentId(input.agentId);
       if (!agentUrl) {
@@ -50,10 +52,7 @@ export const fetchAgentSpecTool = tool(
         openApiSpec = await fetchOpenApiSpec(specUrl);
       }
 
-      logger.logic.success('Agent spec fetched', {
-        name: agentJson.name,
-        hasOpenApi: !!openApiSpec,
-      });
+      log.info({ name: agentJson.name, hasOpenApi: !!openApiSpec }, 'Agent spec fetched');
 
       return JSON.stringify({
         success: true,
@@ -66,7 +65,7 @@ export const fetchAgentSpecTool = tool(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.logic.error('fetch_agent_spec failed', { error: message });
+      log.error({ err: error }, 'fetch_agent_spec failed');
       return JSON.stringify({ success: false, error: message });
     }
   },

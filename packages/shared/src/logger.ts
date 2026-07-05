@@ -1,137 +1,120 @@
-import chalk from 'chalk';
+/**
+ * @module logger
+ * pino ベースの共有ロガー。全 workspace（web / agent / a2a-agents）で共通の
+ * 構造化ロギング基盤を提供する。
+ *
+ * - 本番（NODE_ENV=production）: JSON 1 行ログ（ログ集約基盤向け）
+ * - 開発: pino-pretty による色付き人間可読ログ
+ * - AsyncLocalStorage の実行コンテキスト（threadId / requestId 等）を
+ *   pino の mixin で全ログに自動注入する
+ * - 機密フィールド（秘密鍵・トークン・Authorization ヘッダー等）は redact で自動マスク
+ */
 
-type LogLevel = 'info' | 'success' | 'warn' | 'error' | 'debug';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { pino, stdSerializers, stdTimeFunctions, type Logger } from 'pino';
 
-interface ComponentLogger {
-  info(msg: string, details?: Record<string, unknown>): void;
-  success(msg: string, details?: Record<string, unknown>): void;
-  warn(msg: string, details?: Record<string, unknown>): void;
-  error(msg: string, details?: Record<string, unknown>): void;
-  debug(msg: string, details?: Record<string, unknown>): void;
+export type { Logger };
+
+// ── Log context (traceability) ────────────────────────────────────────────
+
+/**
+ * 1 リクエスト / 1 スレッド実行に紐づくログコンテキスト。
+ * ここに入れた値は、その非同期実行スコープ内の全ログへ自動付与される。
+ */
+export interface LogContext {
+  /** LangGraph の thread_id。HITL resume を跨いだ実行単位のトレースに使う */
+  threadId?: string;
+  /** HTTP リクエスト単位の相関 ID */
+  requestId?: string;
+  [key: string]: unknown;
 }
 
-const LEVEL_ORDER: Record<LogLevel, number> = {
-  debug: 0,
-  info: 1,
-  success: 2,
-  warn: 3,
-  error: 4,
-};
+const logContextStorage = new AsyncLocalStorage<LogContext>();
 
-function getMinLevel(): LogLevel {
+/**
+ * ログコンテキストを設定して fn を実行する。
+ * fn から派生する非同期処理（await / generator 消費を含む）内の
+ * 全ログに context の内容が自動付与される。
+ */
+export function runWithLogContext<T>(context: LogContext, fn: () => T): T {
+  return logContextStorage.run({ ...context }, fn);
+}
+
+/**
+ * 現在のログコンテキストへ値を追記する（例: リクエスト受付後に確定した threadId）。
+ * runWithLogContext のスコープ外で呼ばれた場合は何もしない。
+ */
+export function bindLogContext(patch: LogContext): void {
+  const store = logContextStorage.getStore();
+  if (store) Object.assign(store, patch);
+}
+
+/** 現在のログコンテキストを返す（スコープ外では undefined）。 */
+export function getLogContext(): Readonly<LogContext> | undefined {
+  return logContextStorage.getStore();
+}
+
+// ── Root logger ───────────────────────────────────────────────────────────
+
+const LEVELS = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
+
+function resolveLevel(): string {
   const env = (process.env['LOG_LEVEL'] ?? '').toLowerCase();
-  if (env in LEVEL_ORDER) return env as LogLevel;
-  return 'info';
+  return LEVELS.has(env) ? env : 'info';
 }
 
-const COLOR_PALETTE: Array<(t: string) => string> = [
-  chalk.blue,
-  chalk.magenta,
-  chalk.cyan,
-  chalk.yellow,
-  chalk.green,
-  chalk.blueBright,
-  chalk.greenBright,
-  chalk.yellowBright,
-  chalk.cyanBright,
-  chalk.magentaBright,
+const isProduction = process.env.NODE_ENV === 'production';
+
+/**
+ * 機密情報のマスク対象。ログオブジェクトの浅い階層と 1 段ネストをカバーする。
+ * ここに漏れる深いネストは呼び出し側でログに含めないこと（セキュリティ境界）。
+ */
+const REDACT_PATHS = [
+  'privateKey',
+  '*.privateKey',
+  'apiKey',
+  '*.apiKey',
+  'secret',
+  '*.secret',
+  'password',
+  '*.password',
+  'authorization',
+  '*.authorization',
+  'cookie',
+  '*.cookie',
+  'headers.authorization',
+  'headers.cookie',
 ];
 
-const KNOWN_COLORS: Record<string, (t: string) => string> = {
-  agent: chalk.blue,
-  llm: chalk.magenta,
-  logic: chalk.yellow,
-  payment: chalk.green,
-  http: chalk.gray,
-  eval: chalk.blueBright,
-};
+const rootLogger = pino({
+  level: resolveLevel(),
+  base: undefined,
+  timestamp: stdTimeFunctions.isoTime,
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
+  serializers: { err: stdSerializers.err },
+  redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
+  mixin: () => ({ ...logContextStorage.getStore() }),
+  ...(isProduction
+    ? {}
+    : {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'HH:MM:ss.l',
+            ignore: 'component',
+            messageFormat: '\x1b[36m[{component}]\x1b[0m {msg}',
+          },
+        },
+      }),
+});
 
-function nameToColor(name: string): (t: string) => string {
-  const lower = name.toLowerCase();
-  if (lower in KNOWN_COLORS) return KNOWN_COLORS[lower] as (t: string) => string;
-  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  return COLOR_PALETTE[hash % COLOR_PALETTE.length] as (t: string) => string;
+/**
+ * コンポーネント別の子ロガーを作成する。
+ * 使い方: `const log = createLogger('payment'); log.info({ txHash }, 'settled');`
+ */
+export function createLogger(component: string): Logger {
+  return rootLogger.child({ component });
 }
-
-const LEVEL_ICONS: Record<LogLevel, string> = {
-  info: 'ℹ',
-  success: '✓',
-  warn: '⚠',
-  error: '✗',
-  debug: '⋯',
-};
-
-const LEVEL_COLORS: Record<LogLevel, (t: string) => string> = {
-  info: chalk.blue,
-  success: chalk.green,
-  warn: chalk.yellow,
-  error: chalk.red,
-  debug: chalk.gray,
-};
-
-function formatTimestamp(): string {
-  return chalk.gray(new Date().toISOString().substring(11, 23));
-}
-
-function log(
-  name: string,
-  level: LogLevel,
-  message: string,
-  details?: Record<string, unknown>,
-): void {
-  if (LEVEL_ORDER[level] < LEVEL_ORDER[getMinLevel()]) return;
-
-  const timestamp = formatTimestamp();
-  const icon = LEVEL_COLORS[level](LEVEL_ICONS[level]);
-  const tag = nameToColor(name)(`[${name.toUpperCase()}]`);
-  const msg = LEVEL_COLORS[level](message);
-
-  console.log(`${timestamp} ${icon} ${tag} ${msg}`);
-
-  if (details && Object.keys(details).length > 0) {
-    const detailStr = JSON.stringify(details, null, 2)
-      .split('\n')
-      .map((line) => `    ${chalk.gray(line)}`)
-      .join('\n');
-    console.log(detailStr);
-  }
-}
-
-export function createLogger(name: string): ComponentLogger {
-  return {
-    info: (msg, details) => log(name, 'info', msg, details),
-    success: (msg, details) => log(name, 'success', msg, details),
-    warn: (msg, details) => log(name, 'warn', msg, details),
-    error: (msg, details) => log(name, 'error', msg, details),
-    debug: (msg, details) => log(name, 'debug', msg, details),
-  };
-}
-
-function logStep(step: number, name: string, message: string): void {
-  if (LEVEL_ORDER['info'] < LEVEL_ORDER[getMinLevel()]) return;
-
-  const timestamp = formatTimestamp();
-  const stepNum = chalk.bold.white(`[Step ${step}]`);
-  const tag = nameToColor(name)(`[${name.toUpperCase()}]`);
-  console.log(`${timestamp} ${stepNum} ${tag} ${message}`);
-}
-
-function logSeparator(title?: string): void {
-  if (title) {
-    console.log(chalk.gray(`\n${'─'.repeat(20)} ${title} ${'─'.repeat(20)}\n`));
-  } else {
-    console.log(chalk.gray('─'.repeat(60)));
-  }
-}
-
-/** Agent Service 向けの共有ロガー。コンポーネント別インスタンスと表示ユーティリティを1つに集約する。 */
-export const logger = {
-  agent: createLogger('agent'),
-  llm: createLogger('llm'),
-  logic: createLogger('logic'),
-  payment: createLogger('payment'),
-  http: createLogger('http'),
-  eval: createLogger('eval'),
-  step: logStep,
-  separator: logSeparator,
-};

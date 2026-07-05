@@ -27,7 +27,7 @@ import {
   type AgentResumeBody,
 } from '@/lib/agent/schemas';
 
-const log = createLogger('Agent Route');
+const log = createLogger('agent-route');
 
 type AuthenticatedContext = {
   privyUserId: string;
@@ -128,11 +128,14 @@ export async function handleAgentStreamRoute(
     );
   }
 
-  log.info('Forwarding to Agent Service (stream)', {
-    ...(body.agentId ? { agentId: body.agentId } : {}),
-    conversationId: resolved.conversationId,
-    historyLength: resolved.messageHistory.length,
-  });
+  log.info(
+    {
+      ...(body.agentId ? { agentId: body.agentId } : {}),
+      conversationId: resolved.conversationId,
+      historyLength: resolved.messageHistory.length,
+    },
+    'Forwarding to Agent Service (stream)',
+  );
 
   const requestBody: Record<string, unknown> = {
     message: body.message,
@@ -148,7 +151,7 @@ export async function handleAgentStreamRoute(
   const upstream = await postAgentServiceSse('/api/agent/stream', requestBody);
   if (!upstream.ok || !upstream.body) {
     const errorText = await upstream.text();
-    log.error('Agent Service error', { status: upstream.status, body: errorText });
+    log.error({ status: upstream.status, body: errorText }, 'Agent Service error');
     return jsonResponse(
       { success: false, error: `Agent Service error: ${upstream.status}` },
       upstream.status,
@@ -186,11 +189,10 @@ export async function handleAgentResumeRoute(
     saveConversationId = body.conversationId;
   }
 
-  log.info('Forwarding to Agent Service (resume)', {
-    threadId: body.threadId,
-    decisionsCount: body.decisions.length,
-    conversationId: body.conversationId,
-  });
+  log.info(
+    { threadId: body.threadId, decisionsCount: body.decisions.length, conversationId: body.conversationId },
+    'Forwarding to Agent Service (resume)',
+  );
 
   const upstream = await postAgentServiceSse('/api/agent/resume', {
     threadId: body.threadId,
@@ -200,7 +202,7 @@ export async function handleAgentResumeRoute(
 
   if (!upstream.ok || !upstream.body) {
     const errorText = await upstream.text();
-    log.error('Agent Service error', { status: upstream.status, body: errorText });
+    log.error({ status: upstream.status, body: errorText }, 'Agent Service error');
     return jsonResponse(
       { success: false, error: `Agent Service error: ${upstream.status}` },
       upstream.status,
@@ -232,7 +234,7 @@ export async function runAgentStreamRoute(request: NextRequest): Promise<Respons
 
     return await handleAgentStreamRoute(request, parsed.data, authResult);
   } catch (error) {
-    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'Route handler failed');
     return jsonResponse(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       500,
@@ -259,7 +261,7 @@ export async function runAgentResumeRoute(request: NextRequest): Promise<Respons
 
     return await handleAgentResumeRoute(request, parsed.data, authResult);
   } catch (error) {
-    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'Route handler failed');
     return jsonResponse(
       { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
       500,

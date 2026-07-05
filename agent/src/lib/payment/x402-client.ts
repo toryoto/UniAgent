@@ -11,7 +11,9 @@ import { wrapFetchWithPayment } from '@x402/fetch';
 import { PrivyClient } from '@privy-io/server-auth';
 import { PrivyEIP712Signer } from './privy-signer.js';
 import { NETWORK_ID } from '../../config/constants.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('payment');
 
 /**
  * x402 対応 fetch クライアントを作成する。
@@ -30,11 +32,7 @@ export function createX402FetchClient(
   walletId: string,
   walletAddress: string,
 ): ReturnType<typeof wrapFetchWithPayment> {
-  logger.payment.info('Creating x402 v2 client with Privy signer', {
-    walletId,
-    walletAddress,
-    network: NETWORK_ID,
-  });
+  log.info({ walletId, walletAddress, network: NETWORK_ID }, 'Creating x402 v2 client with Privy signer');
 
   const signer = new PrivyEIP712Signer(privyClient, walletId, walletAddress);
   const client = new x402Client();
@@ -46,7 +44,7 @@ export function createX402FetchClient(
 
   const fetchWithPayment = wrapFetchWithPayment(fetch, client);
 
-  logger.payment.success('x402 v2 client created successfully');
+  log.info('x402 v2 client created successfully');
 
   return fetchWithPayment;
 }

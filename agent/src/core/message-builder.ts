@@ -3,7 +3,9 @@
  * LLM に送信するユーザーメッセージの構築とリクエスト時刻コンテキストの生成。
  */
 
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('agent');
 
 interface RequestTimeContext {
   iso: string;
@@ -22,9 +24,7 @@ export function getRequestTimeContext(): RequestTimeContext {
   try {
     timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   } catch (err) {
-    logger.agent.warn('Intl timezone resolution failed; falling back to UTC', {
-      error: err instanceof Error ? err.message : String(err),
-    });
+    log.warn({ err }, 'Intl timezone resolution failed; falling back to UTC');
   }
   return { iso: now.toISOString(), timeZone };
 }

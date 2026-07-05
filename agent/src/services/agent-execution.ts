@@ -6,7 +6,10 @@
  */
 
 import type { JsonRpcResponse } from '@agent-marketplace/shared';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('agent');
+const paymentLog = createLogger('payment');
 import type { ExecuteAgentInput, ExecuteAgentResult, PaymentRequiredData } from '../types/index.js';
 import { REQUEST_TIMEOUT_MS, MAX_PAYMENT_RETRIES } from '../config/constants.js';
 import { getPrivyClient } from '../lib/payment/privy-client.js';
@@ -34,13 +37,10 @@ import { handle402Error, handlePaymentSettlementError } from '../lib/payment/err
 export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAgentResult> {
   const { agentId, task, data, maxPrice, walletId, walletAddress } = input;
 
-  logger.agent.info('Executing agent with x402 v2', {
-    agentId,
-    hasTask: !!task,
-    hasData: !!data,
-    maxPrice,
-    protocol: 'x402 v2',
-  });
+  log.info(
+    { agentId, hasTask: !!task, hasData: !!data, maxPrice, protocol: 'x402 v2' },
+    'Executing agent with x402 v2',
+  );
 
   try {
     const agentUrl = await resolveAgentUrlFromAgentId(agentId);
@@ -51,14 +51,14 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       };
     }
 
-    logger.agent.info('Resolved agent base URL from registry', { agentId, agentUrl });
+    log.info({ agentId, agentUrl }, 'Resolved agent base URL from registry');
 
     const privyClient = getPrivyClient();
     const fetchWithPayment = createX402FetchClient(privyClient, walletId, walletAddress);
 
     const agentJson = await fetchAgentJson(agentUrl);
     const endpoint = agentJson?.endpoints?.[0]?.url;
-    logger.logic.info('Using agent endpoint', { endpoint });
+    log.info({ endpoint }, 'Using agent endpoint');
 
     const request = createJsonRpcRequest(task, data);
 
@@ -76,7 +76,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
       }
 
       const errorText = await response.text();
-      logger.agent.error('Agent request failed', { status: response.status, error: errorText });
+      log.error({ status: response.status, error: errorText }, 'Agent request failed');
       return { success: false, error: `Agent request failed: ${response.status} - ${errorText}` };
     }
 
@@ -88,10 +88,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
 
     const result = (await response.json()) as JsonRpcResponse;
 
-    logger.agent.success('Agent execution completed', {
-      hasPayment: transactionHash !== undefined,
-      transactionHash,
-    });
+    log.info({ hasPayment: transactionHash !== undefined, transactionHash }, 'Agent execution completed');
 
     return {
       success: true,
@@ -101,7 +98,7 @@ export async function executeAgent(input: ExecuteAgentInput): Promise<ExecuteAge
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('executeAgent failed', { error: message });
+    log.error({ err: error }, 'executeAgent failed');
     return { success: false, error: message };
   }
 }
@@ -125,10 +122,7 @@ async function sendWithRetry(
 
   for (let attempt = 0; attempt <= MAX_PAYMENT_RETRIES; attempt++) {
     if (attempt > 0) {
-      logger.payment.info('Retrying payment request (facilitator conflict)', {
-        attempt: attempt + 1,
-        endpoint,
-      });
+      paymentLog.info({ attempt: attempt + 1, endpoint }, 'Retrying payment request (facilitator conflict)');
       lastFetchClient = createX402FetchClient(privyClient, walletId, walletAddress);
       await new Promise((r) => setTimeout(r, 1000 * attempt));
     }
@@ -145,10 +139,10 @@ async function sendWithRetry(
       !response.headers.has('PAYMENT-REQUIRED') &&
       attempt < MAX_PAYMENT_RETRIES
     ) {
-      logger.payment.warn('Payment settlement failed (facilitator conflict), will retry', {
-        attempt: attempt + 1,
-        status: response.status,
-      });
+      paymentLog.warn(
+        { attempt: attempt + 1, status: response.status },
+        'Payment settlement failed (facilitator conflict), will retry',
+      );
       continue;
     }
     break;
@@ -161,15 +155,17 @@ function logResponse(
   response: Response,
   paymentRequiredDecoded: PaymentRequiredData | null,
 ): void {
-  logger.payment.info('Response received from Agent', {
-    status: response.status,
-    statusText: response.statusText,
-    hasPaymentResponse: response.headers.has('PAYMENT-RESPONSE'),
-    paymentResponse: response.headers.get('PAYMENT-RESPONSE'),
-    hasPaymentRequired: response.headers.has('PAYMENT-REQUIRED'),
-    paymentRequiredDecoded,
-    allHeaders: Object.fromEntries(response.headers.entries()),
-  });
+  paymentLog.debug(
+    {
+      status: response.status,
+      statusText: response.statusText,
+      hasPaymentResponse: response.headers.has('PAYMENT-RESPONSE'),
+      paymentResponse: response.headers.get('PAYMENT-RESPONSE'),
+      hasPaymentRequired: response.headers.has('PAYMENT-REQUIRED'),
+      paymentRequiredDecoded,
+    },
+    'Response received from Agent',
+  );
 }
 
 /**
@@ -184,9 +180,7 @@ async function processPaymentResponse(
   const paymentResponse = getPaymentSettleResponse((name) => response.headers.get(name));
 
   if (!paymentResponse) {
-    logger.logic.info('Request completed without payment', {
-      note: 'This endpoint may not require payment, or payment was already processed in a previous request.',
-    });
+    log.info('Request completed without payment (endpoint may be free, or payment already processed)');
     return {};
   }
 
@@ -204,24 +198,26 @@ async function processPaymentResponse(
     ? convertAmountToUSDC(paymentRequiredDecoded.accepts[0].amount)
     : undefined;
 
-  logger.payment.success('Payment completed', {
-    txHash: transactionHash,
-    network: paymentResponse.network,
-    payer: paymentResponse.payer,
-    amount: paymentAmountUSDC ? `${paymentAmountUSDC} USDC` : 'unknown',
-    amountRaw: paymentRequiredDecoded?.accepts?.[0]?.amount,
-  });
+  paymentLog.info(
+    {
+      txHash: transactionHash,
+      network: paymentResponse.network,
+      payer: paymentResponse.payer,
+      amountUsdc: paymentAmountUSDC,
+      amountRaw: paymentRequiredDecoded?.accepts?.[0]?.amount,
+    },
+    'Payment completed',
+  );
 
   if (paymentAmountUSDC && maxPrice) {
     const amount = parseFloat(paymentAmountUSDC);
     if (amount > maxPrice) {
-      logger.payment.warn('Payment amount exceeds maxPrice', {
-        amount,
-        maxPrice,
-        note: 'Payment was processed but exceeded the specified maxPrice limit.',
-      });
+      paymentLog.warn(
+        { amount, maxPrice },
+        'Payment amount exceeds maxPrice (payment was processed but exceeded the limit)',
+      );
     } else {
-      logger.payment.info('Payment amount within maxPrice limit', { amount, maxPrice });
+      paymentLog.info({ amount, maxPrice }, 'Payment amount within maxPrice limit');
     }
   }
 

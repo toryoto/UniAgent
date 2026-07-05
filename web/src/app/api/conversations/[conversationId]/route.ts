@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@agent-marketplace/shared/logger';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
-const log = createLogger('Conversations API');
+const log = createLogger('conversations-api');
 import { findUserIdByPrivyId } from '@/lib/db/users';
 import {
   findConversationOwner,
@@ -48,7 +48,7 @@ export async function GET(
       },
     });
   } catch (error) {
-    log.error('GET error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'GET error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -66,7 +66,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    log.error('DELETE error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'DELETE error');
 
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'P2025') {

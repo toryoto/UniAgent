@@ -18,7 +18,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createLogger } from '@agent-marketplace/shared/logger';
 
-const log = createLogger('Alchemy Webhook');
+const log = createLogger('alchemy-webhook');
 import { ethers } from 'ethers';
 import { upsertAgentCache } from '@/lib/db/agent-cache';
 import { upsertAgentStake } from '@/lib/db/agent-stakes';
@@ -186,20 +186,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    log.info('Summary', {
-      identity: {
-        contractAddress: contractAddrLower,
-        agentIdsFound: agentIds.size,
-        processedCount,
-        errorsCount: errors.length,
+    log.info(
+      {
+        identity: {
+          contractAddress: contractAddrLower,
+          agentIdsFound: agentIds.size,
+          processedCount,
+          errorsCount: errors.length,
+        },
+        staking: {
+          agentIdsFound: stakingAgentIds.size,
+          processedCount: stakingProcessedCount,
+          errorsCount: stakingErrors.length,
+        },
+        logsFound: logs.length,
       },
-      staking: {
-        agentIdsFound: stakingAgentIds.size,
-        processedCount: stakingProcessedCount,
-        errorsCount: stakingErrors.length,
-      },
-      logsFound: logs.length,
-    });
+      'Webhook processed',
+    );
 
     return NextResponse.json({
       success: true,
@@ -217,7 +220,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'Webhook handling failed');
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

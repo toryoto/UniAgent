@@ -18,7 +18,9 @@ import {
   type AgentWithStats,
   type DiscoverAgentsInput,
 } from '@agent-marketplace/shared';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('logic');
 
 // ── Public ────────────────────────────────────────────────────────────────
 
@@ -49,14 +51,17 @@ const discoverAgentsSchema = z.object({
 export const discoverAgentsTool = tool(
   async (input: z.infer<typeof discoverAgentsSchema>) => {
     try {
-      logger.logic.info('Searching agents in DB', {
-        agentId: input.agentId,
-        q: input.q,
-        category: input.category,
-        skillName: input.skillName,
-        maxPrice: input.maxPrice,
-        minRating: input.minRating,
-      });
+      log.info(
+        {
+          agentId: input.agentId,
+          q: input.q,
+          category: input.category,
+          skillName: input.skillName,
+          maxPrice: input.maxPrice,
+          minRating: input.minRating,
+        },
+        'Searching agents in DB',
+      );
 
       const dbInput: DiscoverAgentsInput = {
         agentId: input.agentId,
@@ -96,12 +101,12 @@ export const discoverAgentsTool = tool(
         skills: agent.skills.map((s) => s.name),
       }));
 
-      logger.logic.success(`Ranked ${selected.length} agents from ${agents.length} candidates`);
+      log.info({ selected: selected.length, candidates: agents.length }, 'Ranked agents');
 
       return JSON.stringify({ success: true, total: selected.length, agents: summary });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.logic.error('discover_agents failed', { error: message });
+      log.error({ err: error }, 'discover_agents failed');
       return JSON.stringify({ success: false, error: message, agents: [] });
     }
   },

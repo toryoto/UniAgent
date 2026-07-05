@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@agent-marketplace/shared/logger';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
-const log = createLogger('Budget API');
+const log = createLogger('budget-api');
 import { findUserIdByPrivyId } from '@/lib/db/users';
 import { getBudgetSettings, upsertBudgetSettings } from '@/lib/db/budget-settings';
 
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(settings);
   } catch (error) {
-    log.error('GET error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'GET error');
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -76,7 +76,7 @@ export async function PATCH(request: NextRequest) {
       autoApproveThreshold: Number(settings.autoApproveThreshold),
     });
   } catch (error) {
-    log.error('PATCH error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'PATCH error');
 
     if (error && typeof error === 'object' && 'code' in error) {
       if (error.code === 'P2025') {

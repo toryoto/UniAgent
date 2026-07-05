@@ -86,7 +86,7 @@ export async function runFlightAgent(userText: string): Promise<FlightAgentResul
   const agent = getAgent();
   const preview = userText.slice(0, 80).replace(/\n/g, ' ');
   const model = process.env.FLIGHT_AGENT_MODEL ?? 'claude-haiku-4-5-20251001';
-  log.info('agent start', { model, input: `${preview}${userText.length > 80 ? '...' : ''}` });
+  log.info({ model, input: `${preview}${userText.length > 80 ? '...' : ''}` }, 'agent start');
 
   const start = Date.now();
   const result = await agent.invoke({
@@ -111,7 +111,7 @@ export async function runFlightAgent(userText: string): Promise<FlightAgentResul
   const searchResult = getLastSearchResult() ?? undefined;
   const offersFound = searchResult?.offers.length ?? 0;
   const totalFound = searchResult?.totalFound ?? 0;
-  log.success('agent done', { steps, offersFound, totalFound, ms });
+  log.info({ steps, offersFound, totalFound, ms }, 'agent done');
 
   return { text, searchResult };
 }

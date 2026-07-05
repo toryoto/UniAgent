@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, createWalletClient, http, parseUnits } from 'viem';
 import { createLogger } from '@agent-marketplace/shared/logger';
 
-const log = createLogger('USDC Faucet');
+const log = createLogger('usdc-faucet');
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { checkAndUpdateAccessLimit } from '@/lib/db/access-limits';
@@ -103,12 +103,10 @@ export async function POST(request: NextRequest) {
 
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
-    log.success('Transaction confirmed', {
-      txHash: hash,
-      to: walletAddress,
-      amount: FAUCET_AMOUNT,
-      blockNumber: String(receipt.blockNumber),
-    });
+    log.info(
+      { txHash: hash, to: walletAddress, amount: FAUCET_AMOUNT, blockNumber: String(receipt.blockNumber) },
+      'Transaction confirmed',
+    );
 
     return NextResponse.json({
       status: 'success',
@@ -117,7 +115,7 @@ export async function POST(request: NextRequest) {
       message: `${FAUCET_AMOUNT} USDC has been sent to your wallet`,
     });
   } catch (error: unknown) {
-    log.error('API error', { error: error instanceof Error ? error.message : String(error) });
+    log.error({ err: error }, 'API error');
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     const errorName = error instanceof Error ? error.name : '';
