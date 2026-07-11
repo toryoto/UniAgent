@@ -25,6 +25,7 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/**/__tests__/**",
     "../web",
     "../contracts",
     "../packages/shared/node_modules"

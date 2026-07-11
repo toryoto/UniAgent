@@ -7,7 +7,9 @@
 
 import type { HITLRequest } from 'langchain';
 import type { StreamProcessingContext } from '../types/index.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('agent');
 
 /**
  * HITL リクエストを自動承認すべきかを判定する。
@@ -31,7 +33,7 @@ export function shouldAutoApprove(
   const actions = hitlRequest.actionRequests as Array<{ name: string; args: Record<string, unknown> }>;
 
   if (actions.some((a) => a.args?.requireUserApproval === true)) {
-    logger.agent.info('HITL required: agent set requireUserApproval');
+    log.info('HITL required: agent set requireUserApproval');
     return false;
   }
 
@@ -41,25 +43,27 @@ export function shouldAutoApprove(
   );
 
   if (totalMaxPrice <= 0) {
-    logger.agent.info('HITL required: no valid maxPrice found');
+    log.info('HITL required: no valid maxPrice found');
     return false;
   }
 
   const projectedTotal = ctx.totalCost + totalMaxPrice;
   if (projectedTotal > ctx.autoApproveThreshold) {
-    logger.agent.info('HITL required: projected total exceeds threshold', {
-      totalMaxPrice,
-      spentSoFar: ctx.totalCost,
-      projectedTotal,
-      autoApproveThreshold: ctx.autoApproveThreshold,
-    });
+    log.info(
+      {
+        totalMaxPrice,
+        spentSoFar: ctx.totalCost,
+        projectedTotal,
+        autoApproveThreshold: ctx.autoApproveThreshold,
+      },
+      'HITL required: projected total exceeds threshold',
+    );
     return false;
   }
 
-  logger.agent.info('Auto-approving: within threshold', {
-    totalMaxPrice,
-    spentSoFar: ctx.totalCost,
-    autoApproveThreshold: ctx.autoApproveThreshold,
-  });
+  log.info(
+    { totalMaxPrice, spentSoFar: ctx.totalCost, autoApproveThreshold: ctx.autoApproveThreshold },
+    'Auto-approving: within threshold',
+  );
   return true;
 }

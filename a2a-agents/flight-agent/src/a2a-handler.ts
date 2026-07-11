@@ -106,7 +106,7 @@ export async function handleA2ARequest(body: Record<string, unknown>): Promise<{
     return { id, result: { parts } };
   } catch (err) {
     const message = (err as Error).message;
-    log.error('Flight search failed', { error: message });
+    log.error({ err }, 'Flight search failed');
     return {
       id,
       error: { code: -32603, message: `Flight search failed: ${message}` },

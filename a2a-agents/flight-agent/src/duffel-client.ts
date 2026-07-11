@@ -200,20 +200,23 @@ function parseDuffelDuration(duration: string): number {
 }
 
 export async function searchDuffel(params: DuffelSearchParams): Promise<DuffelRawSearchResult> {
-  log.info('duffel search', {
-    origin: params.origin,
-    destination: params.destination,
-    date: params.departureDate,
-    adults: params.adults,
-    cabinClass: params.cabinClass ?? 'economy',
-  });
+  log.info(
+    {
+      origin: params.origin,
+      destination: params.destination,
+      date: params.departureDate,
+      adults: params.adults,
+      cabinClass: params.cabinClass ?? 'economy',
+    },
+    'duffel search',
+  );
 
   const start = Date.now();
   const offerRequestId = await createOfferRequest(params);
   const offers = await fetchOffers(offerRequestId);
   const ms = Date.now() - start;
 
-  log.info('duffel result', { offers: offers.length, ms });
+  log.info({ offers: offers.length, ms }, 'duffel result');
 
   return {
     offers,

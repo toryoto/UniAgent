@@ -4,7 +4,7 @@ import path from 'path';
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '..'),
   
-  serverExternalPackages: ['@react-native-async-storage/async-storage'],
+  serverExternalPackages: ['@react-native-async-storage/async-storage', 'pino', 'pino-pretty'],
 };
 
 export default nextConfig;

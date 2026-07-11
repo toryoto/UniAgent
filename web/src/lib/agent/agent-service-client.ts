@@ -5,6 +5,7 @@
  */
 
 import { SSE_RESPONSE_HEADERS as SHARED_SSE_HEADERS } from '@agent-marketplace/shared';
+import { getLogContext } from '@agent-marketplace/shared/logger';
 
 const AGENT_SERVICE_URL = process.env.AGENT_SERVICE_URL || 'http://localhost:3002';
 
@@ -21,11 +22,15 @@ export async function postAgentServiceSse(
   path: '/api/agent/stream' | '/api/agent/resume',
   body: Record<string, unknown>,
 ): Promise<Response> {
+  // Route 入口の runWithLogContext が発行した requestId を Agent Service へ伝播する
+  const requestId = getLogContext()?.requestId;
+
   return fetch(`${AGENT_SERVICE_URL}${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
+      ...(typeof requestId === 'string' ? { 'x-request-id': requestId } : {}),
     },
     body: JSON.stringify(body),
     // @ts-expect-error -- Node.js undici option to disable response buffering

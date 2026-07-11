@@ -11,7 +11,10 @@ import { AIMessage, AIMessageChunk, ToolMessage } from '@langchain/core/messages
 import type { StreamEvent, HITLDecision } from '@agent-marketplace/shared';
 import type { StreamProcessingContext } from '../types/index.js';
 import { shouldAutoApprove } from './auto-approve.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('agent');
+const paymentLog = createLogger('payment');
 
 /**
  * LangGraph のストリームを処理し、クライアント向け StreamEvent を yield する。
@@ -89,9 +92,10 @@ async function* handleUpdatesMode(
 
     if (interrupts.length > 0) {
       const hitlRequest = interrupts[0].value;
-      logger.agent.info('HITL interrupt detected', {
-        actions: hitlRequest.actionRequests.map((a: { name: string }) => a.name),
-      });
+      log.info(
+        { actions: hitlRequest.actionRequests.map((a: { name: string }) => a.name) },
+        'HITL interrupt detected',
+      );
 
       if (shouldAutoApprove(hitlRequest, ctx)) {
         const decisions: HITLDecision[] = hitlRequest.actionRequests.map(
@@ -147,7 +151,7 @@ function* handleModelNode(
     const text = extractTextContent(msg.content as string | Array<{ type: string; text?: string }>);
     if (text) {
       ctx.stepCounter++;
-      logger.agent.info(`[model] text: ${text.slice(0, 120)}...`);
+      log.debug({ step: ctx.stepCounter, preview: text.slice(0, 120) }, 'model text');
     }
 
     for (const tc of msg.tool_calls ?? []) {
@@ -167,7 +171,7 @@ function* handleModelNode(
         },
       };
 
-      logger.agent.info(`[model] tool_call: ${tc.name}(${JSON.stringify(tc.args)})`);
+      log.info({ step: ctx.stepCounter, tool: tc.name, args: tc.args }, 'model tool_call');
     }
   }
 }
@@ -199,7 +203,7 @@ function* handleToolsNode(
       },
     };
 
-    logger.agent.info(`[tools] ${toolName} => ${resultContent.slice(0, 120)}`);
+    log.info({ step: ctx.stepCounter, tool: toolName, preview: resultContent.slice(0, 120) }, 'tool result');
 
     if (toolName === 'execute_and_evaluate_agent') {
       try {
@@ -216,12 +220,9 @@ function* handleToolsNode(
           };
         }
       } catch (err) {
-        logger.payment.warn(
+        paymentLog.warn(
+          { err, preview: resultContent.slice(0, 240) },
           'execute_and_evaluate_agent result was not valid JSON; payment amount not extracted',
-          {
-            error: err instanceof Error ? err.message : String(err),
-            preview: resultContent.slice(0, 240),
-          },
         );
       }
     }

@@ -5,7 +5,9 @@
  */
 
 import type { AgentJson } from '@agent-marketplace/shared';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('logic');
 import { AGENT_JSON_TIMEOUT_MS } from '../../config/constants.js';
 
 // ── Public ────────────────────────────────────────────────────────────────
@@ -20,7 +22,7 @@ import { AGENT_JSON_TIMEOUT_MS } from '../../config/constants.js';
 export async function fetchAgentJson(baseUrl: string): Promise<AgentJson | null> {
   try {
     const agentJsonUrl = buildAgentJsonUrl(baseUrl);
-    logger.logic.info('Fetching agent.json', { url: agentJsonUrl });
+    log.info({ url: agentJsonUrl }, 'Fetching agent.json');
 
     const response = await fetch(agentJsonUrl, {
       method: 'GET',
@@ -29,17 +31,15 @@ export async function fetchAgentJson(baseUrl: string): Promise<AgentJson | null>
     });
 
     if (!response.ok) {
-      logger.logic.warn('agent.json not found', { status: response.status });
+      log.warn({ status: response.status }, 'agent.json not found');
       return null;
     }
 
     const agentJson = (await response.json()) as AgentJson;
-    logger.logic.success('Got agent.json', { endpoint: agentJson.endpoints?.[0]?.url });
+    log.info({ endpoint: agentJson.endpoints?.[0]?.url }, 'Got agent.json');
     return agentJson;
   } catch (error) {
-    logger.logic.warn('Failed to fetch agent.json', {
-      error: error instanceof Error ? error.message : 'Unknown',
-    });
+    log.warn({ err: error }, 'Failed to fetch agent.json');
     return null;
   }
 }
@@ -52,7 +52,7 @@ export async function fetchAgentJson(baseUrl: string): Promise<AgentJson | null>
  */
 export async function fetchOpenApiSpec(specUrl: string): Promise<unknown | null> {
   try {
-    logger.logic.info('Fetching OpenAPI spec', { url: specUrl });
+    log.info({ url: specUrl }, 'Fetching OpenAPI spec');
 
     const response = await fetch(specUrl, {
       method: 'GET',
@@ -61,17 +61,15 @@ export async function fetchOpenApiSpec(specUrl: string): Promise<unknown | null>
     });
 
     if (!response.ok) {
-      logger.logic.warn('OpenAPI spec not found', { status: response.status });
+      log.warn({ status: response.status }, 'OpenAPI spec not found');
       return null;
     }
 
     const spec = await response.json();
-    logger.logic.success('Got OpenAPI spec');
+    log.info('Got OpenAPI spec');
     return spec;
   } catch (error) {
-    logger.logic.warn('Failed to fetch OpenAPI spec', {
-      error: error instanceof Error ? error.message : 'Unknown',
-    });
+    log.warn({ err: error }, 'Failed to fetch OpenAPI spec');
     return null;
   }
 }

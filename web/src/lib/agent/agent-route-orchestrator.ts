@@ -11,6 +11,7 @@ import {
   type StreamEvent,
 } from '@agent-marketplace/shared';
 import { createLogger } from '@agent-marketplace/shared/logger';
+import { withApiLogging } from '@/lib/api/with-api-logging';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings, getSpentToday, type BudgetSettingsData } from '@/lib/db/budget-settings';
 import { findUserIdByPrivyId } from '@/lib/db/users';
@@ -27,7 +28,7 @@ import {
   type AgentResumeBody,
 } from '@/lib/agent/schemas';
 
-const log = createLogger('Agent Route');
+const log = createLogger('agent-route');
 
 type AuthenticatedContext = {
   privyUserId: string;
@@ -128,17 +129,22 @@ export async function handleAgentStreamRoute(
     );
   }
 
-  log.info('Forwarding to Agent Service (stream)', {
-    ...(body.agentId ? { agentId: body.agentId } : {}),
-    conversationId: resolved.conversationId,
-    historyLength: resolved.messageHistory.length,
-  });
+  log.info(
+    {
+      ...(body.agentId ? { agentId: body.agentId } : {}),
+      conversationId: resolved.conversationId,
+      historyLength: resolved.messageHistory.length,
+    },
+    'Forwarding to Agent Service (stream)',
+  );
 
   const requestBody: Record<string, unknown> = {
     message: body.message,
     walletId: body.walletId,
     walletAddress: body.walletAddress,
     autoApproveThreshold: ctx.budget.autoApproveThreshold,
+    // ログ相関用メタデータ（Agent Service はロジックには使わない）
+    conversationId: resolved.conversationId,
   };
   if (body.agentId) requestBody.agentId = body.agentId;
   if (resolved.messageHistory.length > 0) {
@@ -148,7 +154,7 @@ export async function handleAgentStreamRoute(
   const upstream = await postAgentServiceSse('/api/agent/stream', requestBody);
   if (!upstream.ok || !upstream.body) {
     const errorText = await upstream.text();
-    log.error('Agent Service error', { status: upstream.status, body: errorText });
+    log.error({ status: upstream.status, body: errorText }, 'Agent Service error');
     return jsonResponse(
       { success: false, error: `Agent Service error: ${upstream.status}` },
       upstream.status,
@@ -186,21 +192,22 @@ export async function handleAgentResumeRoute(
     saveConversationId = body.conversationId;
   }
 
-  log.info('Forwarding to Agent Service (resume)', {
-    threadId: body.threadId,
-    decisionsCount: body.decisions.length,
-    conversationId: body.conversationId,
-  });
+  log.info(
+    { threadId: body.threadId, decisionsCount: body.decisions.length, conversationId: body.conversationId },
+    'Forwarding to Agent Service (resume)',
+  );
 
   const upstream = await postAgentServiceSse('/api/agent/resume', {
     threadId: body.threadId,
     decisions: body.decisions,
     autoApproveThreshold: ctx.budget.autoApproveThreshold,
+    // ログ相関用メタデータ（Agent Service はロジックには使わない）
+    ...(body.conversationId ? { conversationId: body.conversationId } : {}),
   });
 
   if (!upstream.ok || !upstream.body) {
     const errorText = await upstream.text();
-    log.error('Agent Service error', { status: upstream.status, body: errorText });
+    log.error({ status: upstream.status, body: errorText }, 'Agent Service error');
     return jsonResponse(
       { success: false, error: `Agent Service error: ${upstream.status}` },
       upstream.status,
@@ -213,58 +220,63 @@ export async function handleAgentResumeRoute(
   });
 }
 
-/** Route 入口: stream */
+/**
+ * Route 入口: stream。
+ * requestId をここで発行してログコンテキストに載せる。Agent Service へは
+ * agent-service-client が x-request-id ヘッダーで伝播し、web / agent の
+ * ログを同一 requestId で相関できる。
+ */
 export async function runAgentStreamRoute(request: NextRequest): Promise<Response> {
-  log.info('Request received');
+  return withApiLogging(request, async () => {
+    try {
+      const authResult = await authenticateAgentRoute(request);
+      if (authResult instanceof Response) return authResult;
 
-  try {
-    const authResult = await authenticateAgentRoute(request);
-    if (authResult instanceof Response) return authResult;
+      const raw = await request.json();
+      const parsed = agentStreamBodySchema.safeParse(raw);
+      if (!parsed.success) {
+        return jsonResponse(
+          { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid request' },
+          400,
+        );
+      }
 
-    const raw = await request.json();
-    const parsed = agentStreamBodySchema.safeParse(raw);
-    if (!parsed.success) {
+      return await handleAgentStreamRoute(request, parsed.data, authResult);
+    } catch (error) {
+      log.error({ err: error }, 'Route handler failed');
       return jsonResponse(
-        { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid request' },
-        400,
+        { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+        500,
       );
     }
-
-    return await handleAgentStreamRoute(request, parsed.data, authResult);
-  } catch (error) {
-    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
-    return jsonResponse(
-      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-      500,
-    );
-  }
+  });
 }
 
-/** Route 入口: resume */
+/** Route 入口: resume。requestId の扱いは stream と同じ。 */
 export async function runAgentResumeRoute(request: NextRequest): Promise<Response> {
-  log.info('Request received');
+  return withApiLogging(request, async () => {
+    try {
+      const authResult = await authenticateAgentRoute(request);
+      if (authResult instanceof Response) return authResult;
 
-  try {
-    const authResult = await authenticateAgentRoute(request);
-    if (authResult instanceof Response) return authResult;
+      const raw = await request.json();
+      const parsed = agentResumeBodySchema.safeParse(raw);
+      if (!parsed.success) {
+        return jsonResponse(
+          { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid request' },
+          400,
+        );
+      }
 
-    const raw = await request.json();
-    const parsed = agentResumeBodySchema.safeParse(raw);
-    if (!parsed.success) {
+      return await handleAgentResumeRoute(request, parsed.data, authResult);
+    } catch (error) {
+      log.error({ err: error }, 'Route handler failed');
       return jsonResponse(
-        { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid request' },
-        400,
+        { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
+        500,
       );
     }
-
-    return await handleAgentResumeRoute(request, parsed.data, authResult);
-  } catch (error) {
-    log.error('Error', { error: error instanceof Error ? error.message : String(error) });
-    return jsonResponse(
-      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-      500,
-    );
-  }
+  });
 }
 
 /** web プロキシが注入する meta イベントを SSE フレーム化する */

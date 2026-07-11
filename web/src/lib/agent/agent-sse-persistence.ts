@@ -72,7 +72,7 @@ export function createAgentSsePersistenceTransform(
           });
           await touchConversation(persistAssistantToConversationId);
         } catch (err) {
-          log.error('Failed to save assistant message', { error: err instanceof Error ? err.message : String(err) });
+          log.error({ err }, 'Failed to save assistant message');
         }
       }
     },

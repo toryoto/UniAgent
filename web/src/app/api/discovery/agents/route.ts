@@ -7,9 +7,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createLogger } from '@agent-marketplace/shared/logger';
+import { withApiLogging } from '@/lib/api/with-api-logging';
 import { discoverAgents } from '@agent-marketplace/database';
 import type { DiscoveredAgent } from '@agent-marketplace/shared';
 import type { ApiResponse, DiscoveryApiResponse } from '@/lib/types';
+
+const log = createLogger('discovery-api');
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,51 +52,54 @@ const querySchema = z.object({
 });
 
 export async function GET(request: NextRequest) {
-  try {
-    const sp = request.nextUrl.searchParams;
-    const parsed = querySchema.safeParse({
-      q: sp.get('q') ?? undefined,
-      category: sp.get('category') ?? undefined,
-      maxPrice: sp.get('maxPrice') ?? undefined,
-      limit: sp.get('limit') ?? undefined,
-      offset: sp.get('offset') ?? undefined,
-      sortBy: sp.get('sortBy') ?? undefined,
-      sortOrder: sp.get('sortOrder') ?? undefined,
-    });
+  return withApiLogging(request, async () => {
+    try {
+      const sp = request.nextUrl.searchParams;
+      const parsed = querySchema.safeParse({
+        q: sp.get('q') ?? undefined,
+        category: sp.get('category') ?? undefined,
+        maxPrice: sp.get('maxPrice') ?? undefined,
+        limit: sp.get('limit') ?? undefined,
+        offset: sp.get('offset') ?? undefined,
+        sortBy: sp.get('sortBy') ?? undefined,
+        sortOrder: sp.get('sortOrder') ?? undefined,
+      });
 
-    if (!parsed.success) {
+      if (!parsed.success) {
+        const res: ApiResponse<never> = {
+          success: false,
+          error: parsed.error.issues[0]?.message ?? 'Invalid query',
+        };
+        return NextResponse.json(res, { status: 400 });
+      }
+
+      const { q, category, maxPrice, limit, offset, sortBy, sortOrder } = parsed.data;
+
+      // DB + shared ロジックでフィルタ済みの DiscoveredAgent[] を取得
+      const result = await discoverAgents({ q, category, maxPrice });
+
+      let agents: DiscoveredAgent[] = result.agents;
+
+      const dir = sortOrder === 'asc' ? 1 : -1;
+      agents = [...agents].sort((a, b) => {
+        if (sortBy === 'price') return dir * (a.price - b.price);
+        return 0; // newest: DB の updatedAt 順を維持
+      });
+
+      // Pagination
+      const total = agents.length;
+      const page = agents.slice(offset, offset + limit);
+
+      const data: DiscoveryApiResponse = { agents: page, total };
+      const res: ApiResponse<DiscoveryApiResponse> = { success: true, data };
+      return NextResponse.json(res);
+    } catch (e) {
+      log.error({ err: e }, 'GET error');
       const res: ApiResponse<never> = {
         success: false,
-        error: parsed.error.issues[0]?.message ?? 'Invalid query',
+        error: e instanceof Error ? e.message : 'Internal server error',
       };
-      return NextResponse.json(res, { status: 400 });
+      return NextResponse.json(res, { status: 500 });
     }
-
-    const { q, category, maxPrice, limit, offset, sortBy, sortOrder } = parsed.data;
-
-    // DB + shared ロジックでフィルタ済みの DiscoveredAgent[] を取得
-    const result = await discoverAgents({ q, category, maxPrice });
-
-    let agents: DiscoveredAgent[] = result.agents;
-
-    const dir = sortOrder === 'asc' ? 1 : -1;
-    agents = [...agents].sort((a, b) => {
-      if (sortBy === 'price') return dir * (a.price - b.price);
-      return 0; // newest: DB の updatedAt 順を維持
-    });
-
-    // Pagination
-    const total = agents.length;
-    const page = agents.slice(offset, offset + limit);
-
-    const data: DiscoveryApiResponse = { agents: page, total };
-    const res: ApiResponse<DiscoveryApiResponse> = { success: true, data };
-    return NextResponse.json(res);
-  } catch (e) {
-    const res: ApiResponse<never> = {
-      success: false,
-      error: e instanceof Error ? e.message : 'Internal server error',
-    };
-    return NextResponse.json(res, { status: 500 });
-  }
+  });
 }

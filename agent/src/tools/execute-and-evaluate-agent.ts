@@ -8,7 +8,9 @@
 
 import { tool } from 'langchain';
 import { z } from 'zod';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('eval');
 import { executeAgent } from '../services/agent-execution.js';
 import { evaluateAndAttest } from '../services/evaluation.js';
 import { verifyX402TransactionHash } from '../lib/payment/verify-tx.js';
@@ -60,7 +62,7 @@ export const executeAndEvaluateAgentTool = tool(
       return JSON.stringify(result, null, 2);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.eval.error('execute_and_evaluate_agent failed', { error: message });
+      log.error({ err: error }, 'execute_and_evaluate_agent failed');
       return JSON.stringify({ success: false, error: message });
     }
   },
@@ -104,7 +106,7 @@ export const executeAndEvaluateAgentTool = tool(
 async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
   const { agentId, category, task, data, maxPrice, walletId, walletAddress } = input;
 
-  logger.eval.info('Execute & Evaluate started', { agentId, hasData: !!data });
+  log.info({ agentId, hasData: !!data }, 'Execute & Evaluate started');
 
   const startTime = Date.now();
 
@@ -119,7 +121,7 @@ async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
 
   const latencyMs = Date.now() - startTime;
 
-  logger.eval.info('Execution finished', { success: executeResult.success, latencyMs });
+  log.info({ success: executeResult.success, latencyMs }, 'Execution finished');
 
   if (!executeResult.success) {
     return { success: false, error: executeResult.error, latencyMs };
@@ -133,10 +135,10 @@ async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
     (await verifyX402TransactionHash({ txHash, agentId, amount: executeResult.paymentAmount ?? 0, walletId }));
 
   if (!isPaymentVerified) {
-    logger.eval.warn('Skipping evaluation: x402 txHash invalid or missing (Sybil protection)', {
-      hasTxHash: !!txHash,
-      txHash: txHash ?? '(none)',
-    });
+    log.warn(
+      { hasTxHash: !!txHash, txHash: txHash ?? '(none)' },
+      'Skipping evaluation: x402 txHash invalid or missing (Sybil protection)',
+    );
   }
 
   let evaluation = null;
@@ -168,8 +170,7 @@ async function executeAndEvaluateImpl(input: ExecuteAndEvaluateInput) {
       };
       attestation = result.attestation;
     } catch (evalError) {
-      const message = evalError instanceof Error ? evalError.message : 'Unknown evaluation error';
-      logger.eval.error('Evaluation failed but execution succeeded', { error: message });
+      log.error({ err: evalError }, 'Evaluation failed but execution succeeded');
     }
   }
 

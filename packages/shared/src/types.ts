@@ -132,6 +132,8 @@ export interface AgentRequest {
   autoApproveThreshold: number;
   agentId?: string;
   messageHistory?: AgentMessageHistoryEntry[];
+  /** ログ相関用のトレースメタデータ。Agent Service はロジックには使わない */
+  conversationId?: string;
 }
 
 export interface AgentResponse {

@@ -6,7 +6,9 @@
  */
 
 import { PrivyClient } from '@privy-io/server-auth';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('payment');
 
 let _instance: PrivyClient | null = null;
 
@@ -33,9 +35,7 @@ export function getPrivyClient(): PrivyClient {
       : undefined,
   );
 
-  logger.payment.info('Privy client initialized', {
-    hasAuthorizationKey: !!authorizationKey,
-  });
+  log.info({ hasAuthorizationKey: !!authorizationKey }, 'Privy client initialized');
 
   return _instance;
 }

@@ -6,7 +6,9 @@
 
 import type { Hex, TypedDataDefinition } from 'viem';
 import { PrivyClient } from '@privy-io/server-auth';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('payment');
 
 /**
  * Privy ベースの EIP-712 署名アダプター。
@@ -35,11 +37,10 @@ export class PrivyEIP712Signer {
    * @throws Privy API エラー（認証失敗、委譲未完了など）
    */
   async signTypedData(typedData: TypedDataDefinition): Promise<Hex> {
-    logger.payment.info('Signing EIP-712 typed data via Privy delegated wallet', {
-      walletId: this.walletId,
-      walletAddress: this.address,
-      primaryType: typedData.primaryType,
-    });
+    log.info(
+      { walletId: this.walletId, walletAddress: this.address, primaryType: typedData.primaryType },
+      'Signing EIP-712 typed data via Privy delegated wallet',
+    );
 
     try {
       const serializedTypedData = this.serializeTypedData(typedData);
@@ -49,10 +50,10 @@ export class PrivyEIP712Signer {
         typedData: serializedTypedData as any,
       });
 
-      logger.payment.success('EIP-712 signature created via delegated wallet', {
-        signature: `${result.signature.slice(0, 10)}...`,
-        walletId: this.walletId,
-      });
+      log.info(
+        { signature: `${result.signature.slice(0, 10)}...`, walletId: this.walletId },
+        'EIP-712 signature created via delegated wallet',
+      );
 
       return result.signature as Hex;
     } catch (error) {
@@ -85,20 +86,17 @@ export class PrivyEIP712Signer {
     const errorMessage = error instanceof Error ? error.message : 'Unknown';
 
     if (errorMessage.includes('authorization')) {
-      logger.payment.error(
-        'Authorization key error - check if PRIVY_AUTHORIZATION_KEY is set correctly',
+      log.error(
         { error: errorMessage, walletId: this.walletId },
+        'Authorization key error - check if PRIVY_AUTHORIZATION_KEY is set correctly',
       );
     } else if (errorMessage.includes('delegated') || errorMessage.includes('permission')) {
-      logger.payment.error('Wallet not delegated - user must delegate wallet from client first', {
-        error: errorMessage,
-        walletId: this.walletId,
-      });
+      log.error(
+        { error: errorMessage, walletId: this.walletId },
+        'Wallet not delegated - user must delegate wallet from client first',
+      );
     } else {
-      logger.payment.error('Failed to sign EIP-712 typed data', {
-        error: errorMessage,
-        walletId: this.walletId,
-      });
+      log.error({ error: errorMessage, walletId: this.walletId }, 'Failed to sign EIP-712 typed data');
     }
   }
 }

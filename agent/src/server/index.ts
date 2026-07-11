@@ -9,9 +9,11 @@ import 'dotenv/config';
 import express, { type Response } from 'express';
 import cors from 'cors';
 import { encodeSseEvent, SSE_RESPONSE_HEADERS, type StreamEvent } from '@agent-marketplace/shared';
-import { logger } from '@agent-marketplace/shared/logger';
+import { bindLogContext, logHttpRequestCompleted, logHttpRequestReceived, resolveRequestId, runWithLogContext, createLogger } from '@agent-marketplace/shared/logger';
 import { runAgentStream, resumeAgentStream } from '../core/index.js';
 import { agentStreamRequestSchema, agentResumeRequestSchema } from './schemas.js';
+
+const log = createLogger('agent');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3002', 10);
@@ -19,9 +21,29 @@ const PORT = parseInt(process.env.PORT || '3002', 10);
 app.use(cors());
 app.use(express.json());
 
-app.use((req, _res, next) => {
-  logger.http.info(`${req.method} ${req.path}`);
-  next();
+/**
+ * リクエストごとに requestId をログコンテキストに載せる。
+ * これ以降（SSE ストリーミング中を含む）の全ログに requestId が自動付与され、
+ * web から x-request-id が渡された場合は web 側のログと相関できる。
+ */
+app.use((req, res, next) => {
+  const requestId = resolveRequestId(req.header('x-request-id'));
+  runWithLogContext({ requestId }, () => {
+    const startedAt = Date.now();
+    const meta = { method: req.method, path: req.path };
+    // ヘルスチェックはログノイズになるため記録しない
+    if (req.path !== '/health') {
+      logHttpRequestReceived(meta);
+      res.on('finish', () => {
+        logHttpRequestCompleted({
+          ...meta,
+          statusCode: res.statusCode,
+          durationMs: Date.now() - startedAt,
+        });
+      });
+    }
+    next();
+  });
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────
@@ -43,12 +65,14 @@ app.post('/api/agent/stream', async (req, res) => {
     return;
   }
 
+  // web の会話とログを相関させる（threadId は runAgentStream 側でバインドされる）
+  if (parsed.data.conversationId) bindLogContext({ conversationId: parsed.data.conversationId });
+
   try {
     await pipeStreamToSse(res, runAgentStream(parsed.data));
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Streaming request failed', { error: errorMessage });
-    endSseWithError(res, errorMessage);
+    log.error({ err: error }, 'Streaming request failed');
+    endSseWithError(res, error instanceof Error ? error.message : 'Unknown error');
   }
 });
 
@@ -65,7 +89,8 @@ app.post('/api/agent/resume', async (req, res) => {
     return;
   }
 
-  const { threadId, decisions, autoApproveThreshold } = parsed.data;
+  const { threadId, decisions, autoApproveThreshold, conversationId } = parsed.data;
+  if (conversationId) bindLogContext({ conversationId });
 
   try {
     await pipeStreamToSse(
@@ -73,9 +98,8 @@ app.post('/api/agent/resume', async (req, res) => {
       resumeAgentStream(threadId, { decisions }, autoApproveThreshold),
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Resume request failed', { error: errorMessage });
-    endSseWithError(res, errorMessage);
+    log.error({ err: error }, 'Resume request failed');
+    endSseWithError(res, error instanceof Error ? error.message : 'Unknown error');
   }
 });
 
@@ -114,11 +138,8 @@ function endSseWithError(res: Response, error: string): void {
 // ── Startup ───────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
-  logger.separator('UniAgent Agent Service');
-  logger.agent.success(`Server running on http://0.0.0.0:${PORT}`);
-  logger.agent.info('Endpoints:');
-  console.log('  - GET  /health       Health check');
-  console.log('  - POST /api/agent/stream   Execute agent (SSE)');
-  console.log('  - POST /api/agent/resume   Resume agent (HITL)');
-  logger.separator();
+  log.info(
+    { port: PORT, endpoints: ['GET /health', 'POST /api/agent/stream', 'POST /api/agent/resume'] },
+    `Agent Service running on http://0.0.0.0:${PORT}`,
+  );
 });

@@ -9,7 +9,7 @@ import type { HITLResponse } from 'langchain';
 import { Command } from '@langchain/langgraph';
 import { HumanMessage } from '@langchain/core/messages';
 import type { AgentRequest, StreamEvent } from '@agent-marketplace/shared';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger, bindLogContext } from '@agent-marketplace/shared/logger';
 import { getAgent } from './agent-factory.js';
 import { getThreadCost, setThreadCost } from './thread-cost-store.js';
 import { expandHistoryToLangChainMessages } from './history-to-messages.js';
@@ -18,6 +18,8 @@ import { processAgentStream } from './stream-processor.js';
 import type { StreamProcessingContext } from '../types/index.js';
 
 export type { StreamEvent };
+
+const log = createLogger('agent');
 
 // ── Public API ────────────────────────────────────────────────────────────
 
@@ -31,10 +33,12 @@ export type { StreamEvent };
 export async function* runAgentStream(request: AgentRequest): AsyncGenerator<StreamEvent> {
   const { message, walletId, walletAddress, autoApproveThreshold, agentId, messageHistory } = request;
 
-  logger.separator('Agent Execution Start (Streaming)');
   yield { type: 'start', data: { message } };
 
   const threadId = crypto.randomUUID();
+  // 以降この実行スコープの全ログに threadId を自動付与する（HITL resume まで追跡可能）
+  bindLogContext({ threadId });
+  log.info({ agentId }, 'Agent execution started (streaming)');
 
   const userMessage = buildStreamingUserMessage({
     message,
@@ -73,8 +77,8 @@ export async function* resumeAgentStream(
   decisions: HITLResponse,
   autoApproveThreshold: number,
 ): AsyncGenerator<StreamEvent> {
-  logger.separator('Agent Resume (Streaming)');
-  logger.agent.info('Resuming agent', { threadId, decisions });
+  bindLogContext({ threadId });
+  log.info({ decisions }, 'Resuming agent');
 
   yield* streamAgentTurn({
     threadId,
@@ -130,7 +134,7 @@ async function* streamAgentTurn(params: StreamAgentTurnParams): AsyncGenerator<S
       if (event.type === 'interrupt') return;
     }
 
-    logger.separator(endLabel);
+    log.info({ totalCost: ctx.totalCost }, endLabel);
 
     yield {
       type: 'final',
@@ -141,7 +145,7 @@ async function* streamAgentTurn(params: StreamAgentTurnParams): AsyncGenerator<S
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.agent.error('Stream model call failed', { error: errorMessage, threadId });
+    log.error({ err: error }, 'Stream model call failed');
     yield { type: 'error', data: { error: errorMessage } };
   } finally {
     // interrupt / final / error のいずれで抜けても resume 用に累積コストを保存する

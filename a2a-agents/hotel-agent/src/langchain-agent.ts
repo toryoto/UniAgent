@@ -62,7 +62,7 @@ export async function runHotelAgent(userText: string): Promise<HotelAgentResult>
   const agent = getAgent();
   const preview = userText.slice(0, 80).replace(/\n/g, ' ');
   const model = process.env.HOTEL_AGENT_MODEL ?? 'claude-haiku-4-5-20251001';
-  log.info('agent start', { model, input: `${preview}${userText.length > 80 ? '...' : ''}` });
+  log.info({ model, input: `${preview}${userText.length > 80 ? '...' : ''}` }, 'agent start');
 
   const start = Date.now();
   const result = await agent.invoke({
@@ -86,7 +86,7 @@ export async function runHotelAgent(userText: string): Promise<HotelAgentResult>
 
   const searchResult = getLastSearchResult() ?? undefined;
   const hotelsFound = searchResult ? searchResult.hotels.length : 0;
-  log.success('agent done', { steps, hotelsFound, ms });
+  log.info({ steps, hotelsFound, ms }, 'agent done');
 
   return { text, searchResult };
 }
