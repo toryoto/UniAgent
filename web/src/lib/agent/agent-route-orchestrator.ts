@@ -11,16 +11,18 @@ import {
   type StreamEvent,
 } from '@agent-marketplace/shared';
 import { createLogger } from '@agent-marketplace/shared/logger';
+import { jsonResponse } from '@/lib/api/json-response';
 import { withApiLogging } from '@/lib/api/with-api-logging';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
-import { getBudgetSettings, getSpentToday, type BudgetSettingsData } from '@/lib/db/budget-settings';
-import { findUserIdByPrivyId } from '@/lib/db/users';
+import { getBudgetSettings, type BudgetSettingsData } from '@/lib/db/budget-settings';
+import { findUserByPrivyId } from '@/lib/db/users';
 import {
   checkConversationOwnership,
   resolveConversationForStream,
 } from '@/lib/agent/conversation-resolver';
 import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
 import { postAgentServiceSse } from '@/lib/agent/agent-service-client';
+import { enforceDailyBudget, enforceDelegation, verifyWalletAddress } from '@/lib/agent/route-guards';
 import {
   agentStreamBodySchema,
   agentResumeBodySchema,
@@ -33,6 +35,8 @@ const log = createLogger('agent-route');
 type AuthenticatedContext = {
   privyUserId: string;
   userId: string;
+  walletAddress: string | null;
+  isDelegated: boolean;
   budget: BudgetSettingsData;
 };
 
@@ -50,33 +54,18 @@ export async function authenticateAgentRoute(
     return jsonResponse({ success: false, error: 'User not found' }, 404);
   }
 
-  const userId = await findUserIdByPrivyId(auth.privyUserId);
-  if (!userId) {
+  const user = await findUserByPrivyId(auth.privyUserId);
+  if (!user) {
     return jsonResponse({ success: false, error: 'User not found' }, 404);
   }
 
-  return { privyUserId: auth.privyUserId, userId, budget };
-}
-
-/**
- * 当日の累積支出が dailyLimit を超えていないか検証する。
- * 超過時は 402 相当の JSON エラーを返す。
- */
-export async function enforceDailyBudget(
-  userId: string,
-  budget: BudgetSettingsData,
-): Promise<Response | null> {
-  const spentToday = await getSpentToday(userId);
-  if (spentToday >= budget.dailyLimit) {
-    return jsonResponse(
-      {
-        success: false,
-        error: `Daily budget limit reached (${spentToday.toFixed(4)} / ${budget.dailyLimit} USDC)`,
-      },
-      402,
-    );
-  }
-  return null;
+  return {
+    privyUserId: auth.privyUserId,
+    userId: user.id,
+    walletAddress: user.walletAddress,
+    isDelegated: user.isDelegated,
+    budget,
+  };
 }
 
 /** Agent Service の SSE をクライアントへプロキシする共通レスポンス構築 */
@@ -113,6 +102,12 @@ export async function handleAgentStreamRoute(
 ): Promise<Response> {
   const budgetError = await enforceDailyBudget(ctx.userId, ctx.budget);
   if (budgetError) return budgetError;
+
+  const ownershipError = verifyWalletAddress(body.walletAddress, ctx.walletAddress);
+  if (ownershipError) return ownershipError;
+
+  const delegationError = enforceDelegation(ctx.isDelegated);
+  if (delegationError) return delegationError;
 
   const resolved = await resolveConversationForStream(
     ctx.userId,
@@ -176,6 +171,10 @@ export async function handleAgentResumeRoute(
 ): Promise<Response> {
   const budgetError = await enforceDailyBudget(ctx.userId, ctx.budget);
   if (budgetError) return budgetError;
+
+  // 委託解除後の再開を防ぐため delegation を再確認する。
+  const delegationError = enforceDelegation(ctx.isDelegated);
+  if (delegationError) return delegationError;
 
   let saveConversationId: string | null = null;
   if (body.conversationId) {
@@ -288,13 +287,6 @@ export function encodeMetaConversationEvent(conversationId: string): string {
 export function sseErrorResponse(message: string): Response {
   const body = encodeSseEvent({ type: 'error', data: { error: message } } satisfies StreamEvent);
   return new Response(body, { headers: SSE_RESPONSE_HEADERS });
-}
-
-function jsonResponse(body: Record<string, unknown>, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
 }
 
 function conversationAccessStatus(error: 'not_found' | 'forbidden'): number {

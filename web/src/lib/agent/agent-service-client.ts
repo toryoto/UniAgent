@@ -24,6 +24,8 @@ export async function postAgentServiceSse(
 ): Promise<Response> {
   // Route 入口の runWithLogContext が発行した requestId を Agent Service へ伝播する
   const requestId = getLogContext()?.requestId;
+  // service-to-service 認証トークン（未設定時はヘッダーを付けない＝非prod 素通りと整合）
+  const serviceToken = process.env.AGENT_SERVICE_TOKEN;
 
   return fetch(`${AGENT_SERVICE_URL}${path}`, {
     method: 'POST',
@@ -31,6 +33,7 @@ export async function postAgentServiceSse(
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
       ...(typeof requestId === 'string' ? { 'x-request-id': requestId } : {}),
+      ...(serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {}),
     },
     body: JSON.stringify(body),
     // @ts-expect-error -- Node.js undici option to disable response buffering
