@@ -12,6 +12,7 @@ import { encodeSseEvent, SSE_RESPONSE_HEADERS, type StreamEvent } from '@agent-m
 import { bindLogContext, logHttpRequestCompleted, logHttpRequestReceived, resolveRequestId, runWithLogContext, createLogger } from '@agent-marketplace/shared/logger';
 import { runAgentStream, resumeAgentStream } from '../core/index.js';
 import { agentStreamRequestSchema, agentResumeRequestSchema } from './schemas.js';
+import { verifyServiceToken } from './service-auth.js';
 
 const log = createLogger('agent');
 
@@ -45,6 +46,12 @@ app.use((req, res, next) => {
     next();
   });
 });
+
+/**
+ * service-to-service 認証。ロギングミドルウェアの後に置くことで、
+ * 401 も requestId 付きでアクセスログに残る。`/health` は素通り。
+ */
+app.use(verifyServiceToken);
 
 // ── Routes ────────────────────────────────────────────────────────────────
 
@@ -136,6 +143,12 @@ function endSseWithError(res: Response, error: string): void {
 }
 
 // ── Startup ───────────────────────────────────────────────────────────────
+
+if (process.env.NODE_ENV === 'production' && !process.env.AGENT_SERVICE_TOKEN) {
+  log.error(
+    'AGENT_SERVICE_TOKEN is not set in production; all non-health requests will be rejected (fail-closed).',
+  );
+}
 
 app.listen(PORT, '0.0.0.0', () => {
   log.info(

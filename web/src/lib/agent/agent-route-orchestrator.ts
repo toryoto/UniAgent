@@ -14,7 +14,7 @@ import { createLogger } from '@agent-marketplace/shared/logger';
 import { withApiLogging } from '@/lib/api/with-api-logging';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings, getSpentToday, type BudgetSettingsData } from '@/lib/db/budget-settings';
-import { findUserIdByPrivyId } from '@/lib/db/users';
+import { findUserByPrivyId } from '@/lib/db/users';
 import {
   checkConversationOwnership,
   resolveConversationForStream,
@@ -33,6 +33,8 @@ const log = createLogger('agent-route');
 type AuthenticatedContext = {
   privyUserId: string;
   userId: string;
+  walletAddress: string | null;
+  isDelegated: boolean;
   budget: BudgetSettingsData;
 };
 
@@ -50,12 +52,18 @@ export async function authenticateAgentRoute(
     return jsonResponse({ success: false, error: 'User not found' }, 404);
   }
 
-  const userId = await findUserIdByPrivyId(auth.privyUserId);
-  if (!userId) {
+  const user = await findUserByPrivyId(auth.privyUserId);
+  if (!user) {
     return jsonResponse({ success: false, error: 'User not found' }, 404);
   }
 
-  return { privyUserId: auth.privyUserId, userId, budget };
+  return {
+    privyUserId: auth.privyUserId,
+    userId: user.id,
+    walletAddress: user.walletAddress,
+    isDelegated: user.isDelegated,
+    budget,
+  };
 }
 
 /**
@@ -75,6 +83,36 @@ export async function enforceDailyBudget(
       },
       402,
     );
+  }
+  return null;
+}
+
+/**
+ * クライアント申告の walletAddress が認証ユーザーの DB 上のアドレスと一致するか検証する。
+ * 一致しない（または DB にアドレスが無い）場合は 403 を返し、他人のウォレットでの
+ * 課金処理起動を防ぐ。大文字小文字・前後空白は正規化して比較する。
+ *
+ * @param bodyWalletAddress - クライアントが送信したアドレス（信用しない）
+ * @param userWalletAddress - DB 上の認証ユーザーのアドレス
+ */
+export function verifyWalletAddress(
+  bodyWalletAddress: string,
+  userWalletAddress: string | null,
+): Response | null {
+  const normalize = (value: string) => value.trim().toLowerCase();
+  if (!userWalletAddress || normalize(bodyWalletAddress) !== normalize(userWalletAddress)) {
+    return jsonResponse({ success: false, error: 'Wallet address mismatch' }, 403);
+  }
+  return null;
+}
+
+/**
+ * ウォレットが session signer に委託済みであることをサーバー側で強制する。
+ * 未委託の場合は 403 を返す（UI のボタン無効化だけに依存しない）。
+ */
+export function enforceDelegation(isDelegated: boolean): Response | null {
+  if (isDelegated !== true) {
+    return jsonResponse({ success: false, error: 'Wallet delegation required' }, 403);
   }
   return null;
 }
@@ -113,6 +151,12 @@ export async function handleAgentStreamRoute(
 ): Promise<Response> {
   const budgetError = await enforceDailyBudget(ctx.userId, ctx.budget);
   if (budgetError) return budgetError;
+
+  const ownershipError = verifyWalletAddress(body.walletAddress, ctx.walletAddress);
+  if (ownershipError) return ownershipError;
+
+  const delegationError = enforceDelegation(ctx.isDelegated);
+  if (delegationError) return delegationError;
 
   const resolved = await resolveConversationForStream(
     ctx.userId,
@@ -176,6 +220,10 @@ export async function handleAgentResumeRoute(
 ): Promise<Response> {
   const budgetError = await enforceDailyBudget(ctx.userId, ctx.budget);
   if (budgetError) return budgetError;
+
+  // 委託解除後の再開を防ぐため delegation を再確認する。
+  const delegationError = enforceDelegation(ctx.isDelegated);
+  if (delegationError) return delegationError;
 
   let saveConversationId: string | null = null;
   if (body.conversationId) {
