@@ -11,9 +11,10 @@ import {
   type StreamEvent,
 } from '@agent-marketplace/shared';
 import { createLogger } from '@agent-marketplace/shared/logger';
+import { jsonResponse } from '@/lib/api/json-response';
 import { withApiLogging } from '@/lib/api/with-api-logging';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
-import { getBudgetSettings, getSpentToday, type BudgetSettingsData } from '@/lib/db/budget-settings';
+import { getBudgetSettings, type BudgetSettingsData } from '@/lib/db/budget-settings';
 import { findUserByPrivyId } from '@/lib/db/users';
 import {
   checkConversationOwnership,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/agent/conversation-resolver';
 import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
 import { postAgentServiceSse } from '@/lib/agent/agent-service-client';
+import { enforceDailyBudget, enforceDelegation, verifyWalletAddress } from '@/lib/agent/route-guards';
 import {
   agentStreamBodySchema,
   agentResumeBodySchema,
@@ -64,57 +66,6 @@ export async function authenticateAgentRoute(
     isDelegated: user.isDelegated,
     budget,
   };
-}
-
-/**
- * 当日の累積支出が dailyLimit を超えていないか検証する。
- * 超過時は 402 相当の JSON エラーを返す。
- */
-export async function enforceDailyBudget(
-  userId: string,
-  budget: BudgetSettingsData,
-): Promise<Response | null> {
-  const spentToday = await getSpentToday(userId);
-  if (spentToday >= budget.dailyLimit) {
-    return jsonResponse(
-      {
-        success: false,
-        error: `Daily budget limit reached (${spentToday.toFixed(4)} / ${budget.dailyLimit} USDC)`,
-      },
-      402,
-    );
-  }
-  return null;
-}
-
-/**
- * クライアント申告の walletAddress が認証ユーザーの DB 上のアドレスと一致するか検証する。
- * 一致しない（または DB にアドレスが無い）場合は 403 を返し、他人のウォレットでの
- * 課金処理起動を防ぐ。大文字小文字・前後空白は正規化して比較する。
- *
- * @param bodyWalletAddress - クライアントが送信したアドレス（信用しない）
- * @param userWalletAddress - DB 上の認証ユーザーのアドレス
- */
-export function verifyWalletAddress(
-  bodyWalletAddress: string,
-  userWalletAddress: string | null,
-): Response | null {
-  const normalize = (value: string) => value.trim().toLowerCase();
-  if (!userWalletAddress || normalize(bodyWalletAddress) !== normalize(userWalletAddress)) {
-    return jsonResponse({ success: false, error: 'Wallet address mismatch' }, 403);
-  }
-  return null;
-}
-
-/**
- * ウォレットが session signer に委託済みであることをサーバー側で強制する。
- * 未委託の場合は 403 を返す（UI のボタン無効化だけに依存しない）。
- */
-export function enforceDelegation(isDelegated: boolean): Response | null {
-  if (isDelegated !== true) {
-    return jsonResponse({ success: false, error: 'Wallet delegation required' }, 403);
-  }
-  return null;
 }
 
 /** Agent Service の SSE をクライアントへプロキシする共通レスポンス構築 */
@@ -336,13 +287,6 @@ export function encodeMetaConversationEvent(conversationId: string): string {
 export function sseErrorResponse(message: string): Response {
   const body = encodeSseEvent({ type: 'error', data: { error: message } } satisfies StreamEvent);
   return new Response(body, { headers: SSE_RESPONSE_HEADERS });
-}
-
-function jsonResponse(body: Record<string, unknown>, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
 }
 
 function conversationAccessStatus(error: 'not_found' | 'forbidden'): number {

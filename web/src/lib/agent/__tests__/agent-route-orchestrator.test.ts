@@ -1,12 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
-import {
-  authenticateAgentRoute,
-  enforceDailyBudget,
-  enforceDelegation,
-  handleAgentStreamRoute,
-  verifyWalletAddress,
-} from '../agent-route-orchestrator';
+import { authenticateAgentRoute, handleAgentStreamRoute } from '../agent-route-orchestrator';
 import type { AgentStreamBody } from '../schemas';
 
 // DB / 認証 / Agent Service を第一級のモック境界として差し替える。
@@ -70,45 +64,6 @@ describe('authenticateAgentRoute', () => {
       walletAddress: WALLET,
       isDelegated: true,
     });
-  });
-});
-
-describe('verifyWalletAddress', () => {
-  it('accepts a case-insensitive match', () => {
-    expect(verifyWalletAddress(WALLET.toLowerCase(), WALLET.toUpperCase())).toBeNull();
-  });
-
-  it('rejects a mismatch with 403', () => {
-    const res = verifyWalletAddress(WALLET, '0x0000000000000000000000000000000000000002');
-    expect(res?.status).toBe(403);
-  });
-
-  it('rejects when the user has no wallet address', () => {
-    expect(verifyWalletAddress(WALLET, null)?.status).toBe(403);
-  });
-});
-
-describe('enforceDelegation', () => {
-  it('passes when delegated', () => {
-    expect(enforceDelegation(true)).toBeNull();
-  });
-
-  it('rejects with 403 when not delegated', () => {
-    expect(enforceDelegation(false)?.status).toBe(403);
-  });
-});
-
-describe('enforceDailyBudget', () => {
-  const budget = { dailyLimit: 100, autoApproveThreshold: 1 };
-
-  it('passes when under the limit', async () => {
-    vi.mocked(getSpentToday).mockResolvedValue(50);
-    expect(await enforceDailyBudget('user-1', budget)).toBeNull();
-  });
-
-  it('rejects with 402 when the limit is reached', async () => {
-    vi.mocked(getSpentToday).mockResolvedValue(100);
-    expect((await enforceDailyBudget('user-1', budget))?.status).toBe(402);
   });
 });
 
