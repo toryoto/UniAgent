@@ -11,7 +11,7 @@
  */
 
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { pino, stdSerializers, stdTimeFunctions, type Logger } from 'pino';
+import { pino, stdSerializers, stdTimeFunctions, type Logger, type LoggerOptions } from 'pino';
 
 export type { Logger };
 
@@ -63,8 +63,6 @@ function resolveLevel(): string {
   return LEVELS.has(env) ? env : 'info';
 }
 
-const isProduction = process.env.NODE_ENV === 'production';
-
 /**
  * 機密情報のマスク対象。ログオブジェクトの浅い階層と 1 段ネストをカバーする。
  * ここに漏れる深いネストは呼び出し側でログに含めないこと（セキュリティ境界）。
@@ -86,16 +84,29 @@ const REDACT_PATHS = [
   'headers.cookie',
 ];
 
+/**
+ * rootLogger を構成する pino オプション。
+ * ログコンテキスト注入（mixin）・redact・serializer の挙動をテストから
+ * 検証できるよう、transport（出力先）とは分離して公開する。
+ */
+export function createPinoOptions(): LoggerOptions {
+  return {
+    level: resolveLevel(),
+    base: undefined,
+    timestamp: stdTimeFunctions.isoTime,
+    formatters: {
+      level: (label) => ({ level: label }),
+    },
+    serializers: { err: stdSerializers.err },
+    redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
+    mixin: () => ({ ...logContextStorage.getStore() }),
+  };
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+
 const rootLogger = pino({
-  level: resolveLevel(),
-  base: undefined,
-  timestamp: stdTimeFunctions.isoTime,
-  formatters: {
-    level: (label) => ({ level: label }),
-  },
-  serializers: { err: stdSerializers.err },
-  redact: { paths: REDACT_PATHS, censor: '[REDACTED]' },
-  mixin: () => ({ ...logContextStorage.getStore() }),
+  ...createPinoOptions(),
   ...(isProduction
     ? {}
     : {

@@ -15,6 +15,8 @@ export const agentStreamRequestSchema = z.object({
     .number()
     .nonnegative('autoApproveThreshold must be a non-negative number'),
   agentId: z.string().optional(),
+  /** ログ相関用メタデータ（web の Conversation ID）。ロジックでは使わない */
+  conversationId: z.string().min(1).max(64).optional(),
   messageHistory: z
     .array(
       z.discriminatedUnion('role', [
@@ -54,4 +56,6 @@ export const agentResumeRequestSchema = z.object({
   autoApproveThreshold: z
     .number()
     .nonnegative('autoApproveThreshold must be a non-negative number'),
+  /** ログ相関用メタデータ（web の Conversation ID）。ロジックでは使わない */
+  conversationId: z.string().min(1).max(64).optional(),
 });

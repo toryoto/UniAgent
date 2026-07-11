@@ -9,7 +9,7 @@ import 'dotenv/config';
 import express, { type Response } from 'express';
 import cors from 'cors';
 import { encodeSseEvent, SSE_RESPONSE_HEADERS, type StreamEvent } from '@agent-marketplace/shared';
-import { createLogger, runWithLogContext } from '@agent-marketplace/shared/logger';
+import { bindLogContext, createLogger, runWithLogContext } from '@agent-marketplace/shared/logger';
 import { runAgentStream, resumeAgentStream } from '../core/index.js';
 import { agentStreamRequestSchema, agentResumeRequestSchema } from './schemas.js';
 
@@ -23,11 +23,22 @@ app.use(cors());
 app.use(express.json());
 
 /**
- * リクエストごとに requestId を発行し、ログコンテキストに載せる。
- * これ以降（SSE ストリーミング中を含む）の全ログに requestId が自動付与される。
+ * x-request-id は上流（web プロキシ）との相関用。信用しない入力なので
+ * 形式検証を通ったものだけ採用し、それ以外は新規発行する。
+ */
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+function resolveRequestId(incoming: string | undefined): string {
+  return incoming && REQUEST_ID_PATTERN.test(incoming) ? incoming : crypto.randomUUID();
+}
+
+/**
+ * リクエストごとに requestId をログコンテキストに載せる。
+ * これ以降（SSE ストリーミング中を含む）の全ログに requestId が自動付与され、
+ * web から x-request-id が渡された場合は web 側のログと相関できる。
  */
 app.use((req, res, next) => {
-  const requestId = crypto.randomUUID();
+  const requestId = resolveRequestId(req.header('x-request-id'));
   runWithLogContext({ requestId }, () => {
     const startedAt = Date.now();
     // ヘルスチェックはログノイズになるため記録しない
@@ -63,6 +74,9 @@ app.post('/api/agent/stream', async (req, res) => {
     return;
   }
 
+  // web の会話とログを相関させる（threadId は runAgentStream 側でバインドされる）
+  if (parsed.data.conversationId) bindLogContext({ conversationId: parsed.data.conversationId });
+
   try {
     await pipeStreamToSse(res, runAgentStream(parsed.data));
   } catch (error) {
@@ -84,7 +98,8 @@ app.post('/api/agent/resume', async (req, res) => {
     return;
   }
 
-  const { threadId, decisions, autoApproveThreshold } = parsed.data;
+  const { threadId, decisions, autoApproveThreshold, conversationId } = parsed.data;
+  if (conversationId) bindLogContext({ conversationId });
 
   try {
     await pipeStreamToSse(
