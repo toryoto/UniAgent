@@ -45,6 +45,7 @@ COPY --from=builder /app/packages/database/package.json ./packages/database/
 COPY --from=builder /app/node_modules ./node_modules
 
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/a2a-agents/dist ./a2a-agents/dist
 COPY --from=builder /app/a2a-agents/agents.yaml ./a2a-agents/agents.yaml

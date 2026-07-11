@@ -47,6 +47,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # Built workspace outputs
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=builder /app/packages/database/dist ./packages/database/dist
 COPY --from=builder /app/agent/dist ./agent/dist
 

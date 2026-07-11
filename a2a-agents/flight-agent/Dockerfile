@@ -37,6 +37,7 @@ COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=builder /app/a2a-agents/flight-agent/dist ./a2a-agents/flight-agent/dist
 
 EXPOSE 3005
