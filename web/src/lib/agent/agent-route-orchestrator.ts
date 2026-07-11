@@ -10,7 +10,8 @@ import {
   SSE_RESPONSE_HEADERS,
   type StreamEvent,
 } from '@agent-marketplace/shared';
-import { createLogger, runWithLogContext } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+import { withApiLogging } from '@/lib/api/with-api-logging';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 import { getBudgetSettings, getSpentToday, type BudgetSettingsData } from '@/lib/db/budget-settings';
 import { findUserIdByPrivyId } from '@/lib/db/users';
@@ -226,9 +227,7 @@ export async function handleAgentResumeRoute(
  * ログを同一 requestId で相関できる。
  */
 export async function runAgentStreamRoute(request: NextRequest): Promise<Response> {
-  return runWithLogContext({ requestId: crypto.randomUUID() }, async () => {
-    log.info('Request received');
-
+  return withApiLogging(request, async () => {
     try {
       const authResult = await authenticateAgentRoute(request);
       if (authResult instanceof Response) return authResult;
@@ -255,9 +254,7 @@ export async function runAgentStreamRoute(request: NextRequest): Promise<Respons
 
 /** Route 入口: resume。requestId の扱いは stream と同じ。 */
 export async function runAgentResumeRoute(request: NextRequest): Promise<Response> {
-  return runWithLogContext({ requestId: crypto.randomUUID() }, async () => {
-    log.info('Request received');
-
+  return withApiLogging(request, async () => {
     try {
       const authResult = await authenticateAgentRoute(request);
       if (authResult instanceof Response) return authResult;

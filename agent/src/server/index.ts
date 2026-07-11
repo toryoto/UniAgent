@@ -9,28 +9,17 @@ import 'dotenv/config';
 import express, { type Response } from 'express';
 import cors from 'cors';
 import { encodeSseEvent, SSE_RESPONSE_HEADERS, type StreamEvent } from '@agent-marketplace/shared';
-import { bindLogContext, createLogger, runWithLogContext } from '@agent-marketplace/shared/logger';
+import { bindLogContext, logHttpRequestCompleted, logHttpRequestReceived, resolveRequestId, runWithLogContext, createLogger } from '@agent-marketplace/shared/logger';
 import { runAgentStream, resumeAgentStream } from '../core/index.js';
 import { agentStreamRequestSchema, agentResumeRequestSchema } from './schemas.js';
 
 const log = createLogger('agent');
-const httpLog = createLogger('http');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3002', 10);
 
 app.use(cors());
 app.use(express.json());
-
-/**
- * x-request-id は上流（web プロキシ）との相関用。信用しない入力なので
- * 形式検証を通ったものだけ採用し、それ以外は新規発行する。
- */
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
-
-function resolveRequestId(incoming: string | undefined): string {
-  return incoming && REQUEST_ID_PATTERN.test(incoming) ? incoming : crypto.randomUUID();
-}
 
 /**
  * リクエストごとに requestId をログコンテキストに載せる。
@@ -41,14 +30,16 @@ app.use((req, res, next) => {
   const requestId = resolveRequestId(req.header('x-request-id'));
   runWithLogContext({ requestId }, () => {
     const startedAt = Date.now();
+    const meta = { method: req.method, path: req.path };
     // ヘルスチェックはログノイズになるため記録しない
     if (req.path !== '/health') {
-      httpLog.info({ method: req.method, path: req.path }, 'request received');
+      logHttpRequestReceived(meta);
       res.on('finish', () => {
-        httpLog.info(
-          { method: req.method, path: req.path, statusCode: res.statusCode, durationMs: Date.now() - startedAt },
-          'request completed',
-        );
+        logHttpRequestCompleted({
+          ...meta,
+          statusCode: res.statusCode,
+          durationMs: Date.now() - startedAt,
+        });
       });
     }
     next();

@@ -4,6 +4,7 @@ import {
   bindLogContext,
   createPinoOptions,
   getLogContext,
+  resolveRequestId,
   runWithLogContext,
 } from '../logger.js';
 
@@ -153,5 +154,54 @@ describe('createPinoOptions', () => {
     logger.warn('emitted');
     expect(lines).toHaveLength(1);
     expect(lines[0]?.msg).toBe('emitted');
+  });
+});
+
+describe('resolveRequestId', () => {
+  it('有効な x-request-id をそのまま採用する', () => {
+    expect(resolveRequestId('req-abc12345')).toBe('req-abc12345');
+  });
+
+  it('前後の空白を除去して検証する', () => {
+    expect(resolveRequestId('  req-valid-id-1  ')).toBe('req-valid-id-1');
+  });
+
+  it('不正形式・未指定なら新規 UUID を発行する', () => {
+    expect(resolveRequestId('short')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    expect(resolveRequestId(null)).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+});
+
+describe('HTTP access log helpers', () => {
+  it('received / completed が http コンポーネントで出力される', () => {
+    const { logger, lines } = createCapturingLogger();
+    const http = logger.child({ component: 'http' });
+
+    runWithLogContext({ requestId: 'req-http-1' }, () => {
+      http.info({ method: 'GET', path: '/api/test' }, 'request received');
+      http.info(
+        { method: 'GET', path: '/api/test', statusCode: 200, durationMs: 12 },
+        'request completed',
+      );
+    });
+
+    expect(lines[0]).toMatchObject({
+      component: 'http',
+      requestId: 'req-http-1',
+      method: 'GET',
+      path: '/api/test',
+      msg: 'request received',
+    });
+    expect(lines[1]).toMatchObject({
+      component: 'http',
+      requestId: 'req-http-1',
+      statusCode: 200,
+      durationMs: 12,
+      msg: 'request completed',
+    });
   });
 });

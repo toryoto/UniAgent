@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createLogger } from '@agent-marketplace/shared/logger';
+import { withApiLogging } from '@/lib/api/with-api-logging';
 import { verifyPrivyToken } from '@/lib/auth/verifyPrivyToken';
 
 const log = createLogger('conversations-api');
@@ -23,59 +24,63 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> },
 ) {
-  try {
-    const { conversationId } = await params;
-    const owned = await resolveOwnedConversation(request, conversationId);
-    if (!owned.ok) return owned.response;
+  return withApiLogging(request, async () => {
+    try {
+      const { conversationId } = await params;
+      const owned = await resolveOwnedConversation(request, conversationId);
+      if (!owned.ok) return owned.response;
 
-    const conversation = await findConversationWithMessages(conversationId);
-    if (!conversation) {
-      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+      const conversation = await findConversationWithMessages(conversationId);
+      if (!conversation) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        conversation: {
+          id: conversation.id,
+          title: conversation.title,
+          messages: conversation.messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            toolRounds: m.toolRounds,
+            totalCost: m.totalCost?.toString() ?? null,
+            createdAt: m.createdAt.toISOString(),
+          })),
+        },
+      });
+    } catch (error) {
+      log.error({ err: error }, 'GET error');
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
-
-    return NextResponse.json({
-      conversation: {
-        id: conversation.id,
-        title: conversation.title,
-        messages: conversation.messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          toolRounds: m.toolRounds,
-          totalCost: m.totalCost?.toString() ?? null,
-          createdAt: m.createdAt.toISOString(),
-        })),
-      },
-    });
-  } catch (error) {
-    log.error({ err: error }, 'GET error');
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+  });
 }
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ conversationId: string }> }
 ) {
-  try {
-    const { conversationId } = await params;
-    const owned = await resolveOwnedConversation(request, conversationId);
-    if (!owned.ok) return owned.response;
+  return withApiLogging(request, async () => {
+    try {
+      const { conversationId } = await params;
+      const owned = await resolveOwnedConversation(request, conversationId);
+      if (!owned.ok) return owned.response;
 
-    await deleteConversation(conversationId);
+      await deleteConversation(conversationId);
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    log.error({ err: error }, 'DELETE error');
+      return NextResponse.json({ success: true });
+    } catch (error) {
+      log.error({ err: error }, 'DELETE error');
 
-    if (error && typeof error === 'object' && 'code' in error) {
-      if (error.code === 'P2025') {
-        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+      if (error && typeof error === 'object' && 'code' in error) {
+        if (error.code === 'P2025') {
+          return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+        }
       }
-    }
 
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+  });
 }
 
 async function resolveOwnedConversation(

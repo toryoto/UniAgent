@@ -54,6 +54,25 @@ export function getLogContext(): Readonly<LogContext> | undefined {
   return logContextStorage.getStore();
 }
 
+// ── HTTP request correlation & access logs ────────────────────────────────
+
+/** 信用しない入力の x-request-id は形式検証を通ったものだけ採用する */
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+
+/**
+ * 上流からの x-request-id を検証して返す。不正・未指定なら新規 UUID を発行する。
+ * web / agent / a2a-agents で同一ルールを使う。
+ */
+export function resolveRequestId(incoming: string | null | undefined): string {
+  const trimmed = incoming?.trim();
+  return trimmed && REQUEST_ID_PATTERN.test(trimmed) ? trimmed : crypto.randomUUID();
+}
+
+export type HttpRequestMeta = {
+  method: string;
+  path: string;
+};
+
 // ── Root logger ───────────────────────────────────────────────────────────
 
 const LEVELS = new Set(['trace', 'debug', 'info', 'warn', 'error', 'fatal']);
@@ -128,4 +147,28 @@ const rootLogger = pino({
  */
 export function createLogger(component: string): Logger {
   return rootLogger.child({ component });
+}
+
+const httpLog = createLogger('http');
+
+/** HTTP リクエスト受付のアクセスログ */
+export function logHttpRequestReceived(meta: HttpRequestMeta): void {
+  httpLog.info(meta, 'request received');
+}
+
+/** HTTP リクエスト完了のアクセスログ */
+export function logHttpRequestCompleted(
+  meta: HttpRequestMeta & { statusCode: number; durationMs: number },
+): void {
+  httpLog.info(meta, 'request completed');
+}
+
+/** ハンドラが throw した場合のアクセスログ */
+export function logHttpRequestFailed(
+  meta: HttpRequestMeta & { err: unknown; durationMs: number },
+): void {
+  httpLog.error(
+    { err: meta.err, method: meta.method, path: meta.path, durationMs: meta.durationMs },
+    'request failed',
+  );
 }
