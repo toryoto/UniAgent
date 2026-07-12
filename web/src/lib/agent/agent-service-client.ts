@@ -20,7 +20,7 @@ export const SSE_RESPONSE_HEADERS = SHARED_SSE_HEADERS;
  */
 export async function postAgentServiceSse(
   path: '/api/agent/stream' | '/api/agent/resume',
-  body: Record<string, unknown>,
+  body: object,
 ): Promise<Response> {
   // Route 入口の runWithLogContext が発行した requestId を Agent Service へ伝播する
   const requestId = getLogContext()?.requestId;

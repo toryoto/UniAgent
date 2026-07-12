@@ -21,6 +21,7 @@ import {
   resolveConversationForStream,
 } from '@/lib/agent/conversation-resolver';
 import { createAgentSsePersistenceTransform } from '@/lib/agent/agent-sse-persistence';
+import { buildAgentResumeRequest, buildAgentStreamRequest } from '@/lib/agent/build-agent-service-request';
 import { postAgentServiceSse } from '@/lib/agent/agent-service-client';
 import { enforceDailyBudget, enforceDelegation, verifyWalletAddress } from '@/lib/agent/route-guards';
 import {
@@ -133,20 +134,10 @@ export async function handleAgentStreamRoute(
     'Forwarding to Agent Service (stream)',
   );
 
-  const requestBody: Record<string, unknown> = {
-    message: body.message,
-    walletId: body.walletId,
-    walletAddress: body.walletAddress,
-    autoApproveThreshold: ctx.budget.autoApproveThreshold,
-    // ログ相関用メタデータ（Agent Service はロジックには使わない）
-    conversationId: resolved.conversationId,
-  };
-  if (body.agentId) requestBody.agentId = body.agentId;
-  if (resolved.messageHistory.length > 0) {
-    requestBody.messageHistory = resolved.messageHistory;
-  }
-
-  const upstream = await postAgentServiceSse('/api/agent/stream', requestBody);
+  const upstream = await postAgentServiceSse(
+    '/api/agent/stream',
+    buildAgentStreamRequest(body, resolved, ctx.budget.autoApproveThreshold),
+  );
   if (!upstream.ok || !upstream.body) {
     const errorText = await upstream.text();
     log.error({ status: upstream.status, body: errorText }, 'Agent Service error');
@@ -196,13 +187,10 @@ export async function handleAgentResumeRoute(
     'Forwarding to Agent Service (resume)',
   );
 
-  const upstream = await postAgentServiceSse('/api/agent/resume', {
-    threadId: body.threadId,
-    decisions: body.decisions,
-    autoApproveThreshold: ctx.budget.autoApproveThreshold,
-    // ログ相関用メタデータ（Agent Service はロジックには使わない）
-    ...(body.conversationId ? { conversationId: body.conversationId } : {}),
-  });
+  const upstream = await postAgentServiceSse(
+    '/api/agent/resume',
+    buildAgentResumeRequest(body, ctx.budget.autoApproveThreshold),
+  );
 
   if (!upstream.ok || !upstream.body) {
     const errorText = await upstream.text();

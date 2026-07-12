@@ -215,6 +215,7 @@ export interface AgentResumeRequest {
   threadId: string;
   decisions: HITLDecision[];
   autoApproveThreshold: number;
+  conversationId?: string;
 }
 
 // ============================================================================
