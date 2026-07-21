@@ -45,13 +45,13 @@ async function geocodeCity(city: string): Promise<GeocodeResult> {
 
 export const geocodeCityTool = tool(
   async ({ city }): Promise<string> => {
-    log.info('geocode', { city });
+    log.info({ city }, 'geocode');
     try {
       const result = await geocodeCity(city);
-      log.info('geocode result', { lat: result.latitude, lon: result.longitude, name: result.displayName.slice(0, 60) });
+      log.info({ lat: result.latitude, lon: result.longitude, name: result.displayName.slice(0, 60) }, 'geocode result');
       return JSON.stringify(result);
     } catch (err) {
-      log.warn('geocode error', { city, error: (err as Error).message });
+      log.warn({ err, city }, 'geocode error');
       return JSON.stringify({ error: (err as Error).message });
     }
   },

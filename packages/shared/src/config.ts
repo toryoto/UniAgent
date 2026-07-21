@@ -38,7 +38,7 @@ export const CONTRACT_ADDRESSES = {
 
 export const RPC_URL = process.env.RPC_URL || process.env.NEXT_PUBLIC_RPC_URL || '';
 
-/** Pinata Dedicated Gateway (web, agent, mcp共通). contractsは.envで独自管理 */
+/** Pinata Dedicated Gateway (web, agent 共通). contracts は .env で独自管理 */
 export const DEFAULT_PINATA_GATEWAY = 'chocolate-secret-cat-833.mypinata.cloud';
 
 export const PINATA_GATEWAY_URL =

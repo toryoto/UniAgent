@@ -27,28 +27,6 @@ export interface UseDelegatedWalletReturn {
   isLoading: boolean;
 }
 
-/**
- * ユーザーのembedded walletを取得
- */
-function getEmbeddedWallet(linkedAccounts: unknown[]): WalletWithMetadata | null {
-  if (!linkedAccounts || !Array.isArray(linkedAccounts)) {
-    return null;
-  }
-
-  // walletClientType: 'privy' のウォレットを検索
-  const embeddedWallet = linkedAccounts.find(
-    (account): account is WalletWithMetadata =>
-      account !== null &&
-      typeof account === 'object' &&
-      'type' in account &&
-      account.type === 'wallet' &&
-      'walletClientType' in account &&
-      account.walletClientType === 'privy'
-  ) as WalletWithMetadata | undefined;
-
-  return embeddedWallet ?? null;
-}
-
 export function useDelegatedWallet(): UseDelegatedWalletReturn {
   const { user, ready, getAccessToken } = usePrivy();
   const { addSigners, removeSigners } = useSigners();
@@ -217,4 +195,26 @@ export function useDelegatedWallet(): UseDelegatedWalletReturn {
       isLoadingDelegation,
     ]
   );
+}
+
+/**
+ * ユーザーのembedded walletを取得
+ */
+function getEmbeddedWallet(linkedAccounts: unknown[]): WalletWithMetadata | null {
+  if (!linkedAccounts || !Array.isArray(linkedAccounts)) {
+    return null;
+  }
+
+  // walletClientType: 'privy' のウォレットを検索
+  const embeddedWallet = linkedAccounts.find(
+    (account): account is WalletWithMetadata =>
+      account !== null &&
+      typeof account === 'object' &&
+      'type' in account &&
+      account.type === 'wallet' &&
+      'walletClientType' in account &&
+      account.walletClientType === 'privy'
+  ) as WalletWithMetadata | undefined;
+
+  return embeddedWallet ?? null;
 }

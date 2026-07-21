@@ -97,7 +97,7 @@ export async function settleX402IfNeeded(
       ctx.declaredExtensions
     );
   } catch (err) {
-    log.error('processSettlement failed', { error: err instanceof Error ? err.message : String(err) });
+    log.error({ err }, 'processSettlement failed');
     res.status(500).json({
       jsonrpc: '2.0',
       id: jsonRpcId,
@@ -183,7 +183,7 @@ export function createX402Middleware(registry: AgentRegistry, httpServer: x402HT
           }
         }
       } catch (err) {
-        log.error('processHTTPRequest failed', { error: err instanceof Error ? err.message : String(err) });
+        log.error({ err }, 'processHTTPRequest failed');
         next(err);
       }
     })();

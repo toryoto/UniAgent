@@ -7,7 +7,9 @@
 import { x402Client, x402HTTPClient } from '@x402/core/client';
 import { formatUSDCAmount } from '@agent-marketplace/shared';
 import type { PaymentRequiredData } from '../../types/index.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('payment');
 
 /**
  * PAYMENT-REQUIRED ヘッダー（Base64 エンコード JSON）をデコードする。
@@ -24,9 +26,7 @@ export function decodePaymentRequiredHeader(header: string | null): PaymentRequi
     const decoded = JSON.parse(Buffer.from(header, 'base64').toString('utf-8'));
     return decoded as PaymentRequiredData;
   } catch (e) {
-    logger.payment.warn('Failed to decode PAYMENT-REQUIRED header', {
-      error: e instanceof Error ? e.message : 'Unknown',
-    });
+    log.warn({ err: e }, 'Failed to decode PAYMENT-REQUIRED header');
     return null;
   }
 }

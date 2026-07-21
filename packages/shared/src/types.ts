@@ -1,7 +1,7 @@
 /**
  * Shared Type Definitions
  *
- * agent, web, mcpパッケージで共有する型定義
+ * agent, web パッケージで共有する型定義
  */
 
 // ============================================================================
@@ -51,7 +51,7 @@ export interface AgentJson {
 }
 
 // ============================================================================
-// Discovered Agent (MCP Response)
+// Discovered Agent
 // ============================================================================
 
 export interface DiscoveredAgent {
@@ -132,6 +132,8 @@ export interface AgentRequest {
   autoApproveThreshold: number;
   agentId?: string;
   messageHistory?: AgentMessageHistoryEntry[];
+  /** ログ相関用のトレースメタデータ。Agent Service はロジックには使わない */
+  conversationId?: string;
 }
 
 export interface AgentResponse {
@@ -213,6 +215,7 @@ export interface AgentResumeRequest {
   threadId: string;
   decisions: HITLDecision[];
   autoApproveThreshold: number;
+  conversationId?: string;
 }
 
 // ============================================================================

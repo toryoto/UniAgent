@@ -25,9 +25,9 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/**/__tests__/**",
     "../web",
     "../contracts",
-    "../mcp",
     "../packages/shared/node_modules"
   ],
   "references": [

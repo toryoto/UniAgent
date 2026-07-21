@@ -1,12 +1,15 @@
 /**
  * @module services/evaluation
  * LLM-as-a-Judge による評価 + EAS アテステーション署名・保存の統合サービス。
- * evaluate-agent ツールと execute-and-evaluate-agent ツールの共通ロジックを一元化する。
+ * execute-and-evaluate-agent ツールの評価ロジックを一元化する。
  */
 
 import { initChatModel } from 'langchain';
 import { z } from 'zod';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('eval');
+import { AGENT_MODEL } from '../config/constants.js';
 import { getEvaluationPrompt, RAW_SCORE_TO_100, scaleToUint8 } from '../prompts/evaluation-prompt.js';
 import { signAndStoreAttestation } from './eas-attestation.js';
 import type { AgentCategory, EvaluationScores, EvaluationWithAttestation } from '../types/index.js';
@@ -48,9 +51,9 @@ export interface EvaluateAndAttestInput {
 export async function evaluateAndAttest(input: EvaluateAndAttestInput): Promise<EvaluationWithAttestation> {
   const { agentId, category, task, response, latencyMs, paymentTx } = input;
 
-  logger.eval.info('Starting structured agent evaluation', { agentId, category });
+  log.info({ agentId, category }, 'Starting structured agent evaluation');
 
-  const baseModel = await initChatModel('claude-sonnet-4-5-20250929', { temperature: 0 });
+  const baseModel = await initChatModel(AGENT_MODEL, { temperature: 0 });
   const evaluationModel = baseModel.withStructuredOutput(evaluationResponseSchema);
 
   const systemPrompt = getEvaluationPrompt(category);
@@ -66,12 +69,10 @@ export async function evaluateAndAttest(input: EvaluateAndAttestInput): Promise<
   const qualityUint8 = scaleToUint8(quality100);
   const reliabilityUint8 = scaleToUint8(reliability100);
 
-  logger.eval.info('Evaluation scores', {
-    quality: `${quality100}/100`,
-    reliability: `${reliability100}/100`,
-    latencyMs,
-    tags: parsed.tags,
-  });
+  log.info(
+    { quality: quality100, reliability: reliability100, latencyMs, tags: parsed.tags },
+    'Evaluation scores',
+  );
 
   const { dbRecord } = await signAndStoreAttestation({
     agentId,
@@ -83,10 +84,7 @@ export async function evaluateAndAttest(input: EvaluateAndAttestInput): Promise<
     reasoning: parsed.reasoning,
   });
 
-  logger.eval.success('Evaluation and attestation completed', {
-    agentId,
-    dbRecordId: dbRecord.id,
-  });
+  log.info({ agentId, dbRecordId: dbRecord.id }, 'Evaluation and attestation completed');
 
   return {
     evaluation: {

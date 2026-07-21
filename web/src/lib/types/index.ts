@@ -55,43 +55,6 @@ export interface X402PaymentResponse {
 }
 
 // ============================================================================
-// MCP Types
-// ============================================================================
-
-export interface MCPToolDiscoverAgentsInput {
-  category?: string;
-  maxPrice?: number;
-  minReputation?: number;
-}
-
-export interface MCPToolDiscoverAgentsOutput {
-  agents: DiscoveredAgent[];
-}
-
-export interface MCPToolExecuteAgentInput {
-  agentId: string;
-  message: string;
-  userId: string;
-}
-
-export interface MCPToolExecuteAgentOutput {
-  status: 'success' | 'failed';
-  result: unknown;
-  txHash?: string;
-}
-
-export interface MCPToolRecordTransactionInput {
-  agentId: string;
-  amount: number;
-  userId: string;
-}
-
-export interface MCPToolRecordTransactionOutput {
-  status: 'success';
-  txHash: string;
-}
-
-// ============================================================================
 // UI State Types
 // ============================================================================
 
@@ -101,7 +64,6 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   metadata?: {
-    toolCalls?: ToolCallLog[];
     cost?: number;
   };
 }
@@ -118,55 +80,6 @@ export interface StructuredChatMessage {
   agentId?: string;
   metadata?: Record<string, unknown>;
 }
-
-export interface ToolCallLog {
-  id: string;
-  toolName: string;
-  input: unknown;
-  output?: unknown;
-  status: 'pending' | 'running' | 'success' | 'failed';
-  timestamp: Date;
-  duration?: number;
-}
-
-// ============================================================================
-// Chat API Types (SSE / Claude API)
-// ============================================================================
-
-export interface ChatApiRequest {
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
-  /** 将来のMCP統合時に使う設定 */
-  mcpConfig?: MCPConfig;
-}
-
-/** MCP Connector 設定（将来拡張用） */
-export interface MCPConfig {
-  enabled: boolean;
-  servers?: MCPServerDefinition[];
-  tools?: MCPToolDefinition[];
-}
-
-export interface MCPServerDefinition {
-  type: 'url';
-  url: string;
-  name: string;
-  authorization_token?: string;
-}
-
-export interface MCPToolDefinition {
-  type: 'mcp';
-  server_label: string;
-  tool_name: string;
-}
-
-export type ChatSSEEvent =
-  | { type: 'start'; messageId: string }
-  | { type: 'delta'; content: string }
-  | { type: 'tool_use_start'; toolCall: ToolCallLog }
-  | { type: 'tool_use_delta'; toolCallId: string; partialInput: string }
-  | { type: 'tool_use_end'; toolCallId: string; output: unknown }
-  | { type: 'end'; usage?: { inputTokens: number; outputTokens: number } }
-  | { type: 'error'; error: string };
 
 export interface UserBudgetSettings {
   dailyLimit: number; // USDC

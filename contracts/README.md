@@ -1,100 +1,48 @@
-# Smart Contracts
+# `contracts` — Smart Contracts
 
-UniAgent のスマートコントラクト（Hardhat）。
+Hardhat workspace for UniAgent's on-chain layer on Base Sepolia (Chain ID 84532): agent identity, staking, and deploy/registration scripts.
 
-## デプロイ済みコントラクト
+## Deployed Contracts
 
-**Network**: Base Sepolia (Chain ID: 84532)
+| Contract                | Address                                                                                                                         | Notes                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `AgentIdentityRegistry` | [`0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`](https://sepolia.basescan.org/address/0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92) | [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004), ERC-721-based agent identity; tokenURI → IPFS metadata |
+| `AgentStaking`          | [`0xC034e56EDe7FC31579E41095A4e963D499e85d39`](https://sepolia.basescan.org/address/0xC034e56EDe7FC31579E41095A4e963D499e85d39) | USDC staking; feeds the deposit term of agent ranking                                                       |
+| `USDC`                  | [`0x036CbD53842c5426634e7929541eC2318f3dCF7e`](https://sepolia.basescan.org/address/0x036CbD53842c5426634e7929541eC2318f3dCF7e) | [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009) token used by x402                                      |
 
-### AgentIdentityRegistry (ERC-8004)
+**EAS agent-evaluation schema** (off-chain attestations): UID [`0xfc26...0748`](https://base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748)
+`uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags`
 
-エージェント identity のオンチェーン管理（ERC-721 ベース、[ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) 準拠）。
-
-- **Address**: `0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92`
-- **Explorer**: https://sepolia.basescan.org/address/0x864A0C054AA6E9DBcCDB36a44a14A5A7bc81EB92
-
-### USDC (Base Sepolia)
-
-x402 決済で使用。[EIP-3009](https://eips.ethereum.org/EIPS/eip-3009) 対応。
-
-- **Address**: `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
-
-### EAS Agent Evaluation Schema
-
-エージェント評価用 [EAS](https://easscan.org/) スキーマ（オフチェーン attestation 用）。
-
-- **Schema UID**: `0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748`
-- **View**: https://base-sepolia.easscan.org/schema/view/0xfc26bef12f3b12b03dce76761bf0c23ae5ee4370f86132b2d69369cdfd208748
-- **Schema**: `uint256 agentId, bytes32 paymentTx, uint256 chainId, uint8 quality, uint8 reliability, uint32 latency, uint64 timestamp, string[] tags`
-
-## セットアップ
-
-**注意**: このプロジェクトはモノレポ構成です。依存関係のインストールは**ルートディレクトリ**から実行してください。
+## Setup
 
 ```bash
-# ルートディレクトリから依存関係をインストール
+# From the repository ROOT (never npm install inside contracts/)
 npm install
 
-# 環境変数設定
-cp .env.example .env
-# .env を編集（PRIVATE_KEY 等）
+cp contracts/.env.example contracts/.env
+# PRIVATE_KEY (deploy/sign), BASE_SEPOLIA_RPC_URL (defaults to https://sepolia.base.org),
+# PINATA_JWT / PINATA_GATEWAY_URL for ERC-8004 registration
 ```
 
-### 環境変数
-
-`.env.example` を参照してください。主に以下が必要です。
-
-- `PRIVATE_KEY` - 署名・デプロイ用
-- `BASE_SEPOLIA_RPC_URL` - 省略時は https://sepolia.base.org
-- ERC-8004 登録用: `PINATA_JWT`, `PINATA_GATEWAY_URL`（任意）
-
-## コマンド
+## Commands
 
 ```bash
-# ルートディレクトリから実行（推奨）
-npm run compile --workspace=contracts
-npm run test --workspace=contracts
+npm run compile            --workspace=contracts
+npm run test               --workspace=contracts
 npm run deploy:base-sepolia --workspace=contracts
-
-# contracts ディレクトリ内から実行
-cd contracts
-npm run compile
-npm run test
-npm run deploy:base-sepolia
 ```
 
-### ERC-8004 / AgentIdentityRegistry
+### Scripts
 
-```bash
-cd contracts
+Run with `npx hardhat run scripts/<name>.ts --network base-sepolia` from `contracts/`.
 
-# AgentIdentityRegistry のデプロイ
-npx hardhat run scripts/deploy-identity-registry.ts --network base-sepolia
+| Script                                    | Purpose                                                       |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| `deploy-identity-registry.ts`             | Deploy `AgentIdentityRegistry`                                |
+| `deploy-staking.ts`                       | Deploy `AgentStaking` (constructor pins the registry address) |
+| `register-agents-erc8004.ts`              | Register sample ERC-8004 agents (IPFS upload + mint)          |
+| `inspect-identity-registry.ts`            | Inspect on-chain registry state                               |
+| `register-eas-agent-evaluation-schema.ts` | Register the EAS evaluation schema (one-time)                 |
+| `update-agent-urls.ts`                    | Update registered agent URLs                                  |
 
-# サンプルエージェントの登録
-npx hardhat run scripts/register-agents-erc8004.ts --network base-sepolia
-
-# オンチェーン状態の確認
-npx hardhat run scripts/inspect-identity-registry.ts --network base-sepolia
-```
-
-### EAS スキーマ登録
-
-```bash
-cd contracts
-
-# Agent 評価用 EAS スキーマを Base Sepolia に登録（1回のみ）
-npx hardhat run scripts/register-eas-agent-evaluation-schema.ts --network base-sepolia
-```
-
-## 主要スクリプト
-
-| スクリプト | 説明 |
-|-----------|------|
-| `deploy-identity-registry.ts` | AgentIdentityRegistry (ERC-8004) のデプロイ |
-| `register-agents-erc8004.ts` | ERC-8004 準拠サンプルエージェントの登録 |
-| `inspect-identity-registry.ts` | AgentIdentityRegistry のオンチェーン状態確認 |
-| `register-eas-agent-evaluation-schema.ts` | EAS Agent 評価スキーマの登録 |
-| `update-agent-urls.ts` | 登録済みエージェントの URL 更新 |
-| `deploy-usdc.ts` | USDC デプロイ |
-| `verify-deployment.ts` | デプロイ検証 |
+Redeployment procedure: [REDEPLOYMENT.md](REDEPLOYMENT.md) and [docs/contract-redeploy-runbook.md](../docs/contract-redeploy-runbook.md).

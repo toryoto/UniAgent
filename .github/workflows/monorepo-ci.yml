@@ -4,19 +4,17 @@ on:
   push:
     paths:
       - 'web/**'
-      - 'mcp/**'
       - 'agent/**'
       - 'packages/shared/**'
       - 'packages/database/**'
-      - '.github/workflows/web-ci.yml'
+      - '.github/workflows/monorepo-ci.yml'
   pull_request:
     paths:
       - 'web/**'
-      - 'mcp/**'
       - 'agent/**'
       - 'packages/shared/**'
       - 'packages/database/**'
-      - '.github/workflows/web-ci.yml'
+      - '.github/workflows/monorepo-ci.yml'
 
 jobs:
   lint:
@@ -24,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        workspace: [web, mcp, agent]
+        workspace: [web, agent]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        workspace: [web, mcp, agent]
+        workspace: [web, agent]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -62,7 +60,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        workspace: [web, mcp, agent]
+        workspace: [web, agent]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -86,16 +84,36 @@ jobs:
           path: web/.next
           retention-days: 7
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspace: [web, agent, packages/shared]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build --workspace=packages/shared
+      - run: npm run build --workspace=packages/database
+      - run: npm run db:generate --workspace=web
+        if: matrix.workspace == 'web'
+      - run: npm run test --workspace=${{ matrix.workspace }}
+
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [lint, type-check, build]
+    needs: [lint, type-check, build, test]
     if: always()
     steps:
       - run: |
           if [[ "${{ needs.lint.result }}" == "success" && \
                 "${{ needs.type-check.result }}" == "success" && \
-                "${{ needs.build.result }}" == "success" ]]; then
+                "${{ needs.build.result }}" == "success" && \
+                "${{ needs.test.result }}" == "success" ]]; then
             echo "✅ All CI checks passed!"
             exit 0
           else

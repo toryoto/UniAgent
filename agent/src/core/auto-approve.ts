@@ -7,18 +7,23 @@
 
 import type { HITLRequest } from 'langchain';
 import type { StreamProcessingContext } from '../types/index.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('agent');
 
 /**
  * HITL リクエストを自動承認すべきかを判定する。
  *
  * 以下の条件を全て満たす場合に自動承認:
  * - いずれの action も requireUserApproval !== true
- * - 合計 maxPrice が autoApproveThreshold 以下
  * - 合計 maxPrice が 0 より大きい
+ * - 「既に消費した累積コスト + 今回の合計 maxPrice」が autoApproveThreshold 以下
+ *
+ * 累積コスト (ctx.totalCost) を含めるのは、同一ターン内で複数 execute を行う場合や
+ * HITL resume 後の実行で、予算超過分が自動承認されるのを防ぐため。
  *
  * @param hitlRequest - HITL ミドルウェアからの割り込みリクエスト
- * @param ctx - ストリーム処理コンテキスト（閾値情報を含む）
+ * @param ctx - ストリーム処理コンテキスト（閾値・累積コストを含む）
  * @returns 自動承認すべきなら true
  */
 export function shouldAutoApprove(
@@ -28,7 +33,7 @@ export function shouldAutoApprove(
   const actions = hitlRequest.actionRequests as Array<{ name: string; args: Record<string, unknown> }>;
 
   if (actions.some((a) => a.args?.requireUserApproval === true)) {
-    logger.agent.info('HITL required: agent set requireUserApproval');
+    log.info('HITL required: agent set requireUserApproval');
     return false;
   }
 
@@ -38,21 +43,27 @@ export function shouldAutoApprove(
   );
 
   if (totalMaxPrice <= 0) {
-    logger.agent.info('HITL required: no valid maxPrice found');
+    log.info('HITL required: no valid maxPrice found');
     return false;
   }
 
-  if (totalMaxPrice > ctx.autoApproveThreshold) {
-    logger.agent.info('HITL required: totalMaxPrice exceeds threshold', {
-      totalMaxPrice,
-      autoApproveThreshold: ctx.autoApproveThreshold,
-    });
+  const projectedTotal = ctx.totalCost + totalMaxPrice;
+  if (projectedTotal > ctx.autoApproveThreshold) {
+    log.info(
+      {
+        totalMaxPrice,
+        spentSoFar: ctx.totalCost,
+        projectedTotal,
+        autoApproveThreshold: ctx.autoApproveThreshold,
+      },
+      'HITL required: projected total exceeds threshold',
+    );
     return false;
   }
 
-  logger.agent.info('Auto-approving: within threshold', {
-    totalMaxPrice,
-    autoApproveThreshold: ctx.autoApproveThreshold,
-  });
+  log.info(
+    { totalMaxPrice, spentSoFar: ctx.totalCost, autoApproveThreshold: ctx.autoApproveThreshold },
+    'Auto-approving: within threshold',
+  );
   return true;
 }

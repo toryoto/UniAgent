@@ -33,6 +33,13 @@ interface AttestationV2 {
   signer: string;
 }
 
+export function buildEasScanUrl(attestation: unknown): string {
+  const compacted = compactAttestationV2(attestation as AttestationV2);
+  const json = JSON.stringify(compacted);
+  const base64 = fromUint8Array(pako.deflate(json, { level: 9 }));
+  return `${EAS_SCAN_BASE}/offchain/url/#attestation=${encodeURIComponent(base64)}`;
+}
+
 function compactAttestationV2(a: AttestationV2): unknown[] {
   const { sig, signer } = a;
   const { domain, signature, uid, message } = sig;
@@ -56,11 +63,4 @@ function compactAttestationV2(a: AttestationV2): unknown[] {
     message.version,
     message.salt,
   ];
-}
-
-export function buildEasScanUrl(attestation: unknown): string {
-  const compacted = compactAttestationV2(attestation as AttestationV2);
-  const json = JSON.stringify(compacted);
-  const base64 = fromUint8Array(pako.deflate(json, { level: 9 }));
-  return `${EAS_SCAN_BASE}/offchain/url/#attestation=${encodeURIComponent(base64)}`;
 }

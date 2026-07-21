@@ -12,7 +12,9 @@ const { EAS, SchemaEncoder } = require('@ethereum-attestation-service/eas-sdk') 
 import { ethers } from 'ethers';
 import type { Prisma } from '@agent-marketplace/database';
 import { createAttestation } from './attestation-db.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('logic');
 import { EAS_CONTRACT_ADDRESS, EAS_SCHEMA, CHAIN_ID } from '../config/constants.js';
 import type { AttestationInput } from '../types/index.js';
 
@@ -86,12 +88,10 @@ export async function signAndStoreAttestation(input: AttestationInput) {
 
   const easScanFormat = { sig: attestation, signer: signer.address };
 
-  logger.logic.success('EAS offchain attestation signed', {
-    agentId: input.agentId,
-    quality: input.quality,
-    reliability: input.reliability,
-    attester: signer.address,
-  });
+  log.info(
+    { agentId: input.agentId, quality: input.quality, reliability: input.reliability, attester: signer.address },
+    'EAS offchain attestation signed',
+  );
 
   const serializable = JSON.parse(
     JSON.stringify(easScanFormat, (_key, value) =>

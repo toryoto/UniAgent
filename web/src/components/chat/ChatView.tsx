@@ -1,41 +1,22 @@
 'use client';
 
-import {
-  Send,
-  Loader2,
-  Bot,
-  User,
-  AlertCircle,
-  Wrench,
-  DollarSign,
-  Shield,
-  Square,
-  ChevronDown,
-  ChevronRight,
-  CreditCard,
-  CheckCircle2,
-  XCircle,
-  Pencil,
-} from 'lucide-react';
-import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { Send, Loader2, AlertCircle, Shield, Square } from 'lucide-react';
+import { useRef, useEffect, useMemo, useCallback } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { useQueryClient } from '@tanstack/react-query';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useAgentStream } from '@/lib/hooks/useAgentStream';
-import type { AgentStreamMessage, AgentToolCall, AgentApproval } from '@/lib/types';
-import type { HITLDecision } from '@agent-marketplace/shared';
 import { useDelegatedWallet } from '@/lib/hooks/useDelegatedWallet';
 import { useSlashCommand, type SlashCommandOption } from '@/lib/hooks/useSlashCommand';
 import { CommandDropdown } from '@/components/chat/CommandDropdown';
 import { CommandBadge } from '@/components/chat/CommandBadge';
 import { parseMessage } from '@/lib/utils/message-parser';
-import Link from 'next/link';
 import { PageHeader } from '@/components/layout/page-header';
-import { MessageMarkdown } from '@/components/chat/MessageMarkdown';
-import { HotelResultsCard } from '@/components/chat/HotelResultsCard';
-import type { HotelData } from '@/components/chat/HotelResultsCard';
+import { WelcomeMessage } from '@/components/chat/WelcomeMessage';
+import { MessageBubble } from '@/components/chat/MessageBubble';
+import type { AgentStreamMessage } from '@/lib/types';
 
-// Slash command definitions
 const SLASH_COMMANDS: SlashCommandOption[] = [
   {
     id: 'use-agent',
@@ -49,7 +30,6 @@ const SLASH_COMMANDS: SlashCommandOption[] = [
   },
 ];
 
-/** 下端からこの距離以内なら「追従」扱い（上に読んでいるときは自動スクロールしない） */
 const BOTTOM_SCROLL_THRESHOLD_PX = 80;
 
 interface ChatViewProps {
@@ -87,7 +67,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     initialMessages,
   });
 
-  // /chat/[id] → /chat 遷移で状態をリセット(useRefは2回目以降のレンダーで同じオブジェクトを返す)
   const prevPathnameRef = useRef(pathname);
   useEffect(() => {
     const prev = prevPathnameRef.current;
@@ -95,9 +74,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     if (prev !== pathname && pathname === '/chat') {
       reset();
     }
-  }, [pathname]);
+  }, [pathname, reset]);
 
-  // 新規会話作成後にURLを更新 & サイドバーのリストを再取得
   useEffect(() => {
     if (conversationId && !initialConversationId) {
       window.history.replaceState(null, '', `/chat/${conversationId}`);
@@ -107,7 +85,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  /** ユーザーが下端付近にいるときだけストリーム更新で追従する */
   const isNearBottomRef = useRef(true);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const inputContainerRef = useRef<HTMLDivElement>(null);
@@ -119,20 +96,17 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     isNearBottomRef.current = distanceFromBottom <= BOTTOM_SCROLL_THRESHOLD_PX;
   }, []);
 
-  // 下端にいるときだけ新着・ストリーム更新で自動スクロール（上にスクロールして読んでいるときは引き戻さない）
   useEffect(() => {
     if (!isNearBottomRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // 送信後に入力欄にフォーカス
   useEffect(() => {
     if (!isStreaming) {
       inputRef.current?.focus();
     }
   }, [isStreaming]);
 
-  // Slash command handler
   const slashCommand = useSlashCommand({
     options: SLASH_COMMANDS,
     onSelect: (option) => {
@@ -153,7 +127,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     },
   });
 
-  // Detect slash commands for dropdown
   useEffect(() => {
     const textarea = inputRef.current;
     if (textarea) {
@@ -161,25 +134,19 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     }
   }, [input, slashCommand]);
 
-  // Parse current input to detect active command
   const activeCommand = useMemo(() => {
     const parsed = parseMessage(input);
     if (parsed.command && parsed.agentId) {
-      return {
-        command: parsed.command,
-        agentId: parsed.agentId,
-      };
+      return { command: parsed.command, agentId: parsed.agentId };
     }
     return null;
   }, [input]);
 
-  // Remove command from input
   const handleRemoveCommand = useCallback(() => {
     setInput('');
     inputRef.current?.focus();
   }, [setInput]);
 
-  // textareaの高さを自動調整
   useEffect(() => {
     const textarea = inputRef.current;
     if (textarea) {
@@ -197,21 +164,16 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (slashCommand.isOpen && slashCommand.handleKeyDown(e)) {
-        return;
-      }
-      if (e.nativeEvent.isComposing) {
-        return;
-      }
+      if (slashCommand.isOpen && slashCommand.handleKeyDown(e)) return;
+      if (e.nativeEvent.isComposing) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSubmit();
       }
     },
-    [slashCommand, handleSubmit]
+    [slashCommand, handleSubmit],
   );
 
-  // Wallet connection and delegation status warning
   const walletWarning = !walletAddress ? (
     <div className="mb-4 flex items-start gap-2 rounded-lg border border-yellow-900/50 bg-yellow-950/30 p-3 md:gap-3 md:p-4">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400 md:h-5 md:w-5" />
@@ -241,7 +203,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     <>
       <PageHeader title="Chat" />
 
-      {/* Chat Area */}
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto p-4 md:p-8"
@@ -265,7 +226,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             )}
           </div>
 
-          {/* Error Alert */}
           {error && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950/30 p-3 md:gap-3 md:p-4">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400 md:h-5 md:w-5" />
@@ -285,7 +245,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         </div>
       </div>
 
-      {/* Input Area */}
       <div className="border-t border-slate-800 bg-slate-900/50 p-4 md:p-6">
         <div className="mx-auto max-w-4xl">
           {activeCommand && (
@@ -340,552 +299,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           </p>
         </div>
       </div>
-
     </>
-  );
-}
-
-function WelcomeMessage() {
-  return (
-    <div className="mb-8 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 md:p-6">
-      <h2 className="mb-2 text-base font-bold text-purple-300 md:text-lg">Welcome to UniAgent!</h2>
-      <p className="mb-3 text-sm text-purple-200/80 md:text-base">
-        UniAgent X will discover and execute external agents from the marketplace:
-      </p>
-      <ul className="space-y-2 text-xs text-purple-200/70 md:text-sm">
-        <li>1. Search for agents using discover_agents</li>
-        <li>2. Select the best agent considering price and ratings</li>
-        <li>3. Execute agents with x402 payment</li>
-        <li>4. Deliver integrated results</li>
-      </ul>
-      <div className="mt-4 rounded-lg border border-purple-500/20 bg-purple-500/5 p-3">
-        <p className="mb-2 text-xs font-semibold text-purple-300 md:text-sm">Slash Commands:</p>
-        <ul className="space-y-1 text-xs text-purple-200/70">
-          <li>
-            <code className="rounded bg-purple-500/20 px-1.5 py-0.5 font-mono text-purple-300">
-              /use-agent &lt;agent-id&gt;
-            </code>{' '}
-            - Execute a specific agent by ID
-          </li>
-        </ul>
-      </div>
-      <p className="mt-4 text-xs text-purple-300/60">
-        Examples: &quot;Search for agents in the travel category&quot;, &quot;/use-agent 0x1234...
-        Create a 3-day travel plan for Paris&quot;
-      </p>
-    </div>
-  );
-}
-
-function MessageBubble({
-  message,
-  onResume,
-}: {
-  message: AgentStreamMessage;
-  onResume: (decisions: HITLDecision[]) => Promise<void>;
-}) {
-  const isUser = message.role === 'user';
-
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`w-full max-w-3xl rounded-2xl px-4 py-3 md:px-6 md:py-4 ${
-          isUser ? 'bg-purple-600 text-white' : 'border border-slate-800 bg-slate-900/50'
-        }`}
-      >
-        {/* Role indicator */}
-        <div
-          className={`mb-2 flex items-center gap-2 text-xs font-medium md:text-sm ${
-            isUser ? 'text-purple-200' : 'text-purple-400'
-          }`}
-        >
-          {isUser ? (
-            <>
-              <User className="h-3 w-3 md:h-4 md:w-4" />
-              You
-            </>
-          ) : (
-            <>
-              <Bot className="h-3 w-3 md:h-4 md:w-4" />
-              AI Agent
-              {message.isStreaming && (
-                <Loader2 className="h-3 w-3 animate-spin text-purple-300" />
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Tool Calls (ストリーミング中にリアルタイム表示) */}
-        {!isUser && message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="mb-3 space-y-2">
-            {message.toolCalls.map((tc) => (
-              <ToolCallCard key={tc.toolCallId} toolCall={tc} />
-            ))}
-          </div>
-        )}
-
-        {/* ホテル検索結果パネル (ToolCallCard の外に独立表示) */}
-        {!isUser && (() => {
-          const hotelData = message.toolCalls
-            ?.map((tc) => (tc.status !== 'calling' && tc.result ? extractHotelResults(tc.result) : null))
-            .find(Boolean);
-          return hotelData ? (
-            <div className="mb-3">
-              <HotelResultsCard
-                hotels={hotelData.hotels}
-                searchParams={hotelData.searchParams}
-                totalResults={hotelData.totalResults}
-              />
-            </div>
-          ) : null;
-        })()}
-
-        {/* HITL Approval Card */}
-        {!isUser && message.approval && !message.approval.resolved && (
-          <div className="mb-3">
-            <ApprovalCard approval={message.approval} onResume={onResume} />
-          </div>
-        )}
-
-        {/* Payment info */}
-        {!isUser && message.payment && (
-          <div className="mb-3 flex items-center gap-2 rounded-lg border border-green-900/50 bg-green-950/30 p-2 text-xs">
-            <CreditCard className="h-3 w-3 text-green-400" />
-            <span className="text-green-300">
-              Payment: ${message.payment.amount.toFixed(4)} USDC
-            </span>
-            <span className="text-slate-500">|</span>
-            <span className="text-slate-400">
-              Total: ${message.payment.totalCost.toFixed(4)} USDC
-            </span>
-            <span className="text-slate-500">|</span>
-            <span className="text-slate-400">
-              Remaining: ${message.payment.remainingBudget.toFixed(4)} USDC
-            </span>
-          </div>
-        )}
-
-        {/* Content */}
-        <div
-          className={`min-w-0 text-sm md:text-base ${isUser ? 'whitespace-pre-wrap text-white' : 'text-slate-300'}`}
-        >
-          {message.content ? (
-            isUser ? (
-              message.content
-            ) : (
-              <MessageMarkdown content={message.content} />
-            )
-          ) : message.isStreaming ? (
-            <span className="flex items-center gap-2 text-slate-500 italic">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Thinking...
-            </span>
-          ) : !message.approval ? (
-            <span className="text-slate-500 italic">No response</span>
-          ) : null}
-        </div>
-
-        {/* Total Cost */}
-        {!isUser && message.totalCost !== undefined && message.totalCost > 0 && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-700 pt-2 text-xs md:mt-3 md:pt-3 md:text-sm">
-            <DollarSign className="h-3 w-3 text-green-400 md:h-4 md:w-4" />
-            <span className="text-slate-400">Total Cost:</span>
-            <span className="font-mono text-green-400">${message.totalCost.toFixed(4)} USDC</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ActionDetail({ action }: { action: { name: string; args: Record<string, unknown>; description?: string } }) {
-  const { agentUrl, task, data, maxPrice, agentId } = action.args as Record<string, unknown>;
-
-  if (action.description) {
-    return <p className="whitespace-pre-wrap text-amber-200/80">{action.description}</p>;
-  }
-
-  return (
-    <>
-      <div className="flex gap-2">
-        <span className="text-slate-500">Tool:</span>
-        <span className="font-mono text-slate-200">{action.name}</span>
-      </div>
-      {agentId && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Agent ID:</span>
-          <span className="font-mono text-slate-200">{String(agentId)}</span>
-        </div>
-      )}
-      {agentUrl && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Agent URL:</span>
-          <span className="font-mono text-slate-200">{String(agentUrl)}</span>
-        </div>
-      )}
-      {task && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Task:</span>
-          <span className="text-slate-200">{String(task)}</span>
-        </div>
-      )}
-      {data && typeof data === 'object' && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Params:</span>
-          <pre className="max-w-full overflow-x-auto rounded bg-slate-800/50 px-2 py-1 font-mono text-[11px] text-slate-200">
-            {JSON.stringify(data, null, 2)}
-          </pre>
-        </div>
-      )}
-      {maxPrice !== undefined && (
-        <div className="flex gap-2">
-          <span className="text-slate-500">Max Price:</span>
-          <span className="font-mono text-green-400">${String(maxPrice)} USDC</span>
-        </div>
-      )}
-    </>
-  );
-}
-
-function ActionEditor({
-  args,
-  onChange,
-}: {
-  args: Record<string, unknown>;
-  onChange: (updated: Record<string, unknown>) => void;
-}) {
-  return (
-    <div className="mt-2 space-y-2">
-      {args.task !== undefined && (
-        <>
-          <label className="text-[10px] font-medium text-slate-500">EDIT TASK</label>
-          <textarea
-            value={String(args.task ?? '')}
-            onChange={(e) => onChange({ ...args, task: e.target.value })}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-            rows={2}
-          />
-        </>
-      )}
-      {args.data !== undefined && (
-        <>
-          <label className="text-[10px] font-medium text-slate-500">EDIT PARAMS (JSON)</label>
-          <textarea
-            value={typeof args.data === 'string' ? args.data : JSON.stringify(args.data, null, 2)}
-            onChange={(e) => {
-              try {
-                onChange({ ...args, data: JSON.parse(e.target.value) });
-              } catch {
-                onChange({ ...args, data: e.target.value });
-              }
-            }}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 font-mono text-xs text-white placeholder-slate-500 focus:border-amber-500 focus:outline-none md:text-sm"
-            rows={4}
-          />
-        </>
-      )}
-    </div>
-  );
-}
-
-function ApprovalCard({
-  approval,
-  onResume,
-}: {
-  approval: AgentApproval;
-  onResume: (decisions: HITLDecision[]) => Promise<void>;
-}) {
-  const [editingIndices, setEditingIndices] = useState<Set<number>>(new Set());
-  const [editedArgsMap, setEditedArgsMap] = useState<Record<number, Record<string, unknown>>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const actions = approval.actionRequests;
-  if (actions.length === 0) return null;
-
-  const isBatch = actions.length > 1;
-  const isEditing = editingIndices.size > 0;
-
-  const getAllowedDecisions = (idx: number) => {
-    const rc = approval.reviewConfigs.find((r) => r.actionName === actions[idx].name);
-    return rc?.allowedDecisions ?? ['approve', 'reject'];
-  };
-
-  const canEditAny = actions.some((_, i) => getAllowedDecisions(i).includes('edit'));
-
-  const toggleEdit = (idx: number) => {
-    setEditingIndices((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) {
-        next.delete(idx);
-        setEditedArgsMap((m) => {
-          const { [idx]: _, ...rest } = m;
-          return rest;
-        });
-      } else {
-        next.add(idx);
-        setEditedArgsMap((m) => ({ ...m, [idx]: { ...actions[idx].args } }));
-      }
-      return next;
-    });
-  };
-
-  const updateEditedArgs = (idx: number, updated: Record<string, unknown>) => {
-    setEditedArgsMap((m) => ({ ...m, [idx]: updated }));
-  };
-
-  const buildDecisions = (): HITLDecision[] =>
-    actions.map((a, i) => {
-      const edited = editedArgsMap[i];
-      if (edited && JSON.stringify(edited) !== JSON.stringify(a.args)) {
-        return { type: 'edit' as const, editedAction: { name: a.name, args: edited } };
-      }
-      return { type: 'approve' as const };
-    });
-
-  const handleApprove = async () => {
-    setIsSubmitting(true);
-    await onResume(actions.map(() => ({ type: 'approve' as const })));
-  };
-
-  const handleSubmitEdits = async () => {
-    setIsSubmitting(true);
-    await onResume(buildDecisions());
-  };
-
-  const handleReject = async () => {
-    setIsSubmitting(true);
-    await onResume(
-      actions.map(() => ({
-        type: 'reject' as const,
-        message: 'User rejected the agent execution',
-      })),
-    );
-  };
-
-  const totalMaxPrice = isBatch
-    ? actions.reduce((sum, a) => sum + (Number((a.args as Record<string, unknown>).maxPrice) || 0), 0)
-    : null;
-
-  return (
-    <div className="rounded-lg border border-amber-700/50 bg-amber-950/30 p-3 md:p-4">
-      <div className="mb-3 flex items-center gap-2 text-xs font-medium text-amber-300 md:text-sm">
-        <Shield className="h-4 w-4" />
-        Approval Required
-        {isBatch && (
-          <span className="rounded bg-amber-800/50 px-1.5 py-0.5 text-[10px] text-amber-200">
-            {actions.length} agents
-          </span>
-        )}
-      </div>
-
-      {isBatch && totalMaxPrice !== null && (
-        <div className="mb-3 flex items-center gap-2 rounded bg-slate-800/50 px-2.5 py-1.5 text-xs text-slate-300">
-          <span className="text-slate-500">Total estimated cost:</span>
-          <span className="font-mono text-green-400">${totalMaxPrice.toFixed(4)} USDC</span>
-        </div>
-      )}
-
-      {isBatch ? (
-        <div className="mb-3 space-y-2">
-          {actions.map((a, i) => {
-            const allowed = getAllowedDecisions(i);
-            const isEditingThis = editingIndices.has(i);
-            return (
-              <div key={i} className="rounded border border-slate-700/50 bg-slate-800/30 p-2.5">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-slate-500">AGENT {i + 1}</span>
-                  {allowed.includes('edit') && (
-                    <button
-                      onClick={() => toggleEdit(i)}
-                      disabled={isSubmitting}
-                      className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-400 transition-colors hover:bg-amber-900/30 disabled:opacity-50"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      {isEditingThis ? 'Cancel' : 'Edit'}
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-1.5 text-xs text-slate-300 md:text-sm">
-                  {isEditingThis ? (
-                    <ActionEditor
-                      args={editedArgsMap[i] ?? { ...a.args }}
-                      onChange={(updated) => updateEditedArgs(i, updated)}
-                    />
-                  ) : (
-                    <ActionDetail action={a} />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <>
-          <div className="mb-3 space-y-1.5 text-xs text-slate-300 md:text-sm">
-            {editingIndices.has(0) ? (
-              <ActionEditor
-                args={editedArgsMap[0] ?? { ...actions[0].args }}
-                onChange={(updated) => updateEditedArgs(0, updated)}
-              />
-            ) : (
-              <ActionDetail action={actions[0]} />
-            )}
-          </div>
-        </>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {!isEditing && getAllowedDecisions(0).includes('approve') && (
-          <button
-            onClick={handleApprove}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 md:text-sm"
-          >
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            {isBatch ? `Approve All (${actions.length})` : 'Approve'}
-          </button>
-        )}
-        {isEditing && (
-          <button
-            onClick={handleSubmitEdits}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 md:text-sm"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Apply Changes
-          </button>
-        )}
-        {!isBatch && !isEditing && canEditAny && (
-          <button
-            onClick={() => toggleEdit(0)}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50 md:text-sm"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-            Edit
-          </button>
-        )}
-        {isEditing && (
-          <button
-            onClick={() => { setEditingIndices(new Set()); setEditedArgsMap({}); }}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors hover:bg-slate-600 disabled:opacity-50 md:text-sm"
-          >
-            Cancel
-          </button>
-        )}
-        {!isEditing && getAllowedDecisions(0).includes('reject') && (
-          <button
-            onClick={handleReject}
-            disabled={isSubmitting}
-            className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50 md:text-sm"
-          >
-            <XCircle className="h-3.5 w-3.5" />
-            {isBatch ? 'Reject All' : 'Reject'}
-          </button>
-        )}
-      </div>
-
-      {isSubmitting && (
-        <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Processing decision...
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface HotelSearchResultData {
-  hotels: HotelData[];
-  searchParams?: { checkIn?: string; checkOut?: string };
-  totalResults?: number;
-}
-
-function extractHotelResults(result: string): HotelSearchResultData | null {
-  try {
-    const parsed = JSON.parse(result) as Record<string, unknown>;
-    // ExecuteAgentResult shape: { success, result: { parts: [...] } }
-    const resultObj = parsed?.result as Record<string, unknown> | undefined;
-    const parts = resultObj?.parts as Array<{ kind: string; data?: Record<string, unknown> }> | undefined;
-    if (!parts) return null;
-    const dataPart = parts.find((p) => p.kind === 'data' && Array.isArray(p.data?.hotels));
-    if (!dataPart?.data) return null;
-    const hotels = dataPart.data.hotels as HotelData[];
-    if (!hotels.length) return null;
-    return {
-      hotels,
-      searchParams: dataPart.data.searchParams as HotelSearchResultData['searchParams'],
-      totalResults: dataPart.data.totalResults as number | undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function ToolCallCard({ toolCall }: { toolCall: AgentToolCall }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const isCalling = toolCall.status === 'calling';
-  const isRejected = toolCall.result === 'Rejected by user';
-
-  return (
-    <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-2 text-xs md:p-3">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2"
-      >
-        {isCalling ? (
-          <Loader2 className="h-3 w-3 animate-spin text-yellow-400" />
-        ) : isRejected ? (
-          <XCircle className="h-3 w-3 text-red-400" />
-        ) : (
-          <Wrench className="h-3 w-3 text-green-400" />
-        )}
-        <span className="font-mono font-medium text-slate-200">{toolCall.name}</span>
-        <span
-          className={`rounded px-1.5 py-0.5 text-[10px] ${
-            isCalling
-              ? 'bg-yellow-500/20 text-yellow-300'
-              : isRejected
-                ? 'bg-red-500/20 text-red-300'
-                : 'bg-green-500/20 text-green-300'
-          }`}
-        >
-          {isCalling ? 'Running...' : isRejected ? 'Rejected' : 'Done'}
-        </span>
-        <span className="ml-auto text-slate-500">
-          {isExpanded ? (
-            <ChevronDown className="h-3 w-3" />
-          ) : (
-            <ChevronRight className="h-3 w-3" />
-          )}
-        </span>
-      </button>
-
-      {isExpanded && (
-        <div className="mt-2 space-y-2">
-          <div>
-            <span className="text-[10px] font-medium text-slate-500">ARGS</span>
-            <pre className="mt-0.5 overflow-x-auto text-[10px] text-slate-400 md:text-xs">
-              {JSON.stringify(toolCall.args, null, 2)}
-            </pre>
-          </div>
-          {toolCall.result && (
-            <div>
-              <span className="text-[10px] font-medium text-slate-500">RESULT</span>
-              <pre className="mt-0.5 max-h-40 overflow-auto text-[10px] text-slate-400 md:text-xs">
-                {(() => {
-                  try {
-                    return JSON.stringify(JSON.parse(toolCall.result), null, 2);
-                  } catch {
-                    return toolCall.result;
-                  }
-                })()}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
   );
 }

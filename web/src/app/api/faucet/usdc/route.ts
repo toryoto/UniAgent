@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPublicClient, createWalletClient, http, parseUnits } from 'viem';
 import { createLogger } from '@agent-marketplace/shared/logger';
+import { withApiLogging } from '@/lib/api/with-api-logging';
 
-const log = createLogger('USDC Faucet');
+const log = createLogger('usdc-faucet');
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { checkAndUpdateAccessLimit } from '@/lib/db/access-limits';
@@ -18,10 +19,6 @@ const FAUCET_WHITELIST = (process.env.FAUCET_WHITELIST || '')
   .map((addr) => addr.trim().toLowerCase())
   .filter((addr) => addr.length > 0);
 
-function isWhitelisted(walletAddress: string): boolean {
-  return FAUCET_WHITELIST.includes(walletAddress.toLowerCase());
-}
-
 const ERC20_ABI = [
   {
     inputs: [
@@ -36,123 +33,127 @@ const ERC20_ABI = [
 ] as const;
 
 export async function POST(request: NextRequest) {
-  try {
-    const { walletAddress } = await request.json();
+  return withApiLogging(request, async () => {
+    try {
+      const { walletAddress } = await request.json();
 
-    if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-      return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 });
-    }
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return NextResponse.json({ error: 'Invalid wallet address format' }, { status: 400 });
+      }
 
-    const privateKey = process.env.FAUCET_ADMIN_PRIVATE_KEY;
-    if (!privateKey) {
+      const privateKey = process.env.FAUCET_ADMIN_PRIVATE_KEY;
+      if (!privateKey) {
+        return NextResponse.json(
+          { error: 'Faucet service is not configured. Please contact administrator.' },
+          { status: 503 }
+        );
+      }
+
+      const formattedPrivateKey = privateKey.startsWith('0x')
+        ? (privateKey as `0x${string}`)
+        : (`0x${privateKey}` as `0x${string}`);
+
+      const account = privateKeyToAccount(formattedPrivateKey);
+
+      const walletClient = createWalletClient({
+        account,
+        chain: baseSepolia,
+        transport: http(process.env.NEXT_PUBLIC_RPC_URL),
+      });
+
+      const publicClient = createPublicClient({
+        chain: baseSepolia,
+        transport: http(process.env.NEXT_PUBLIC_RPC_URL),
+      });
+
+      const ipAddress =
+        request.headers.get('x-forwarded-for')?.split(',')[0] ||
+        request.headers.get('x-real-ip') ||
+        'unknown';
+
+      const { limited, reason } = await checkAndUpdateAccessLimit({
+        walletAddress,
+        ipAddress,
+        feature: 'faucet',
+        ipLimit: IP_LIMIT,
+        walletLimit: WALLET_LIMIT,
+        windowMs: RATE_LIMIT_WINDOW_MS,
+        skipWalletLimit: isWhitelisted(walletAddress),
+      });
+
+      if (limited) {
+        return NextResponse.json(
+          {
+            error: 'Rate limit exceeded',
+            reason:
+              reason === 'ip'
+                ? `IP address has reached the limit (${IP_LIMIT} requests per 24 hours)`
+                : `Wallet address has already received funds (${WALLET_LIMIT} request per 24 hours)`,
+          },
+          { status: 429 }
+        );
+      }
+
+      const amount = parseUnits(FAUCET_AMOUNT, USDC_DECIMALS);
+
+      const hash = await walletClient.writeContract({
+        address: CONTRACT_ADDRESSES.USDC as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'transfer',
+        args: [walletAddress as `0x${string}`, amount],
+      });
+
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+      log.info(
+        { txHash: hash, to: walletAddress, amount: FAUCET_AMOUNT, blockNumber: String(receipt.blockNumber) },
+        'Transaction confirmed',
+      );
+
+      return NextResponse.json({
+        status: 'success',
+        txHash: hash,
+        amount: FAUCET_AMOUNT,
+        message: `${FAUCET_AMOUNT} USDC has been sent to your wallet`,
+      });
+    } catch (error: unknown) {
+      log.error({ err: error }, 'API error');
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorName = error instanceof Error ? error.name : '';
+
+      if (errorName === 'PrismaClientKnownRequestError') {
+        return NextResponse.json(
+          { error: 'Database error occurred. Please try again later.' },
+          { status: 503 }
+        );
+      }
+
+      if (
+        errorMessage.includes('insufficient funds') ||
+        errorMessage.includes('insufficient balance')
+      ) {
+        return NextResponse.json(
+          { error: 'Faucet wallet has insufficient USDC balance. Please contact administrator.' },
+          { status: 503 }
+        );
+      }
+
+      if (errorMessage.includes('nonce')) {
+        return NextResponse.json(
+          { error: 'Transaction error occurred. Please try again in a moment.' },
+          { status: 503 }
+        );
+      }
+
       return NextResponse.json(
-        { error: 'Faucet service is not configured. Please contact administrator.' },
-        { status: 503 }
+        { error: 'Internal server error occurred. Please try again later.' },
+        { status: 500 }
       );
     }
+  });
+}
 
-    const formattedPrivateKey = privateKey.startsWith('0x')
-      ? (privateKey as `0x${string}`)
-      : (`0x${privateKey}` as `0x${string}`);
-
-    const account = privateKeyToAccount(formattedPrivateKey);
-
-    const walletClient = createWalletClient({
-      account,
-      chain: baseSepolia,
-      transport: http(process.env.NEXT_PUBLIC_RPC_URL),
-    });
-
-    const publicClient = createPublicClient({
-      chain: baseSepolia,
-      transport: http(process.env.NEXT_PUBLIC_RPC_URL),
-    });
-
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0] ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-
-    const { limited, reason } = await checkAndUpdateAccessLimit({
-      walletAddress,
-      ipAddress,
-      feature: 'faucet',
-      ipLimit: IP_LIMIT,
-      walletLimit: WALLET_LIMIT,
-      windowMs: RATE_LIMIT_WINDOW_MS,
-      skipWalletLimit: isWhitelisted(walletAddress),
-    });
-
-    if (limited) {
-      return NextResponse.json(
-        {
-          error: 'Rate limit exceeded',
-          reason:
-            reason === 'ip'
-              ? `IP address has reached the limit (${IP_LIMIT} requests per 24 hours)`
-              : `Wallet address has already received funds (${WALLET_LIMIT} request per 24 hours)`,
-        },
-        { status: 429 }
-      );
-    }
-
-    const amount = parseUnits(FAUCET_AMOUNT, USDC_DECIMALS);
-
-    const hash = await walletClient.writeContract({
-      address: CONTRACT_ADDRESSES.USDC as `0x${string}`,
-      abi: ERC20_ABI,
-      functionName: 'transfer',
-      args: [walletAddress as `0x${string}`, amount],
-    });
-
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-
-    log.success('Transaction confirmed', {
-      txHash: hash,
-      to: walletAddress,
-      amount: FAUCET_AMOUNT,
-      blockNumber: String(receipt.blockNumber),
-    });
-
-    return NextResponse.json({
-      status: 'success',
-      txHash: hash,
-      amount: FAUCET_AMOUNT,
-      message: `${FAUCET_AMOUNT} USDC has been sent to your wallet`,
-    });
-  } catch (error: unknown) {
-    log.error('API error', { error: error instanceof Error ? error.message : String(error) });
-
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorName = error instanceof Error ? error.name : '';
-
-    if (errorName === 'PrismaClientKnownRequestError') {
-      return NextResponse.json(
-        { error: 'Database error occurred. Please try again later.' },
-        { status: 503 }
-      );
-    }
-
-    if (
-      errorMessage.includes('insufficient funds') ||
-      errorMessage.includes('insufficient balance')
-    ) {
-      return NextResponse.json(
-        { error: 'Faucet wallet has insufficient USDC balance. Please contact administrator.' },
-        { status: 503 }
-      );
-    }
-
-    if (errorMessage.includes('nonce')) {
-      return NextResponse.json(
-        { error: 'Transaction error occurred. Please try again in a moment.' },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'Internal server error occurred. Please try again later.' },
-      { status: 500 }
-    );
-  }
+function isWhitelisted(walletAddress: string): boolean {
+  return FAUCET_WHITELIST.includes(walletAddress.toLowerCase());
 }

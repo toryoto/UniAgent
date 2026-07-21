@@ -8,17 +8,6 @@ interface ServiceFormProps {
   onChange: (services: ERC8004Service[]) => void;
 }
 
-function updateServiceField(
-  services: ERC8004Service[],
-  index: number,
-  field: keyof ERC8004Service,
-  value: string | A2ASkill[] | string[] | undefined
-): ERC8004Service[] {
-  const updated = [...services];
-  updated[index] = { ...updated[index], [field]: value };
-  return updated;
-}
-
 export function ServiceForm({ services, onChange }: ServiceFormProps) {
   const updateService = (
     index: number,
@@ -225,4 +214,15 @@ export function ServiceForm({ services, onChange }: ServiceFormProps) {
       ))}
     </div>
   );
+}
+
+function updateServiceField(
+  services: ERC8004Service[],
+  index: number,
+  field: keyof ERC8004Service,
+  value: string | A2ASkill[] | string[] | undefined
+): ERC8004Service[] {
+  const updated = [...services];
+  updated[index] = { ...updated[index], [field]: value };
+  return updated;
 }

@@ -50,7 +50,7 @@ export function createAgentRoutes(registry: AgentRegistry): Router {
         result,
       });
     } catch (err) {
-      log.error(`Error in agent ${agent.slug}`, { error: err instanceof Error ? err.message : String(err) });
+      log.error({ err, agent: agent.slug }, 'Error in agent');
       res.status(500).json({
         jsonrpc: '2.0',
         id: (req.body as Record<string, unknown>).id ?? null,

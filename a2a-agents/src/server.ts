@@ -18,7 +18,7 @@ async function main() {
   const registry = loadAgentRegistry();
   const slugs = Object.keys(registry);
 
-  log.info(`Loaded ${slugs.length} agents`, { agents: slugs.join(', ') });
+  log.info({ count: slugs.length, agents: slugs }, 'Loaded agents');
 
   const app = express();
   app.use(cors());
@@ -60,7 +60,7 @@ async function main() {
     try {
       await x402HttpServer.initialize();
     } catch (err) {
-      log.error('x402 initialize failed (facilitator / route config)', { error: err instanceof Error ? err.message : String(err) });
+      log.error({ err }, 'x402 initialize failed (facilitator / route config)');
       process.exit(1);
     }
   }
@@ -71,7 +71,7 @@ async function main() {
   app.use(createAgentRoutes(registry));
 
   app.listen(PORT, () => {
-    log.success(`A2A Agents Server running on http://localhost:${PORT}`, { agents: slugs.length });
+    log.info({ agents: slugs.length }, `A2A Agents Server running on http://localhost:${PORT}`);
     if (process.env.X402_DISABLED === 'true') {
       log.warn('x402 payment verification is DISABLED (dev mode)');
     }
@@ -79,6 +79,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  log.error('Failed to start server', { error: err instanceof Error ? err.message : String(err) });
+  log.error({ err }, 'Failed to start server');
   process.exit(1);
 });

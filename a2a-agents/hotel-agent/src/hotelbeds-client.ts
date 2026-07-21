@@ -103,7 +103,7 @@ async function fetchHotelContent(hotelCodes: number[]): Promise<Map<number, Hote
     );
 
     if (!res.ok) {
-      log.warn('hotel content api failed', { status: res.status });
+      log.warn({ status: res.status }, 'hotel content api failed');
       return new Map();
     }
 
@@ -126,7 +126,7 @@ async function fetchHotelContent(hotelCodes: number[]): Promise<Map<number, Hote
     }
     return result;
   } catch (err) {
-    log.warn('hotel content api error', { error: (err as Error).message });
+    log.warn({ err }, 'hotel content api error');
     return new Map();
   }
 }
@@ -167,14 +167,17 @@ export async function searchHotelbeds(
   }
   requestBody.filter = filter;
 
-  log.info('hotelbeds search', {
-    checkIn: params.checkIn,
-    checkOut: params.checkOut,
-    lat: params.latitude,
-    lon: params.longitude,
-    adults: params.adults,
-    radiusKm: params.radiusKm,
-  });
+  log.info(
+    {
+      checkIn: params.checkIn,
+      checkOut: params.checkOut,
+      lat: params.latitude,
+      lon: params.longitude,
+      adults: params.adults,
+      radiusKm: params.radiusKm,
+    },
+    'hotelbeds search',
+  );
 
   const fetchStart = Date.now();
   const res = await fetch(`${baseUrl}/hotel-api/1.0/hotels`, {
@@ -191,7 +194,7 @@ export async function searchHotelbeds(
 
   if (!res.ok) {
     const text = await res.text();
-    log.error('hotelbeds error', { status: res.status, ms: fetchMs, body: text.slice(0, 200) });
+    log.error({ status: res.status, ms: fetchMs, body: text.slice(0, 200) }, 'hotelbeds error');
     throw new Error(`Hotelbeds API error ${res.status}: ${text}`);
   }
 
@@ -206,13 +209,13 @@ export async function searchHotelbeds(
   };
 
   if (data.error) {
-    log.error('hotelbeds api error', { code: data.error.code, message: data.error.message });
+    log.error({ code: data.error.code, message: data.error.message }, 'hotelbeds api error');
     throw new Error(`Hotelbeds error ${data.error.code}: ${data.error.message}`);
   }
 
   const hotelsData = data.hotels;
   if (!hotelsData) {
-    log.info('hotelbeds result', { total: 0, ms: fetchMs });
+    log.info({ total: 0, ms: fetchMs }, 'hotelbeds result');
     return { hotels: [], total: 0, checkIn: params.checkIn, checkOut: params.checkOut };
   }
 
@@ -226,7 +229,7 @@ export async function searchHotelbeds(
   }
 
   const total = hotelsData.total ?? hotels.length;
-  log.info('hotelbeds result', { total, returning: hotels.length, ms: fetchMs });
+  log.info({ total, returning: hotels.length, ms: fetchMs }, 'hotelbeds result');
 
   const contentMap = await fetchHotelContent(hotels.map((h) => h.code));
   const enrichedHotels = hotels.map((h) => {
@@ -235,11 +238,14 @@ export async function searchHotelbeds(
   });
 
   const compactHotels = compactHotelResults(enrichedHotels);
-  log.info('hotelbeds compact', {
-    rawHotels: enrichedHotels.length,
-    rawRooms: enrichedHotels.reduce((sum, h) => sum + h.rooms.length, 0),
-    compactHotels: compactHotels.length,
-  });
+  log.info(
+    {
+      rawHotels: enrichedHotels.length,
+      rawRooms: enrichedHotels.reduce((sum, h) => sum + h.rooms.length, 0),
+      compactHotels: compactHotels.length,
+    },
+    'hotelbeds compact',
+  );
 
   return {
     hotels: compactHotels,

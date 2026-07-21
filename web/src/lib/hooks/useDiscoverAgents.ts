@@ -3,23 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import type { ApiResponse, DiscoveryApiResponse, MarketplaceFilters } from '@/lib/types';
 import { useDebouncedValue } from './useDebouncedValue';
 
-function buildDiscoveryAgentsQuery(filters: MarketplaceFilters): string {
-  const sp = new URLSearchParams();
-
-  const q = (filters.searchQuery ?? '').trim();
-  if (q) sp.set('q', q);
-  if (filters.category) sp.set('category', filters.category);
-
-  if (typeof filters.maxPrice === 'number' && Number.isFinite(filters.maxPrice)) {
-    sp.set('maxPrice', String(filters.maxPrice));
-  }
-
-  if (filters.sortBy) sp.set('sortBy', filters.sortBy);
-  if (filters.sortOrder) sp.set('sortOrder', filters.sortOrder);
-
-  return sp.toString();
-}
-
 export function useDiscoverAgents(filters: MarketplaceFilters) {
   // searchQueryだけは入力中のリクエスト連打を避ける
   const debouncedQuery = useDebouncedValue(filters.searchQuery ?? '', 250);
@@ -52,4 +35,21 @@ export function useDiscoverAgents(filters: MarketplaceFilters) {
       query.error instanceof Error ? query.error.message : query.error ? String(query.error) : null,
     refetch: query.refetch,
   };
+}
+
+function buildDiscoveryAgentsQuery(filters: MarketplaceFilters): string {
+  const sp = new URLSearchParams();
+
+  const q = (filters.searchQuery ?? '').trim();
+  if (q) sp.set('q', q);
+  if (filters.category) sp.set('category', filters.category);
+
+  if (typeof filters.maxPrice === 'number' && Number.isFinite(filters.maxPrice)) {
+    sp.set('maxPrice', String(filters.maxPrice));
+  }
+
+  if (filters.sortBy) sp.set('sortBy', filters.sortBy);
+  if (filters.sortOrder) sp.set('sortOrder', filters.sortOrder);
+
+  return sp.toString();
 }

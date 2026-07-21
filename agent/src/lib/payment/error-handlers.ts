@@ -5,7 +5,9 @@
 
 import type { PaymentRequiredData } from '../../types/index.js';
 import { convertAmountToUSDC, validatePaymentAmount } from './decode.js';
-import { logger } from '@agent-marketplace/shared/logger';
+import { createLogger } from '@agent-marketplace/shared/logger';
+
+const log = createLogger('payment');
 
 /**
  * 402 Payment Required エラーを処理し、ユーザー向けのエラーメッセージを生成する。
@@ -56,7 +58,7 @@ export function handle402Error(
     }
   }
 
-  logger.agent.error('Payment required but not processed', errorDetails);
+  log.error(errorDetails, 'Payment required but not processed');
 
   return { errorMessage, errorDetails };
 }
@@ -93,7 +95,7 @@ export function handlePaymentSettlementError(
       'Please check your network configuration and ensure you are connected to Base Sepolia.';
   }
 
-  logger.payment.error('Payment settlement failed', errorDetails);
+  log.error(errorDetails, 'Payment settlement failed');
 
   return { errorMessage, errorDetails };
 }
